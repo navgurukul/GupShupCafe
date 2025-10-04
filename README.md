@@ -13,19 +13,24 @@ A **full-stack educational web application** for AI-powered roundtable discussio
 
 ## 🚀 Tech Stack
 - **Frontend**: React 18 + Vite + Tailwind CSS
-- **Backend**: Node.js + Express + Socket.io
+- **Backend**: 
+  - **Node.js** (original): Express + Socket.io
+  - **Python** (new): FastAPI + python-socketio
 - **Database**: SQLite
 - **Real-time**: Socket.io + WebRTC
 - **AI**: Hugging Face Inference API
-- **Deployment**: Vercel (frontend) + Render (backend)
+- **Deployment**: Vercel (frontend) + Render/AWS EC2 (backend)
 
 ## 📦 Quick Start
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 18+ (for Node.js backend or frontend)
+- Python 3.11+ (for Python backend)
 - npm or yarn
 
 ### Installation
+
+#### Option 1: Node.js Backend (Original)
 ```bash
 # Install dependencies
 npm run install:all
@@ -34,19 +39,39 @@ npm run install:all
 npm run dev
 ```
 
+#### Option 2: Python FastAPI Backend (New - AWS EC2 Ready)
+```bash
+# Install frontend dependencies
+cd client && npm install
+
+# Install Python backend dependencies
+cd ../server_py
+pip install -r requirements.txt
+
+# Start Python backend
+python main.py
+
+# In another terminal, start frontend
+cd ../client
+npm run dev
+```
+
 ### Access
 - **Frontend**: http://localhost:5173
-- **Backend**: http://localhost:3002
+- **Backend (Node.js)**: http://localhost:3003
+- **Backend (Python)**: http://localhost:3003
 
 ## 🌐 Deployment
-See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed deployment instructions to create a dedicated repository and deploy to Vercel and Render.
+- **Node.js Backend**: See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for Vercel + Render deployment
+- **Python Backend**: See [server_py/DEPLOYMENT.md](./server_py/DEPLOYMENT.md) for AWS EC2 deployment instructions
 
 ## 📁 Project Structure
 ```
 ├── client/          # React frontend
-├── server/          # Node.js backend
-├── docs/           # Documentation
-└── README.md       # This file
+├── server/          # Node.js backend (original)
+├── server_py/       # Python FastAPI backend (new - AWS EC2 ready)
+├── docs/            # Documentation
+└── README.md        # This file
 ```
 
 ## 🎓 Educational Use Cases
