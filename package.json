@@ -7,9 +7,14 @@
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "cd client && npm run dev",
     "dev:server": "cd server && npm run dev",
+    "dev:py": "concurrently \"npm run dev:client\" \"npm run dev:server:py\"",
+    "dev:server:py": "cd server_py && python main.py",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
-    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
+    "start:py": "cd server_py && python main.py",
+    "test:py": "cd server_py && pytest tests/ -v",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "install:py": "cd server_py && pip install -r requirements.txt && pip install -r requirements-dev.txt"
   },
   "keywords": ["ai", "roundtable", "discussion", "education", "websocket", "webrtc"],
   "author": "Educational Project",
