@@ -149,149 +149,6 @@ export function AudioProvider({ children }) {
   }
 
   /**
-   * Setup handlers to create/accept peer connections using Socket.io for signaling
-   */
-  const setupPeerSignaling = () => {
-    if (!socket) return
-
-    // Handle incoming offers
-    socket.on('webrtc-offer', async ({ from, sdp }) => {
-      try {
-        console.log(`Received WebRTC offer from ${from}`)
-        const pc = createPeerConnection(from, socket)
-        
-        // Add local stream tracks if we're a speaker (simplified from broadcast test)
-        if (localStream && userRole === 'speaker') {
-          console.log(`[Audio] Adding ${localStream.getTracks().length} tracks to peer ${from}`)
-          localStream.getTracks().forEach(track => {
-            pc.addTrack(track, localStream)
-          })
-        } else {
-          console.log(`[Audio] Not adding tracks - Role: ${userRole}, Stream: ${!!localStream}`)
-        }
-        
-        await pc.setRemoteDescription({ type: 'offer', sdp })
-        
-        // Create answer with audio-only constraints
-        const answerOptions = {
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: false, // Audio-only optimization
-          voiceActivityDetection: true
-        }
-        
-        const answer = await pc.createAnswer(answerOptions)
-        // Set local description (simplified from broadcast test)
-        await pc.setLocalDescription(answer)
-        
-        console.log(`Sending WebRTC answer to ${from}`)
-        socket.emit('webrtc-answer', { to: from, sdp: answer.sdp })
-      } catch (err) {
-        console.error('Error handling webrtc-offer:', err)
-      }
-    })
-
-    // Handle incoming answers
-    socket.on('webrtc-answer', async ({ from, sdp }) => {
-      try {
-        const pc = peers[from]
-        if (!pc) return
-        await pc.setRemoteDescription({ type: 'answer', sdp })
-      } catch (err) {
-        console.error('Error handling webrtc-answer:', err)
-      }
-    })
-
-    // Handle ICE candidates
-    socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
-      try {
-        const pc = peers[from]
-        if (!pc || !candidate) return
-        await pc.addIceCandidate(candidate)
-      } catch (err) {
-        console.error('Error adding remote ICE candidate:', err)
-      }
-    })
-
-    // When a new participant list arrives, attempt to establish peer connections
-    socket.on('participants-update', (updatedParticipants) => {
-      try {
-        console.log(`[Audio] Participants update received. Total: ${updatedParticipants.length}, My role: ${userRole}, Local stream: ${!!localStream}`)
-        // Only emit 'ready-for-webrtc' after both localStream and participants-update are ready, and only once
-        if (localStream && !webrtcReadySignaled) {
-          setWebrtcReadySignaled(true)
-          console.log('[Audio] Emitting ready-for-webrtc after both localStream and participants-update')
-          socket.emit('ready-for-webrtc')
-        }
-        const otherPeers = updatedParticipants.filter(p => p.socketId && p.socketId !== socket.id)
-        console.log(`[Audio] Other peers: ${otherPeers.length}`)
-        otherPeers.forEach(p => {
-          console.log(`[Audio] Processing peer ${p.socketId}, role: ${p.role || 'unknown'}`)
-          // Only create connections if we are a speaker with local stream, or if the other peer is a speaker
-          if (!peers[p.socketId]) {
-            const pc = createPeerConnection(p.socketId, socket)
-            
-            // Add our tracks if we're a speaker (simplified from broadcast test)  
-            if (localStream && userRole === 'speaker') {
-              console.log(`[Audio] Adding ${localStream.getTracks().length} tracks to peer ${p.socketId}`)
-              localStream.getTracks().forEach(track => {
-                pc.addTrack(track, localStream)
-              })
-              
-              // Create and send offer with audio-only constraints
-              const offerOptions = {
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: false, // Audio-only optimization
-                voiceActivityDetection: true
-              }
-              
-              pc.createOffer(offerOptions)
-                .then(offer => {
-                  // Set local description (simplified from broadcast test)
-                  return pc.setLocalDescription(offer)
-                })
-                .then(() => {
-                  console.log(`Sending optimized WebRTC offer to ${p.socketId}`)
-                  socket.emit('webrtc-offer', { to: p.socketId, sdp: pc.localDescription.sdp })
-                })
-                .catch(err => console.error('Error creating/sending offer:', err))
-            }
-            // If we're a listener, we'll just wait for offers from speakers
-          }
-        })
-      } catch (err) {
-        console.error('Error during participants-update handling for WebRTC:', err)
-      }
-    })
-
-    // Handle role changes
-    socket.on('role-changed', ({ userId, newRole, participants }) => {
-      try {
-        // If this is our role change, update our audio capabilities
-        if (socket.id && participants) {
-          const ourParticipant = participants.find(p => p.socketId === socket.id)
-          if (ourParticipant && ourParticipant.role !== userRole) {
-            console.log(`[Audio] Role changed to ${ourParticipant.role}`)
-            updateUserRole(ourParticipant.role)
-          }
-        }
-      } catch (err) {
-        console.error('Error handling role change:', err)
-      }
-    })
-
-    // Handle successful role change confirmation
-    socket.on('role-change-success', ({ newRole }) => {
-      console.log(`[Audio] Role change confirmed: ${newRole}`)
-      updateUserRole(newRole)
-    })
-
-    // Handle role change errors
-    socket.on('role-change-error', ({ message }) => {
-      console.error(`[Audio] Role change failed: ${message}`)
-    })
-  }
-
-  /**
    * Optimize SDP for audio-only communication
    * @param {RTCSessionDescription} sessionDescription - Original SDP
    * @returns {RTCSessionDescription} Optimized SDP
@@ -473,10 +330,180 @@ export function AudioProvider({ children }) {
 
   // Setup peer signaling when socket is available
   useEffect(() => {
-    if (socket && connected) {
-      setupPeerSignaling()
+    if (!socket || !connected) return
+    
+    console.log('[Audio] Setting up peer signaling handlers')
+    
+    // Define handlers
+    const handleOffer = async ({ from, sdp }) => {
+      try {
+        console.log(`[Audio] Received WebRTC offer from ${from}`)
+        
+        // Check if connection already exists
+        let pc = peers[from]
+        if (!pc) {
+          console.log(`[Audio] Creating new peer connection for ${from}`)
+          pc = createPeerConnection(from, socket)
+        } else {
+          console.log(`[Audio] Using existing peer connection for ${from}`)
+        }
+        
+        // Add local stream tracks if we're a speaker
+        // This allows speakers to send audio to each other (bidirectional)
+        const currentStream = localStreamRef.current || localStream
+        if (currentStream && userRole === 'speaker') {
+          console.log(`[Audio] Adding ${currentStream.getTracks().length} tracks to peer ${from}`)
+          currentStream.getTracks().forEach(track => {
+            pc.addTrack(track, currentStream)
+          })
+        } else {
+          console.log(`[Audio] Not adding tracks - Role: ${userRole}, Stream: ${!!currentStream}`)
+        }
+        
+        await pc.setRemoteDescription({ type: 'offer', sdp })
+        
+        // Create answer with audio-only constraints
+        const answerOptions = {
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: false,
+          voiceActivityDetection: true
+        }
+        
+        const answer = await pc.createAnswer(answerOptions)
+        await pc.setLocalDescription(answer)
+        
+        console.log(`[Audio] Sending WebRTC answer to ${from}`)
+        socket.emit('webrtc-answer', { to: from, sdp: answer.sdp })
+      } catch (err) {
+        console.error('[Audio] Error handling webrtc-offer:', err)
+      }
     }
-  }, [socket, connected, userRole])
+    
+    const handleAnswer = async ({ from, sdp }) => {
+      try {
+        const pc = peers[from]
+        if (!pc) return
+        await pc.setRemoteDescription({ type: 'answer', sdp })
+      } catch (err) {
+        console.error('[Audio] Error handling webrtc-answer:', err)
+      }
+    }
+    
+    const handleIceCandidate = async ({ from, candidate }) => {
+      try {
+        const pc = peers[from]
+        if (!pc || !candidate) return
+        await pc.addIceCandidate(candidate)
+      } catch (err) {
+        console.error('[Audio] Error adding remote ICE candidate:', err)
+      }
+    }
+    
+    const handleParticipantsUpdate = (updatedParticipants) => {
+      try {
+        console.log(`[Audio] Participants update received. Total: ${updatedParticipants.length}, My role: ${userRole}, Local stream: ${!!localStreamRef.current}`)
+        // Only emit 'ready-for-webrtc' after both localStream and participants-update are ready, and only once
+        if (localStreamRef.current && !webrtcReadySignaled) {
+          setWebrtcReadySignaled(true)
+          console.log('[Audio] Emitting ready-for-webrtc after both localStream and participants-update')
+          socket.emit('ready-for-webrtc')
+        }
+        
+        const otherPeers = updatedParticipants.filter(p => p.socketId && p.socketId !== socket.id)
+        console.log(`[Audio] Other peers: ${otherPeers.length}`)
+        
+        // Only speakers initiate connections (send offers)
+        // Listeners wait to receive offers from speakers
+        const currentStream = localStreamRef.current
+        if (userRole === 'speaker' && currentStream) {
+          console.log(`[Audio] I am a speaker, initiating connections to all peers`)
+          otherPeers.forEach(p => {
+            console.log(`[Audio] Processing peer ${p.socketId}, role: ${p.role || 'unknown'}`)
+            
+            // Check if connection already exists
+            if (!peers[p.socketId]) {
+              console.log(`[Audio] Creating new connection to ${p.socketId}`)
+              const pc = createPeerConnection(p.socketId, socket)
+              
+              // Add our audio tracks to the connection
+              console.log(`[Audio] Adding ${currentStream.getTracks().length} tracks to peer ${p.socketId}`)
+              currentStream.getTracks().forEach(track => {
+                pc.addTrack(track, currentStream)
+              })
+              
+              // Create and send offer with audio-only constraints
+              const offerOptions = {
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: false,
+                voiceActivityDetection: true
+              }
+              
+              pc.createOffer(offerOptions)
+                .then(offer => {
+                  return pc.setLocalDescription(offer)
+                })
+                .then(() => {
+                  console.log(`[Audio] Sending WebRTC offer to ${p.socketId}`)
+                  socket.emit('webrtc-offer', { to: p.socketId, sdp: pc.localDescription.sdp })
+                })
+                .catch(err => console.error(`[Audio] Error creating/sending offer to ${p.socketId}:`, err))
+            } else {
+              console.log(`[Audio] Connection to ${p.socketId} already exists`)
+            }
+          })
+        } else {
+          console.log(`[Audio] I am a listener, waiting for offers from speakers`)
+        }
+      } catch (err) {
+        console.error('[Audio] Error during participants-update handling for WebRTC:', err)
+      }
+    }
+    
+    const handleRoleChanged = ({ userId, newRole, participants }) => {
+      try {
+        // If this is our role change, update our audio capabilities
+        if (socket.id && participants) {
+          const ourParticipant = participants.find(p => p.socketId === socket.id)
+          if (ourParticipant && ourParticipant.role !== userRole) {
+            console.log(`[Audio] Role changed to ${ourParticipant.role}`)
+            updateUserRole(ourParticipant.role)
+          }
+        }
+      } catch (err) {
+        console.error('[Audio] Error handling role change:', err)
+      }
+    }
+    
+    const handleRoleChangeSuccess = ({ newRole }) => {
+      console.log(`[Audio] Role change confirmed: ${newRole}`)
+      updateUserRole(newRole)
+    }
+    
+    const handleRoleChangeError = ({ message }) => {
+      console.error(`[Audio] Role change failed: ${message}`)
+    }
+    
+    // Register handlers
+    socket.on('webrtc-offer', handleOffer)
+    socket.on('webrtc-answer', handleAnswer)
+    socket.on('webrtc-ice-candidate', handleIceCandidate)
+    socket.on('participants-update', handleParticipantsUpdate)
+    socket.on('role-changed', handleRoleChanged)
+    socket.on('role-change-success', handleRoleChangeSuccess)
+    socket.on('role-change-error', handleRoleChangeError)
+    
+    // Cleanup function to remove handlers
+    return () => {
+      console.log('[Audio] Cleaning up peer signaling handlers')
+      socket.off('webrtc-offer', handleOffer)
+      socket.off('webrtc-answer', handleAnswer)
+      socket.off('webrtc-ice-candidate', handleIceCandidate)
+      socket.off('participants-update', handleParticipantsUpdate)
+      socket.off('role-changed', handleRoleChanged)
+      socket.off('role-change-success', handleRoleChangeSuccess)
+      socket.off('role-change-error', handleRoleChangeError)
+    }
+  }, [socket, connected, userRole, localStream, peers, webrtcReadySignaled])
 
   // Check for browser support
   const isWebRTCSupported = () => {
