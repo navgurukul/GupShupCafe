@@ -183,53 +183,6 @@ function ParticipantControls({
             </p>
           </div>
         )}
-
-        {/* Test Buttons for Debugging */}
-        <div className="p-3 bg-purple-50 rounded-md">
-          <h4 className="font-medium text-purple-900 mb-2">Debug Controls:</h4>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                console.log('[Debug] Requesting microphone access')
-                requestMicrophoneAccess()
-              }}
-              className="px-3 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
-            >
-              Test Mic Access
-            </button>
-            <button
-              onClick={() => {
-                console.log('[Debug] Enabling speaking')
-                enableSpeaking()
-              }}
-              className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-            >
-              Test Speaking
-            </button>
-            <button
-              onClick={() => {
-                console.log('[Debug] Manually starting discussion')
-                if (socket) {
-                  socket.emit('start-discussion-manual')
-                }
-              }}
-              className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
-            >
-              Start Discussion
-            </button>
-            <button
-              onClick={() => {
-                console.log('[Debug] Signaling WebRTC readiness')
-                if (socket) {
-                  socket.emit('ready-for-webrtc')
-                }
-              }}
-              className="px-3 py-1 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
-            >
-              Signal WebRTC Ready
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   )

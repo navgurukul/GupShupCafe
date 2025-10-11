@@ -7,6 +7,7 @@ import RoundtableView from '../components/RoundtableView'
 import TopicDisplay from '../components/TopicDisplay'
 import SpeakerTimer from '../components/SpeakerTimer'
 import ParticipantControls from '../components/ParticipantControls'
+import SpeechToText from '../components/SpeechToText'
 import { LogOut, Users } from 'lucide-react'
 import LiveAudioLevelBar from '../components/LiveAudioLevelBar'
 
@@ -359,6 +360,14 @@ function RoundtablePage() {
             discussionStarted={discussionStarted}
             discussionEnded={discussionEnded}
           />
+          
+          {/* Speech to Text - Show when current user is speaking */}
+          {discussionStarted && isCurrentUserSpeaking() && (
+            <SpeechToText
+              isActive={isCurrentUserSpeaking()}
+              speakerName={user?.anonymousName || 'You'}
+            />
+          )}
           
           {/* Participants List */}
           <div className="bg-white rounded-lg shadow-sm p-4">
