@@ -157,10 +157,19 @@ export function AudioProvider({ children }) {
     // Handle incoming offers
     socket.on('webrtc-offer', async ({ from, sdp }) => {
       try {
-        console.log(`Received WebRTC offer from ${from}`)
-        const pc = createPeerConnection(from, socket)
+        console.log(`[Audio] Received WebRTC offer from ${from}`)
         
-        // Add local stream tracks if we're a speaker (simplified from broadcast test)
+        // Check if connection already exists
+        let pc = peers[from]
+        if (!pc) {
+          console.log(`[Audio] Creating new peer connection for ${from}`)
+          pc = createPeerConnection(from, socket)
+        } else {
+          console.log(`[Audio] Using existing peer connection for ${from}`)
+        }
+        
+        // Add local stream tracks if we're a speaker
+        // This allows speakers to send audio to each other (bidirectional)
         if (localStream && userRole === 'speaker') {
           console.log(`[Audio] Adding ${localStream.getTracks().length} tracks to peer ${from}`)
           localStream.getTracks().forEach(track => {
@@ -180,13 +189,12 @@ export function AudioProvider({ children }) {
         }
         
         const answer = await pc.createAnswer(answerOptions)
-        // Set local description (simplified from broadcast test)
         await pc.setLocalDescription(answer)
         
-        console.log(`Sending WebRTC answer to ${from}`)
+        console.log(`[Audio] Sending WebRTC answer to ${from}`)
         socket.emit('webrtc-answer', { to: from, sdp: answer.sdp })
       } catch (err) {
-        console.error('Error handling webrtc-offer:', err)
+        console.error('[Audio] Error handling webrtc-offer:', err)
       }
     })
 
@@ -222,16 +230,23 @@ export function AudioProvider({ children }) {
           console.log('[Audio] Emitting ready-for-webrtc after both localStream and participants-update')
           socket.emit('ready-for-webrtc')
         }
+        
         const otherPeers = updatedParticipants.filter(p => p.socketId && p.socketId !== socket.id)
         console.log(`[Audio] Other peers: ${otherPeers.length}`)
-        otherPeers.forEach(p => {
-          console.log(`[Audio] Processing peer ${p.socketId}, role: ${p.role || 'unknown'}`)
-          // Only create connections if we are a speaker with local stream, or if the other peer is a speaker
-          if (!peers[p.socketId]) {
-            const pc = createPeerConnection(p.socketId, socket)
+        
+        // Only speakers initiate connections (send offers)
+        // Listeners wait to receive offers from speakers
+        if (userRole === 'speaker' && localStream) {
+          console.log(`[Audio] I am a speaker, initiating connections to all peers`)
+          otherPeers.forEach(p => {
+            console.log(`[Audio] Processing peer ${p.socketId}, role: ${p.role || 'unknown'}`)
             
-            // Add our tracks if we're a speaker (simplified from broadcast test)  
-            if (localStream && userRole === 'speaker') {
+            // Check if connection already exists
+            if (!peers[p.socketId]) {
+              console.log(`[Audio] Creating new connection to ${p.socketId}`)
+              const pc = createPeerConnection(p.socketId, socket)
+              
+              // Add our audio tracks to the connection
               console.log(`[Audio] Adding ${localStream.getTracks().length} tracks to peer ${p.socketId}`)
               localStream.getTracks().forEach(track => {
                 pc.addTrack(track, localStream)
@@ -240,26 +255,28 @@ export function AudioProvider({ children }) {
               // Create and send offer with audio-only constraints
               const offerOptions = {
                 offerToReceiveAudio: true,
-                offerToReceiveVideo: false, // Audio-only optimization
+                offerToReceiveVideo: false,
                 voiceActivityDetection: true
               }
               
               pc.createOffer(offerOptions)
                 .then(offer => {
-                  // Set local description (simplified from broadcast test)
                   return pc.setLocalDescription(offer)
                 })
                 .then(() => {
-                  console.log(`Sending optimized WebRTC offer to ${p.socketId}`)
+                  console.log(`[Audio] Sending WebRTC offer to ${p.socketId}`)
                   socket.emit('webrtc-offer', { to: p.socketId, sdp: pc.localDescription.sdp })
                 })
-                .catch(err => console.error('Error creating/sending offer:', err))
+                .catch(err => console.error(`[Audio] Error creating/sending offer to ${p.socketId}:`, err))
+            } else {
+              console.log(`[Audio] Connection to ${p.socketId} already exists`)
             }
-            // If we're a listener, we'll just wait for offers from speakers
-          }
-        })
+          })
+        } else {
+          console.log(`[Audio] I am a listener, waiting for offers from speakers`)
+        }
       } catch (err) {
-        console.error('Error during participants-update handling for WebRTC:', err)
+        console.error('[Audio] Error during participants-update handling for WebRTC:', err)
       }
     })
 
