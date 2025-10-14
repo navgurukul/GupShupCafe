@@ -1,236 +1,176 @@
 # Deployment Guide - AI Roundtable Discussion Platform
 
-This guide covers deploying the AI Roundtable Discussion Platform using free hosting services.
+This guide covers deploying the AI Roundtable Discussion Platform using AWS services.
 
 ## Deployment Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│     Vercel      │    │     Render      │    │  Hugging Face   │
-│   (Frontend)    │    │   (Backend)     │    │   (AI API)      │
-│                 │    │                 │    │                 │
-│  - React App    │───►│  - Node.js API  │───►│  - Topic Gen    │
-│  - Static Files │    │  - Socket.io    │    │  - Free Tier    │
-│  - CDN          │    │  - SQLite DB    │    │                 │
+│  AWS Amplify    │    │    AWS EC2      │    │  AI Services    │
+│   (Frontend)    │    │   (Backend)     │    │ Strands/Gemini/ │
+│                 │    │                 │    │    Bedrock      │
+│  - React App    │───►│  - FastAPI      │───►│  - Feedback     │
+│  - Static Files │    │  - Socket.io    │    │  - CEFR         │
+│  - CDN          │    │  - Database     │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ## Prerequisites
 
-- GitHub account (for code hosting)
-- Vercel account (free tier)
-- Render account (free tier)
-- Hugging Face account (optional, for AI features)
+- AWS account
+- AWS CLI configured
+- Git repository
+- Domain name (optional)
 
-## Backend Deployment (Render)
+## Backend Deployment (AWS EC2 + AgentCore)
 
-### Step 1: Prepare Backend for Deployment
+For detailed instructions on deploying the Python backend to AWS EC2, see [server_py/DEPLOYMENT.md](../server_py/DEPLOYMENT.md).
 
-1. **Create production environment file**:
-   ```bash
-   # In server/.env.production
-   NODE_ENV=production
-   PORT=10000
-   DATABASE_URL=./data/roundtable.db
-   HUGGINGFACE_API_KEY=your_huggingface_key
-   MIN_PARTICIPANTS=2
-   DEFAULT_SPEAKING_TIME=60
-   ALLOWED_ORIGINS=https://your-app.vercel.app
-   ```
+### Quick Overview
 
-2. **Update package.json scripts**:
-   ```json
-   {
-     "scripts": {
-       "start": "node src/server.js",
-       "build": "echo 'No build step required for Node.js'",
-       "postinstall": "mkdir -p data"
-     }
-   }
-   ```
+1. **Prepare Backend for Deployment**:
+   - Configure environment variables
+   - Set up database
+   - Configure AI service credentials
 
-### Step 2: Deploy to Render
+2. **Deploy to AWS EC2**:
+   - Launch EC2 instance
+   - Install dependencies
+   - Configure security groups
+   - Set up systemd service
 
-1. **Connect GitHub Repository**:
-   - Go to [Render Dashboard](https://dashboard.render.com)
-   - Click "New +" → "Web Service"
-   - Connect your GitHub repository
-   - Select the repository
+3. **Verify Backend Deployment**:
+   - Check health endpoint
+   - Verify API functionality
+   - Test WebSocket connections
 
-2. **Configure Service Settings**:
-   ```
-   Name: ai-roundtable-server
-   Environment: Node
-   Build Command: npm install
-   Start Command: npm start
-   Plan: Free
-   ```
-
-3. **Set Environment Variables**:
-   - Add each variable from your `.env.production`
-   - Ensure `ALLOWED_ORIGINS` includes your Vercel domain
-
-4. **Advanced Settings**:
-   ```
-   Root Directory: server
-   Auto-Deploy: Yes
-   ```
-
-5. **Deploy**: Click "Create Web Service"
-
-### Step 3: Verify Backend Deployment
-
-- Visit your Render service URL (e.g., `https://ai-roundtable-server.onrender.com`)
-- Check `/health` endpoint
-- Verify `/api/topics` returns data
-
-## Frontend Deployment (Vercel)
+## Frontend Deployment (AWS Amplify)
 
 ### Step 1: Prepare Frontend for Deployment
 
 1. **Create production environment file**:
    ```bash
    # In client/.env.production
-   VITE_API_URL=https://your-render-service.onrender.com
-   VITE_SOCKET_URL=https://your-render-service.onrender.com
-   VITE_HUGGINGFACE_API_KEY=your_key (optional)
+   VITE_API_URL=https://your-backend-domain.com
+   VITE_SOCKET_URL=https://your-backend-domain.com
    ```
 
-2. **Update build configuration**:
-   ```javascript
-   // vite.config.js
-   import { defineConfig } from 'vite'
-   import react from '@vitejs/plugin-react'
+2. **Build configuration is already set up in vite.config.js**
 
-   export default defineConfig({
-     plugins: [react()],
-     build: {
-       outDir: 'dist',
-       sourcemap: false,
-       rollupOptions: {
-         output: {
-           manualChunks: {
-             vendor: ['react', 'react-dom'],
-             router: ['react-router-dom'],
-             socket: ['socket.io-client']
-           }
-         }
-       }
-     }
-   })
+### Step 2: Deploy to AWS Amplify
+
+1. **Connect Repository**:
+   - Go to AWS Amplify Console
+   - Click "New app" → "Host web app"
+   - Connect your Git repository
+   - Select the repository and branch
+
+2. **Configure Build Settings**:
+   ```yaml
+   version: 1
+   frontend:
+     phases:
+       preBuild:
+         commands:
+           - cd client
+           - npm ci
+       build:
+         commands:
+           - npm run build
+     artifacts:
+       baseDirectory: client/dist
+       files:
+         - '**/*'
+     cache:
+       paths:
+         - client/node_modules/**/*
    ```
-
-### Step 2: Deploy to Vercel
-
-1. **Install Vercel CLI** (optional):
-   ```bash
-   npm install -g vercel
-   ```
-
-2. **Deploy via GitHub Integration**:
-   - Go to [Vercel Dashboard](https://vercel.com/dashboard)
-   - Click "New Project"
-   - Import your GitHub repository
-   - Configure settings:
-     ```
-     Framework Preset: Vite
-     Root Directory: client
-     Build Command: npm run build
-     Output Directory: dist
-     Install Command: npm install
-     ```
 
 3. **Set Environment Variables**:
-   - Add all variables from `.env.production`
-   - Ensure API URLs point to your Render backend
+   - Add variables from `.env.production`
+   - Ensure API URLs point to your EC2 backend
 
-4. **Deploy**: Vercel will automatically build and deploy
+4. **Deploy**: Amplify will automatically build and deploy
 
 ### Step 3: Configure Custom Domain (Optional)
 
-1. **In Vercel Dashboard**:
-   - Go to your project → Settings → Domains
+1. **In AWS Amplify Console**:
+   - Go to your app → Domain management
    - Add your custom domain
    - Follow DNS configuration instructions
 
 2. **Update CORS on Backend**:
-   - Update `ALLOWED_ORIGINS` environment variable on Render
-   - Include your custom domain
+   - Update CORS settings to include your custom domain
 
-## Hugging Face API Setup
+## AI Services Setup
 
-### Step 1: Get API Key
+### AWS Strands / Gemini (Development)
 
-1. **Create Account**:
-   - Visit [Hugging Face](https://huggingface.co)
-   - Sign up for free account
+1. **Get API Credentials**:
+   - Set up AWS account
+   - Configure Gemini API access
+   - Generate necessary API keys
 
-2. **Generate Token**:
-   - Go to Settings → Access Tokens
-   - Create new token with "Read" permissions
-   - Copy the token (starts with `hf_`)
-
-### Step 2: Configure API Key
-
-1. **On Render (Backend)**:
-   ```
-   HUGGINGFACE_API_KEY=hf_your_token_here
+2. **Configure Environment**:
+   ```env
+   AI_SERVICE=gemini
+   AI_API_KEY=your_api_key_here
    ```
 
-2. **On Vercel (Frontend)** (optional):
-   ```
-   VITE_HUGGINGFACE_API_KEY=hf_your_token_here
+### Bedrock Models (Production)
+
+1. **AWS Bedrock Setup**:
+   - Enable Bedrock in your AWS account
+   - Configure model access
+   - Set up IAM roles and permissions
+
+2. **Configure Environment**:
+   ```env
+   AI_SERVICE=bedrock
+   AWS_REGION=us-east-1
    ```
 
 ## Database Considerations
 
-### SQLite on Render
+### Production Database
 
-**Important**: Render's free tier has ephemeral storage, meaning data is lost on service restarts.
+**Recommended Options**:
+1. **Amazon RDS**: Managed database service
+2. **Amazon DynamoDB**: NoSQL option for scalability
+3. **Self-hosted on EC2**: Full control over database
 
-**For Production**:
-1. **Use Render PostgreSQL** (paid):
-   - Add PostgreSQL add-on
-   - Update database configuration
-   - Modify database.js for PostgreSQL
-
-2. **Use External Database**:
-   - Supabase (free tier)
-   - PlanetScale (free tier)
-   - Railway (free tier)
-
-**For Development/Demo**:
-- SQLite works fine for testing
-- Data will reset on each deployment
+**Configuration**:
+- Set up database backups
+- Configure security groups
+- Enable encryption at rest
+- Set up monitoring and alerts
 
 ## SSL/HTTPS Configuration
 
-Both Vercel and Render provide SSL certificates automatically:
+AWS provides SSL certificates:
 
-- **Vercel**: Automatic SSL for all domains
-- **Render**: Free SSL certificates
+- **AWS Amplify**: Automatic SSL for all domains
+- **EC2 with Load Balancer**: Use AWS Certificate Manager
 - **WebRTC**: Requires HTTPS in production
 
 ## Environment Variables Summary
 
-### Frontend (Vercel)
+### Frontend (AWS Amplify)
 ```env
-VITE_API_URL=https://your-backend.onrender.com
-VITE_SOCKET_URL=https://your-backend.onrender.com
-VITE_ENABLE_AI_TOPICS=true
-VITE_ENABLE_AUDIO=true
+VITE_API_URL=https://your-backend.example.com
+VITE_SOCKET_URL=https://your-backend.example.com
 ```
 
-### Backend (Render)
+### Backend (AWS EC2)
 ```env
 NODE_ENV=production
-PORT=10000
-DATABASE_URL=./data/roundtable.db
-HUGGINGFACE_API_KEY=hf_your_token
+PORT=3003
+DATABASE_URL=your_database_connection_string
+AI_SERVICE=bedrock
 MIN_PARTICIPANTS=2
 MAX_PARTICIPANTS=8
 DEFAULT_SPEAKING_TIME=60
-ALLOWED_ORIGINS=https://your-frontend.vercel.app
+ALLOWED_ORIGINS=https://your-frontend.amplifyapp.com
 SESSION_TIMEOUT=3600000
 ```
 
@@ -285,62 +225,59 @@ SESSION_TIMEOUT=3600000
 
 ## Monitoring and Analytics
 
-### Basic Monitoring
+### AWS CloudWatch
 
-1. **Render Monitoring**:
-   - Built-in metrics dashboard
-   - Log viewing
-   - Performance insights
+1. **EC2 Monitoring**:
+   - CPU and memory utilization
+   - Network traffic
+   - Disk I/O
 
-2. **Vercel Analytics**:
+2. **Amplify Analytics**:
    - Web Vitals monitoring
-   - Function execution logs
-   - Edge network metrics
+   - User sessions
+   - Performance metrics
 
 ### Custom Analytics
 
 1. **Server Logging**:
-   ```javascript
-   // Add to server.js
-   import winston from 'winston'
+   ```python
+   # Add to main.py
+   import logging
    
-   const logger = winston.createLogger({
-     level: 'info',
-     format: winston.format.json(),
-     transports: [
-       new winston.transports.Console()
-     ]
-   })
+   logging.basicConfig(
+       level=logging.INFO,
+       format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+   )
    ```
 
 2. **Error Tracking**:
-   - Consider Sentry (free tier)
-   - Or custom error logging
+   - Consider AWS CloudWatch Logs
+   - Or third-party services like Sentry
 
 ## Scaling Considerations
 
-### Free Tier Limitations
+### AWS Service Limits
 
-**Vercel Free Tier**:
-- 100GB bandwidth/month
-- 100 deployments/day
-- 12 functions/deployment
+**EC2 Instances**:
+- Monitor CPU and memory usage
+- Set up auto-scaling groups
+- Use Elastic Load Balancer
 
-**Render Free Tier**:
-- 750 hours/month
-- Services sleep after 15 minutes of inactivity
-- 500MB RAM limit
+**AWS Amplify**:
+- CDN for global distribution
+- Automatic scaling for traffic
+- Build minute limits
 
 ### Scaling Strategies
 
 1. **Horizontal Scaling**:
-   - Multiple Render services
+   - Multiple EC2 instances
    - Load balancing
-   - Database clustering
+   - Database read replicas
 
 2. **Caching**:
-   - Redis for session data
-   - CDN for static assets
+   - Amazon ElastiCache (Redis)
+   - CloudFront CDN
    - Application-level caching
 
 ## Troubleshooting Deployment
@@ -372,9 +309,10 @@ SESSION_TIMEOUT=3600000
 
 1. **Backend Debugging**:
    ```bash
-   # Check Render logs
+   # Check EC2 logs
    # Test API endpoints directly
    # Verify database connectivity
+   # Check systemd service status
    ```
 
 2. **Frontend Debugging**:
@@ -382,6 +320,7 @@ SESSION_TIMEOUT=3600000
    # Check browser console
    # Test API calls in Network tab
    # Verify environment variables in build
+   # Check Amplify build logs
    ```
 
 ## Security Checklist
@@ -421,53 +360,48 @@ SESSION_TIMEOUT=3600000
 ### Emergency Procedures
 
 1. **Service Down**:
-   - Check Render service status
+   - Check EC2 instance status
    - Review recent deployments
-   - Check error logs
+   - Check CloudWatch logs
+   - Verify security group settings
 
 2. **Performance Issues**:
-   - Monitor resource usage
+   - Monitor resource usage in CloudWatch
    - Check for memory leaks
    - Review database queries
+   - Scale resources if needed
 
 ## Cost Optimization
 
-### Free Tier Management
+### AWS Cost Management
 
-1. **Render**:
-   - Monitor usage hours
-   - Optimize cold start times
-   - Consider service scheduling
+1. **EC2**:
+   - Use appropriate instance types
+   - Consider Reserved Instances for production
+   - Set up auto-stop for non-production instances
 
-2. **Vercel**:
-   - Monitor bandwidth usage
+2. **Amplify**:
+   - Monitor build minutes
    - Optimize bundle sizes
    - Use efficient caching
 
-### Upgrade Paths
+### Budget Alerts
 
-When free tiers are insufficient:
-
-1. **Render Pro** ($7/month):
-   - No sleeping
-   - More resources
-   - Custom domains
-
-2. **Vercel Pro** ($20/month):
-   - Increased limits
-   - Advanced analytics
-   - Team collaboration
+Set up AWS Budget alerts to monitor costs:
+- Daily/monthly spending limits
+- Service-specific budgets
+- Email notifications
 
 ## Support and Resources
 
 ### Documentation
-- [Render Docs](https://render.com/docs)
-- [Vercel Docs](https://vercel.com/docs)
-- [Hugging Face Docs](https://huggingface.co/docs)
+- [AWS Amplify Docs](https://docs.amplify.aws/)
+- [AWS EC2 Docs](https://docs.aws.amazon.com/ec2/)
+- [AWS Bedrock Docs](https://docs.aws.amazon.com/bedrock/)
 
 ### Community
-- Stack Overflow for technical questions
+- AWS Forums for technical questions
 - GitHub Discussions for project-specific help
-- Discord/Slack communities for real-time support
+- Stack Overflow for development questions
 
-This deployment guide provides a complete setup for hosting your AI Roundtable Discussion Platform using free services. The platform will be production-ready with proper monitoring and scaling paths.
+This deployment guide provides a complete setup for hosting your AI Roundtable Discussion Platform using AWS services with proper monitoring and scaling capabilities.

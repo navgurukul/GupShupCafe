@@ -37,7 +37,7 @@ socket.on('audio-data', (audioData) => {
 - ❌ Internet Explorer: No WebRTC support
 
 ## Production Considerations
-1. **HTTPS Required**: ✅ Automatic on Vercel/Render
+1. **HTTPS Required**: ✅ Automatic on AWS Amplify/EC2
 2. **Microphone Permission**: ✅ Browser handles this
 3. **Audio Quality**: ✅ Current settings optimized
 4. **Error Handling**: ✅ Comprehensive error states

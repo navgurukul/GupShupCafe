@@ -106,7 +106,7 @@ In-depth explanation of platform features and implementation.
 Database schema and data management.
 
 - **[Database Schema](./Data%20Models%20and%20Persistence/database-schema.md)**
-  - SQLite database structure
+  - Database structure
   - Table definitions (sessions, participants, topics)
   - In-memory models (Room, Discussion, Participant)
   - Data operations (CRUD)
@@ -232,19 +232,19 @@ Testing, troubleshooting, and additional guides.
 - WebRTC
 
 **Backend:**
-- Node.js
-- Express.js
-- Socket.io
-- SQLite
-- Hugging Face API
+- Python
+- FastAPI
+- python-socketio
+- Database
+- AI Services (AWS Strands/Gemini/Bedrock)
 
 **Real-time:**
 - Socket.io for events
 - WebRTC for audio
 
 **Deployment:**
-- Vercel (Frontend)
-- Render (Backend)
+- AWS Amplify (Frontend)
+- AWS EC2 + AgentCore (Backend)
 
 ### Key Features
 
@@ -253,10 +253,11 @@ Testing, troubleshooting, and additional guides.
    - Synchronized discussion state
    - Live audio streaming
 
-2. **AI-Powered Topics**
-   - Hugging Face integration
-   - Fallback topic library
-   - Category-based selection
+2. **LLM-Powered Feedback**
+   - CEFR-based English feedback
+   - Real-time conversation facilitation
+   - Progress tracking
+   - Topic interest management
 
 3. **Turn-Based Discussions**
    - Automatic speaker rotation
@@ -455,8 +456,8 @@ Found an error in documentation?
 - [React Documentation](https://react.dev)
 - [Socket.io Documentation](https://socket.io/docs/)
 - [WebRTC Documentation](https://webrtc.org/)
-- [Express.js Documentation](https://expressjs.com/)
-- [SQLite Documentation](https://www.sqlite.org/docs.html)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Python asyncio Documentation](https://docs.python.org/3/library/asyncio.html)
 
 ### Related Guides
 

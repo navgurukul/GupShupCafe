@@ -1,5 +1,7 @@
 # Backend Migration Summary
 
+> **Note:** This is a historical migration document. The platform now uses Python FastAPI backend as the primary implementation.
+
 ## ✅ Migration Status: **COMPLETE**
 
 This document summarizes the successful migration from Node.js/Express to Python/FastAPI.

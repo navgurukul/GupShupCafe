@@ -279,15 +279,15 @@ console.log('Questions:', topic.questions);
 ```
 
 **Flow:**
-1. Tries AI generation via Hugging Face
+1. Tries LLM-based generation using AI services
 2. Falls back to curated topics if AI fails
 3. Returns formatted topic object
 
 **AI Generation:**
 
-```javascript
-const response = await fetch(HUGGINGFACE_API_URL, {
-  method: 'POST',
+```python
+# Using AI services (AWS Strands/Gemini/Bedrock)
+response = await ai_service.generate_topic(
   headers: {
     'Authorization': `Bearer ${API_KEY}`,
     'Content-Type': 'application/json'
@@ -395,9 +395,9 @@ try {
 
 ## 3. Database Service
 
-**Location:** `server/src/database/database.js`
+**Location:** `server_py/src/database/database.py`
 
-**Purpose:** Manage SQLite database operations.
+**Purpose:** Manage database operations.
 
 ### Functions
 
