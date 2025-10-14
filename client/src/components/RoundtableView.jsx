@@ -56,16 +56,17 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
   const renderChair = (participant, index) => {
     const position = getChairPosition(index, participants.length)
     const isCurrentSpeaker = currentSpeaker && currentSpeaker.id === participant.id
+    const isAgent = participant.isAgent === true
     
     return (
       <div
         key={participant.id}
         className={getChairStyle(participant)}
         style={position}
-        title={`${participant.anonymousName}${isCurrentSpeaker ? ' (Speaking)' : ''}`}
+        title={`${participant.anonymousName}${isCurrentSpeaker ? ' (Speaking)' : ''}${isAgent ? ' 🤖 AI Tutor' : ''}`}
       >
-        {/* Participant Initial */}
-        {participant.anonymousName.charAt(0).toUpperCase()}
+        {/* Participant Initial or Agent Icon */}
+        {isAgent ? '🤖' : participant.anonymousName.charAt(0).toUpperCase()}
         
         {/* Speaking Indicator */}
         {isCurrentSpeaker && (
@@ -75,17 +76,19 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
           </div>
         )}
         
-        {/* Role Indicator */}
-        <div className={`absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white text-xs flex items-center justify-center ${
-          participant.role === 'speaker' 
-            ? 'bg-blue-500 text-white' 
-            : 'bg-gray-400 text-white'
-        }`}>
-          {participant.role === 'speaker' ? '🎤' : '👂'}
-        </div>
+        {/* Role Indicator - Don't show for agent */}
+        {!isAgent && (
+          <div className={`absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white text-xs flex items-center justify-center ${
+            participant.role === 'speaker' 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-gray-400 text-white'
+          }`}>
+            {participant.role === 'speaker' ? '🎤' : '👂'}
+          </div>
+        )}
 
-        {/* Incoming Audio Level Indicator (if remote stream available) */}
-        {remoteStreams[participant.socketId] && (
+        {/* Incoming Audio Level Indicator (if remote stream available) - Don't show for agent */}
+        {!isAgent && remoteStreams[participant.socketId] && (
           <div className="absolute left-1/2 -bottom-6 -translate-x-1/2 w-10">
             <LiveAudioLevelBar stream={remoteStreams[participant.socketId]} showLabel={false} />
           </div>

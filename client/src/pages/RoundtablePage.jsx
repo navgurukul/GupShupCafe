@@ -106,16 +106,25 @@ function RoundtablePage() {
 
     // No longer need a 'discussion-started' listener here
 
+    // Handle agent responses
+    const handleAgentResponse = (response) => {
+      console.log('[Roundtable] Agent response:', response);
+      // Display agent message in chat or UI
+      // For now, just log it - you can add UI notification later
+    };
+
     socket.on('participants-update', handleParticipantsUpdate);
     socket.on('speaker-changed', handleSpeakerChange);
     socket.on('topic-update', handleTopicUpdate);
     socket.on('discussion-started', handleDiscussionStarted);
+    socket.on('agent-response', handleAgentResponse);
 
     return () => {
       socket.off('participants-update', handleParticipantsUpdate);
       socket.off('speaker-changed', handleSpeakerChange);
       socket.off('topic-update', handleTopicUpdate);
       socket.off('discussion-started', handleDiscussionStarted);
+      socket.off('agent-response', handleAgentResponse);
     };
   }, [socket, user, enableSpeaking, disableSpeaking])
 
@@ -156,6 +165,13 @@ function RoundtablePage() {
       logout()
       navigate('/')
     }
+  }
+
+  /**
+   * Get human participants (excluding AI agent)
+   */
+  const getHumanParticipants = () => {
+    return participants.filter(p => !p.isAgent);
   }
 
   /**
@@ -254,7 +270,10 @@ function RoundtablePage() {
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">AI Roundtable</h1>
-                <p className="text-sm text-gray-500">Round {round} • {participants.length} participants</p>
+                <p className="text-sm text-gray-500">
+                  Round {round} • {getHumanParticipants().length} participant{getHumanParticipants().length !== 1 ? 's' : ''}
+                  {participants.some(p => p.isAgent) && ' + AI Tutor 🤖'}
+                </p>
               </div>
             </div>
             {/* Add the live audio level bar for your own mic */}
@@ -372,7 +391,8 @@ function RoundtablePage() {
           {/* Participants List */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h3 className="font-semibold text-gray-900 mb-3">
-              Participants ({participants.length})
+              Participants ({getHumanParticipants().length})
+              {participants.some(p => p.isAgent) && <span className="ml-2 text-sm text-gray-500">+ AI Tutor</span>}
             </h3>
             <div className="space-y-2">
               {participants.map((participant, index) => (
@@ -393,7 +413,7 @@ function RoundtablePage() {
                         ? 'bg-green-500'
                         : 'bg-primary-600'
                     }`}>
-                      {participant.anonymousName.charAt(0).toUpperCase()}
+                      {participant.isAgent ? '🤖' : participant.anonymousName.charAt(0).toUpperCase()}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -403,6 +423,7 @@ function RoundtablePage() {
                         : 'text-gray-900'
                     }`}>
                       {participant.anonymousName}
+                      {participant.isAgent && <span className="ml-1 text-xs text-gray-500">(AI Tutor)</span>}
                       {participant.id === user?.id && ' (You)'}
                     </p>
                     {currentSpeaker && currentSpeaker.id === participant.id && (
