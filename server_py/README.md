@@ -8,6 +8,7 @@ Python FastAPI backend for AI Roundtable Discussion Platform with WebSocket supp
 - ✅ Real-time WebSocket communication (Socket.io)
 - ✅ SQLite database with async support
 - ✅ AI topic generation (Hugging Face)
+- ✅ **LLM Agent Integration** - AI Tutor as default participant
 - ✅ Room management system
 - ✅ AWS EC2 deployment ready
 - ✅ Docker support
@@ -125,9 +126,43 @@ server_py/
 | ALLOWED_ORIGINS | Comma-separated CORS origins | localhost:5173,localhost:5174 |
 | DATABASE_URL | SQLite database path | ./data/roundtable.db |
 | HUGGINGFACE_API_KEY | Hugging Face API key | - |
+| **ENABLE_LLM_AGENT** | Enable AI Tutor as participant | false |
 | DEFAULT_SPEAKING_TIME | Speaking time in seconds | 60 |
 | MIN_PARTICIPANTS | Minimum participants to start | 1 |
 | MAX_PARTICIPANTS | Maximum participants per room | 8 |
+
+## LLM Agent Integration
+
+The platform includes an **AI Tutor** that can participate in discussions as a default participant:
+
+### Features
+- 🤖 Automatic participation in discussions
+- 📚 Discussion facilitation and guidance
+- 🗣️ English language feedback
+- 💡 Thought-provoking questions
+- 🔍 Fact-checking and observations
+
+### Quick Start
+
+Enable the LLM Agent:
+```bash
+echo "ENABLE_LLM_AGENT=true" >> .env
+python main.py
+```
+
+### API Endpoints
+
+Check agent status:
+```bash
+GET /api/llm-agent/status
+```
+
+Trigger agent response:
+```bash
+POST /api/llm-agent/response/{room_id}
+```
+
+For complete documentation, see [LLM Agent Integration Guide](../docs/LLM_AGENT_INTEGRATION.md).
 
 ## Development
 
@@ -141,12 +176,22 @@ The codebase follows Python best practices:
 ### Testing
 
 ```bash
-# Run tests (when test suite is added)
+# Run all tests
 pytest
+
+# Run specific test file
+pytest tests/test_llm_agent.py
 
 # Run with coverage
 pytest --cov=src
 ```
+
+Current test coverage: **56 tests** including:
+- 15 LLM Agent service tests
+- 7 AI/topic generation tests
+- 17 API endpoint tests
+- 7 Database tests
+- 10 Room manager tests
 
 ## Deployment
 
