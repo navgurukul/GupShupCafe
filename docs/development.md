@@ -2,24 +2,25 @@
 
 ## Project Overview
 
-This is a full-stack web application that simulates AI-powered online roundtable discussions for educational purposes. The platform is 100% free and open-source, using only free tools and services.
+This is a full-stack web application that provides instant feedback to students participating in a gamified discussion experience with their peers on their English speaking skills for rapid growth in English. The LLM Agent provides corrective feedback to the participants for their English based on the CEFR standard.
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React Client  │    │  Node.js Server │    │   SQLite DB     │
+│   React Client  │    │  Python Backend │    │    Database     │
 │                 │    │                 │    │                 │
 │  - Login Page   │◄──►│  - Socket.io    │◄──►│  - Sessions     │
-│  - Lobby Page   │    │  - Express API  │    │  - Participants │
-│  - Roundtable   │    │  - AI Topics    │    │  - Analytics    │
-│                 │    │  - Room Manager │    │                 │
+│  - Lobby Page   │    │  - FastAPI      │    │  - Participants │
+│  - Roundtable   │    │  - LLM Agent    │    │  - Progress     │
+│                 │    │  - STT/TTS      │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                               │
                               ▼
                     ┌─────────────────┐
-                    │ Hugging Face AI │
-                    │  (Topic Gen.)   │
+                    │  AI Services    │
+                    │  AWS Strands/   │
+                    │  Gemini/Bedrock │
                     └─────────────────┘
 ```
 
@@ -34,24 +35,26 @@ This is a full-stack web application that simulates AI-powered online roundtable
 - **Lucide React** - Beautiful icons
 
 ### Backend (Server)
-- **Node.js** - JavaScript runtime
-- **Express.js** - Web framework
-- **Socket.io** - Real-time WebSocket communication
-- **SQLite** - Lightweight database
-- **Helmet** - Security middleware
-- **CORS** - Cross-origin resource sharing
+- **Python** - Programming language
+- **FastAPI** - Modern web framework
+- **python-socketio** - Real-time WebSocket communication
+- **Database** - Data persistence
+- **AWS Strands/Gemini/Bedrock** - AI models for feedback
+- **STT** - Speech-to-Text integration
+- **TTS** - Text-to-Speech (used in Samyarth teams)
 
 ### AI & External Services
-- **Hugging Face API** - Free AI text generation
+- **AWS Strands/Gemini** - AI services for development
+- **Bedrock Models** - AI services for production
 - **WebRTC** - Browser audio communication
-- **Free deployment** - Vercel (frontend) + Render (backend)
+- **AWS Deployment** - AWS AgentCore + EC2 (backend), AWS Amplify (frontend)
 
 ## Features
 
 ### 1. User Authentication
-- Simple ID-based login
-- Anonymous display names
-- No complex user management needed
+- Authentication to save user details and progress
+- Anonymous display names for roundtable participation
+- User progress tracking
 
 ### 2. Lobby System
 - Wait for minimum participants (2+)
@@ -64,10 +67,13 @@ This is a full-stack web application that simulates AI-powered online roundtable
 - Active speaker highlighting
 - Turn-based speaking system
 
-### 4. AI Topic Generation
-- Hugging Face API integration for dynamic topics
-- Fallback to curated educational topics
-- Topic categories and discussion questions
+### 4. LLM Agent & Feedback
+- LLM-agent to facilitate the conversation
+- Corrective feedback based on CEFR standard
+- STT to transcribe and send conversations to agent
+- TTS for live conversations with agent
+- Track student progress across English proficiency levels
+- Save topics of interest for students
 
 ### 5. Speaking Management
 - Timer-based turns (default 60 seconds)
@@ -83,7 +89,8 @@ This is a full-stack web application that simulates AI-powered online roundtable
 ## Development Setup
 
 ### Prerequisites
-- Node.js 18+ installed
+- Node.js 18+ installed (for frontend)
+- Python 3.11+ installed (for backend)
 - Git for version control
 - Modern web browser with WebRTC support
 
@@ -91,40 +98,49 @@ This is a full-stack web application that simulates AI-powered online roundtable
 
 1. **Install dependencies**:
    ```bash
-   npm run install:all
+   # Install frontend dependencies
+   cd client && npm install
+   
+   # Install backend dependencies
+   cd ../server_py
+   pip install -r requirements.txt
    ```
 
 2. **Set up environment variables**:
    ```bash
    # Copy example files
    cp client/.env.example client/.env
-   cp server/.env.example server/.env
+   cp server_py/.env.example server_py/.env
    
    # Edit the .env files with your settings
    ```
 
 3. **Start development servers**:
    ```bash
+   # Start backend
+   cd server_py
+   python main.py
+   
+   # In another terminal, start frontend
+   cd client
    npm run dev
    ```
 
 4. **Access the application**:
    - Frontend: http://localhost:5173
-   - Backend: http://localhost:3001
+   - Backend: http://localhost:3003
 
 ### Environment Variables
 
 #### Client (.env)
 ```env
-VITE_API_URL=http://localhost:3001
-VITE_SOCKET_URL=http://localhost:3001
-VITE_HUGGINGFACE_API_KEY=your_key_here (optional)
+VITE_API_URL=http://localhost:3003
+VITE_SOCKET_URL=http://localhost:3003
 ```
 
 #### Server (.env)
 ```env
-PORT=3001
-HUGGINGFACE_API_KEY=your_key_here (optional)
+PORT=3003
 DATABASE_URL=./data/roundtable.db
 MIN_PARTICIPANTS=2
 DEFAULT_SPEAKING_TIME=60
@@ -142,14 +158,14 @@ ai-roundtable-discussion/
 │   │   └── App.jsx         # Main app component
 │   ├── public/             # Static assets
 │   └── package.json
-├── server/                 # Node.js backend
+├── server_py/              # Python FastAPI backend
 │   ├── src/
-│   │   ├── ai/             # AI topic generation
-│   │   ├── database/       # SQLite database management
-│   │   ├── routes/         # Express API routes
+│   │   ├── ai/             # AI agent and feedback
+│   │   ├── database/       # Database management
+│   │   ├── routes/         # FastAPI routes
 │   │   ├── socket/         # Socket.io handlers
-│   │   └── server.js       # Main server file
-│   └── package.json
+│   │   └── main.py         # Main server file
+│   └── requirements.txt
 ├── docs/                   # Documentation
 └── README.md
 ```
@@ -196,26 +212,28 @@ ai-roundtable-discussion/
 
 ### Server Modules
 
-#### `socketHandlers.js`
+#### `socketHandlers.py`
 - Real-time event management
 - Room joining/leaving
 - Speaking turn management
 - Timer coordination
 
-#### `roomManager.js`
+#### `roomManager.py`
 - In-memory room state management
 - Participant tracking
 - Discussion state coordination
 
-#### `topicGenerator.js`
-- AI topic generation (Hugging Face)
-- Fallback topic system
-- Topic categorization
+#### `llmAgent.py`
+- LLM-based conversation facilitation
+- CEFR-based corrective feedback
+- Student progress tracking
+- Topic interest management
 
-#### `database.js`
-- SQLite database operations
+#### `database.py`
+- Database operations
 - Session analytics
 - Participant tracking
+- Progress persistence
 
 ## Real-time Communication Flow
 
@@ -236,8 +254,8 @@ Client                    Server
 Client                    Server                   AI
   │                        │                       │
   │── user-ready ─────────►│                       │
-  │                        │── generate topic ───►│
-  │                        │◄── topic response ───│
+  │                        │── get feedback ──────►│
+  │                        │◄── CEFR feedback ────│
   │◄── discussion-started ─│                       │
   │◄── speaker-changed ────│                       │
 ```
@@ -256,31 +274,28 @@ Client                    Server
 
 ## AI Integration
 
-### Hugging Face Setup
+### LLM Agent Setup
 
-1. **Get API Key**:
-   - Visit [Hugging Face](https://huggingface.co)
-   - Create free account
-   - Generate API token
-
+1. **AI Services Configuration**:
+   - Development: AWS Strands + Gemini
+   - Production: Bedrock Models
+   
 2. **Configure Environment**:
    ```env
-   HUGGINGFACE_API_KEY=hf_your_token_here
+   AI_SERVICE=gemini  # or bedrock
+   AI_API_KEY=your_api_key_here
    ```
 
-3. **Fallback System**:
-   - If API fails, uses predefined topics
-   - No interruption to user experience
-   - Educational topics across multiple categories
+3. **CEFR Standard Integration**:
+   - Real-time feedback on English speaking
+   - Progress tracking across proficiency levels
+   - Topic interest tracking for personalization
 
-### Topic Categories
-- Education & Learning
-- Technology & Innovation
-- Health & Wellness
-- Environment & Sustainability
-- Culture & Society
-- Career & Professional Development
-- Personal Growth
+### STT/TTS Integration
+
+1. **Speech-to-Text**: Transcribe user conversations
+2. **Text-to-Speech**: Agent responses using Samyarth TTS
+3. **Real-time Processing**: Low-latency feedback loop
 
 ## Database Schema
 
@@ -308,7 +323,21 @@ participants (
   campus TEXT,
   location TEXT,
   joined_at DATETIME,
-  speaking_time_seconds INTEGER
+  speaking_time_seconds INTEGER,
+  cefr_level TEXT,
+  progress_data TEXT
+)
+```
+
+### Progress Table
+```sql
+progress (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  cefr_level TEXT,
+  topics_of_interest TEXT,
+  last_updated DATETIME,
+  feedback_history TEXT
 )
 ```
 
@@ -316,9 +345,12 @@ participants (
 
 ### Public Endpoints
 - `GET /health` - Health check
-- `GET /api/topics` - Get all topics
-- `GET /api/topics/generate` - Generate new topic
 - `GET /api/config` - Public configuration
+
+### LLM Agent Endpoints
+- `POST /api/feedback` - Get CEFR-based feedback
+- `GET /api/progress/:userId` - Get user progress
+- `POST /api/topics/interest` - Update topics of interest
 
 ### Analytics Endpoints
 - `GET /api/analytics/sessions` - Session analytics
@@ -396,11 +428,7 @@ participants (
 
 ## Deployment Guide
 
-See [deployment.md](./deployment.md) for detailed deployment instructions for:
-- Vercel (Frontend)
-- Render (Backend)
-- Environment configuration
-- Domain setup
+See [server_py/DEPLOYMENT.md](../server_py/DEPLOYMENT.md) for detailed deployment instructions for AWS EC2 and AWS Amplify.
 
 ## Contributing
 
@@ -434,9 +462,9 @@ git push origin feature/your-feature
 - Test with different browsers
 
 #### AI Topics Not Generating
-- Verify Hugging Face API key
+- Verify AI service API key
 - Check API rate limits
-- Fallback topics should still work
+- Check service status
 
 ### Debug Mode
 ```bash
@@ -460,10 +488,10 @@ DEBUG=socket.io* npm run dev
 - [ ] Export capabilities
 
 ### AI Improvements
-- [ ] Custom topic training
+- [ ] Enhanced CEFR assessment accuracy
+- [ ] Personalized learning paths
 - [ ] Sentiment analysis
-- [ ] Automatic moderation
-- [ ] Personalized recommendations
+- [ ] Multi-language support
 
 ## Support
 

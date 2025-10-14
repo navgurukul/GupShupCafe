@@ -1,138 +1,100 @@
 # 🚀 AI Gupshup Platform - Deployment Guide
 
-## 📋 Quick Deploy Checklist
+## 📋 Quick Deploy Overview
+
+This platform provides instant feedback to students participating in a gamified discussion experience with their peers on their English speaking skills for rapid growth in English. The LLM Agent provides corrective feedback to the participants for their English based on the CEFR standard.
 
 ### ✅ Prerequisites 
-- [x] Code ready for deployment
-- [x] Enhanced CSS with animations and responsive design
-- [x] Environment files configured
-- [x] Documentation complete
+- AWS account configured
+- Code ready for deployment
+- Environment files configured
+- Documentation reviewed
 
-## 📦 Create Dedicated Repository
+## 🔥 Deploy Backend to AWS EC2
 
-### Step 1: Create New Repository
-1. Go to **[github.com/theemubin](https://github.com/theemubin)**
-2. Click **"New repository"**
-3. Configure:
-   ```
-   Repository name: AI-Gupshup
-   Description: AI-powered educational roundtable discussion platform
-   Visibility: Public (for open source)
-   Initialize: Don't add README (we have one)
-   ```
-4. Click **"Create repository"**
+For detailed backend deployment instructions, see [server_py/DEPLOYMENT.md](./server_py/DEPLOYMENT.md).
 
-### Step 2: Push Code to New Repository
-```bash
-# Add new remote for dedicated repository
-git remote add gupshup https://github.com/theemubin/AI-Gupshup.git
+### Quick Steps:
+1. Launch EC2 instance
+2. Install Python and dependencies
+3. Configure environment variables
+4. Set up systemd service
+5. Configure security groups
+6. Test deployment
 
-# Push to new repository
-git push -u gupshup main
+## 🌐 Deploy Frontend to AWS Amplify
+
+### Step 1: Prepare Frontend
+Ensure your frontend is configured with the correct backend URL:
+```env
+VITE_API_URL=https://your-ec2-backend.example.com
+VITE_SOCKET_URL=https://your-ec2-backend.example.com
 ```
 
-## 🔥 Deploy Backend to Render (FREE)
+### Step 2: Deploy to AWS Amplify
 
-### Step 1: Create Render Account
-1. Go to [render.com](https://render.com)
-2. Sign up with GitHub account
-3. Authorize Render to access your repositories
+1. **Connect Repository**:
+   - Go to AWS Amplify Console
+   - Click **"New app"** → **"Host web app"**
+   - Connect your Git repository
 
-### Step 2: Deploy Backend Service
-1. Click **"New +"** → **"Web Service"**
-2. Connect your GitHub repository: `theemubin/GupShup-Cafe`
-3. Configure deployment settings:
+2. **Configure Build Settings**:
+   - Framework: Vite
+   - Root Directory: client
+   - Build Command: npm run build
+   - Output Directory: dist
 
-```
-Name: gupshup-cafe-backend
-Root Directory: server
-Runtime: Node
-Build Command: npm install
-Start Command: npm start
-```
+3. **Set Environment Variables**:
+   - Add environment variables in Amplify Console
+   - Ensure API URLs point to your EC2 backend
 
-### Step 3: Set Environment Variables
-Add these in Render dashboard:
-```
-NODE_ENV=production
-PORT=10000
-HUGGINGFACE_API_KEY=your_api_key_here
-```
-
-### Step 4: Deploy
-- Click **"Create Web Service"**
-- Wait 3-5 minutes for deployment
-- Copy your backend URL (e.g., `https://gupshup-cafe-backend.onrender.com`)
-
-## 🌐 Deploy Frontend to Vercel (FREE)
-
-### Step 1: Create Vercel Account
-1. Go to [vercel.com](https://vercel.com)
-2. Sign up with GitHub account
-3. Import your project
-
-### Step 2: Deploy Frontend
-1. Click **"New Project"**
-2. Import `theemubin/GupShup-Cafe`
-3. Configure settings:
-
-```
-Framework Preset: Vite
-Root Directory: client
-Build Command: npm run build
-Output Directory: dist
-Install Command: npm install
-```
-
-### Step 3: Set Environment Variable
-Add in Vercel dashboard:
-```
-VITE_API_URL=https://your-render-backend-url.onrender.com
-```
-
-### Step 4: Deploy
-- Click **"Deploy"**
-- Wait 2-3 minutes
-- Your frontend will be live at `https://gupshup-cafe.vercel.app`
+4. **Deploy**:
+   - Amplify will automatically build and deploy
+   - Wait for deployment to complete
 
 ## 🎯 Final Configuration
 
 ### Update Backend CORS
-After frontend deployment, update your backend environment:
+After frontend deployment, update your backend CORS settings:
 ```
-CORS_ORIGIN=https://gupshup-cafe.vercel.app
+CORS_ORIGIN=https://your-app.amplifyapp.com
 ```
 
 ### Test Your Deployment
-1. Visit your Vercel URL
+1. Visit your Amplify URL
 2. Create a roundtable session
 3. Test real-time features
 4. Verify voice controls work
+5. Test LLM feedback features
 
 ## 🔧 Troubleshooting
 
 ### Common Issues:
-- **CORS Errors**: Update CORS_ORIGIN in Render
-- **API Connection**: Check VITE_API_URL in Vercel
-- **Voice Not Working**: Ensure HTTPS is enabled (automatic)
+- **CORS Errors**: Update CORS_ORIGIN in EC2 backend
+- **API Connection**: Check VITE_API_URL in Amplify
+- **Voice Not Working**: Ensure HTTPS is enabled
+- **WebSocket Issues**: Verify security group settings on EC2
 
 ### Health Check URLs:
-- Backend: `https://gupshup-cafe-backend.onrender.com/health`
-- Frontend: `https://gupshup-cafe.vercel.app`
+- Backend: `https://your-backend.example.com/health`
+- Frontend: `https://your-app.amplifyapp.com`
 
 ## 📱 Your Live App Features
 - ✅ Real-time roundtable discussions
-- ✅ AI-powered topic generation
+- ✅ LLM-powered conversation facilitation
+- ✅ CEFR-based English feedback
+- ✅ STT/TTS integration
 - ✅ Voice controls and audio feedback
 - ✅ Mobile-responsive design
-- ✅ Professional UI with animations
-- ✅ 100% free hosting
+- ✅ Gamified UI with animations
+- ✅ User authentication and progress tracking
+- ✅ Anonymous participation
 
 ## 🎉 Success!
-Your AI Gupshup Platform is now live and accessible worldwide!
+Your AI Gupshup Platform is now live and ready to provide instant feedback to students for rapid English growth!
 
-**Frontend**: https://gupshup-cafe.vercel.app
-**Backend**: https://gupshup-cafe-backend.onrender.com
-**GitHub**: https://github.com/theemubin/GupShup-Cafe
+**Frontend**: AWS Amplify
+**Backend**: AWS EC2 + AgentCore
+**AI Services**: AWS Strands/Gemini (dev) or Bedrock (prod)
 
 Share your platform with educators and students around the world! 🌍
