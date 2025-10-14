@@ -26,23 +26,24 @@ GupShup Cafe (AI Roundtable Discussion Platform) is a full-stack web application
 ┌──────────────────────────▼───────────────────────────────────────┐
 │                      SERVER LAYER                                │
 │  ┌────────────────────────────────────────────────────┐         │
-│  │              Express.js Application                │         │
+│  │              FastAPI Application                   │         │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────┐ │         │
 │  │  │   REST API  │  │  Socket.io  │  │  Middleware│ │         │
-│  │  │  Endpoints  │  │  Handlers   │  │(CORS,Helmet)│         │
+│  │  │  Endpoints  │  │  Handlers   │  │   (CORS)   │ │         │
 │  │  └─────────────┘  └─────────────┘  └───────────┘ │         │
 │  └────────────────────────────────────────────────────┘         │
 │           │                  │                │                  │
 │  ┌────────▼─────┐   ┌────────▼─────┐  ┌──────▼─────┐          │
-│  │ Room Manager │   │ AI Topic Gen │  │  Database  │          │
+│  │ Room Manager │   │  LLM Agent   │  │  Database  │          │
 │  │   Service    │   │   Service    │  │   Service  │          │
 │  └──────────────┘   └──────┬───────┘  └─────┬──────┘          │
 └────────────────────────────┼────────────────┼──────────────────┘
                              │                │
                     ┌────────▼─────┐   ┌──────▼──────┐
-                    │ Hugging Face │   │   SQLite    │
-                    │   AI API     │   │   Database  │
-                    │  (External)  │   │   (Local)   │
+                    │ AI Services  │   │   Database  │
+                    │ AWS Strands/ │   │             │
+                    │ Gemini/      │   │             │
+                    │ Bedrock      │   │             │
                     └──────────────┘   └─────────────┘
 ```
 
@@ -86,46 +87,45 @@ Client Response ← Socket.io/REST ← Server Response ← Service Logic ← Dat
 ### 3. Server Layer (Backend)
 
 **Technology Stack:**
-- Node.js runtime
-- Express.js framework
-- Socket.io for WebSocket management
-- SQLite for data persistence
-- Helmet for security
-- CORS for cross-origin requests
+- Python runtime
+- FastAPI framework
+- python-socketio for WebSocket management
+- Database for data persistence
+- CORS middleware for cross-origin requests
 
 **Key Responsibilities:**
 - Request routing and handling
 - Real-time event management
 - Business logic execution
 - Database operations
-- External API integration
+- AI service integration
 - Authentication and authorization
 - Room and session management
 
 **Module Organization:**
 ```
-server/src/
-├── server.js           # Main application entry
+server_py/src/
+├── main.py             # Main application entry
 ├── routes/
-│   └── api.js         # REST API endpoints
+│   └── api.py         # REST API endpoints
 ├── socket/
-│   ├── socketHandlers.js  # Socket.io event handlers
-│   └── roomManager.js     # Room state management
+│   ├── socketHandlers.py  # Socket.io event handlers
+│   └── roomManager.py     # Room state management
 ├── ai/
-│   └── topicGenerator.js  # AI topic generation
+│   └── llmAgent.py        # LLM agent for feedback
 └── database/
-    └── database.js        # SQLite operations
+    └── database.py        # Database operations
 ```
 
 ### 4. Data Layer
 
-**SQLite Database Schema:**
+**Database Schema:**
 - **sessions:** Discussion session records
 - **participants:** User participation data
-- **topics:** Topic usage analytics
+- **progress:** CEFR progress tracking
 
 **External Services:**
-- **Hugging Face API:** AI-powered topic generation
+- **AI Services:** AWS Strands/Gemini (dev) or Bedrock (prod) for LLM-based feedback
 
 ## Communication Patterns
 
@@ -181,35 +181,37 @@ GET  /api/room/:roomId/state      → Get room state
 │                    PRODUCTION DEPLOYMENT                     │
 │                                                              │
 │  ┌────────────────┐              ┌────────────────┐        │
-│  │     Vercel     │              │     Render     │        │
+│  │  AWS Amplify   │              │    AWS EC2     │        │
 │  │   (Frontend)   │              │   (Backend)    │        │
 │  │                │              │                │        │
-│  │  - React App   │──── HTTPS ──▶│  - Node.js     │        │
+│  │  - React App   │──── HTTPS ──▶│  - FastAPI     │        │
 │  │  - Static CDN  │              │  - Socket.io   │        │
-│  │  - Auto SSL    │              │  - SQLite DB   │        │
+│  │  - Auto SSL    │              │  - Database    │        │
 │  └────────────────┘              └────────┬───────┘        │
 │                                            │                │
 │                                   ┌────────▼───────┐       │
-│                                   │ Hugging Face   │       │
-│                                   │   (AI API)     │       │
+│                                   │  AI Services   │       │
+│                                   │  AWS Strands/  │       │
+│                                   │  Gemini/       │       │
+│                                   │  Bedrock       │       │
 │                                   └────────────────┘       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Deployment Characteristics
 
-**Frontend (Vercel):**
+**Frontend (AWS Amplify):**
 - Automatic HTTPS
 - Global CDN distribution
 - Serverless architecture
 - Automatic builds from Git
 - Environment variable management
 
-**Backend (Render):**
+**Backend (AWS EC2 + AgentCore):**
 - Persistent instances
 - WebSocket support
-- Free tier available
-- Auto-deploy from Git
+- Scalable architecture
+- Auto-deploy capabilities
 - Built-in SSL/TLS
 
 ## Security Architecture
@@ -267,7 +269,7 @@ GET  /api/room/:roomId/state      → Get room state
 **Limitations:**
 - Single server instance
 - In-memory room management
-- SQLite database (single file)
+- Database (single instance)
 - No horizontal scaling
 
 **Capacity:**
@@ -305,21 +307,20 @@ GET  /api/room/:roomId/state      → Get room state
    - Rich ecosystem
    - Excellent developer experience
 
-2. **Socket.io:**
+2. **python-socketio:**
    - Real-time bidirectional communication
    - Automatic reconnection
    - Fallback transports
 
-3. **Express.js:**
-   - Lightweight and flexible
-   - Large middleware ecosystem
-   - Easy to learn and deploy
+3. **FastAPI:**
+   - High performance async framework
+   - Automatic API documentation
+   - Type safety with Python type hints
 
-4. **SQLite:**
-   - Zero configuration
-   - Serverless
-   - Perfect for small to medium apps
+4. **Database:**
+   - Flexible data persistence
    - Easy backup and migration
+   - Scalable architecture
 
 5. **Vite:**
    - Fast development server
@@ -345,8 +346,8 @@ GET  /api/room/:roomId/state      → Get room state
 
 1. **Connection Pooling:** Socket.io connection management
 2. **Event Debouncing:** Reduced event frequency
-3. **Efficient Queries:** Optimized SQLite queries
-4. **Caching:** In-memory caching for topics
+3. **Efficient Queries:** Optimized database queries
+4. **Caching:** In-memory caching for frequently accessed data
 
 ## System Resilience
 
@@ -385,20 +386,20 @@ GET  /api/room/:roomId/state      → Get room state
 Local Machine
 ├── Vite Dev Server (Port 5173)
 │   └── Hot Module Replacement
-├── Express Server (Port 3003)
+├── FastAPI Server (Port 3003)
 │   └── Development logging
-└── SQLite (./data/roundtable.db)
+└── Database (./data/roundtable.db)
 ```
 
 ### Production Environment
 
 ```
 Cloud Infrastructure
-├── Vercel (Frontend)
+├── AWS Amplify (Frontend)
 │   └── Global CDN
-├── Render (Backend)
+├── AWS EC2 + AgentCore (Backend)
 │   └── Persistent instance
-└── SQLite (Persistent disk)
+└── Database (Managed service)
 ```
 
 ## Monitoring and Observability

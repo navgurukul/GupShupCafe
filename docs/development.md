@@ -384,7 +384,7 @@ progress (
 
 ### Backend
 - In-memory room management for speed
-- SQLite for lightweight persistence
+- Database for data persistence
 - Efficient Socket.io event handling
 
 ### Network
