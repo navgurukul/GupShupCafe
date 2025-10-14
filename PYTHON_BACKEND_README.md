@@ -1,5 +1,7 @@
 # 🎉 Python FastAPI Backend Migration - Complete
 
+> **Note:** This is a historical migration document. The Python FastAPI backend is now the primary and only actively maintained backend for this platform.
+
 ## Executive Summary
 
 Successfully migrated the GupShup Cafe backend from **Node.js/Express** to **Python/FastAPI** with complete feature parity, comprehensive testing, and AWS EC2 deployment readiness.
