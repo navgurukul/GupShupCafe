@@ -1,5 +1,7 @@
 # Migration Guide: Node.js to Python FastAPI
 
+> **Note:** This is a historical migration document. The Node.js backend is no longer actively maintained. The current platform uses Python FastAPI backend deployed on AWS EC2.
+
 This document guides you through migrating from the Node.js Express backend to the Python FastAPI backend.
 
 ## Why Migrate?
