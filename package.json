@@ -13,7 +13,11 @@
     "test:server:py": "cd server_py && pytest tests/ -v",
     "test:all": "cd client && vitest && cd ../server_py && pytest tests/ -v",
     "install:all": "npm install && cd client && npm install && cd ../server_py && pip install -r requirements.txt && pip install -r requirements-dev.txt",
-    "install:py": "cd server_py && pip install -r requirements.txt && pip install -r requirements-dev.txt"
+    "install:py": "cd server_py && pip install -r requirements.txt && pip install -r requirements-dev.txt",
+    "dev:node": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:server": "cd server && npm run dev",
+    "start:node": "cd server && npm start",
+    "install:node:all": "npm install && cd client && npm install && cd ../server && npm install"
   },
   "keywords": ["ai", "roundtable", "discussion", "education", "websocket", "webrtc"],
   "author": "Educational Project",
