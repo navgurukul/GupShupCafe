@@ -384,7 +384,6 @@ class TestIntegrationWorkflows:
 
 
 # Import asyncio for async operations in tests
-import asyncio
 
 
 class TestTopicsEndpoints:
