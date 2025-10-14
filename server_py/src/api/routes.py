@@ -12,6 +12,7 @@ from ..ai.topic_generator import (
     generate_discussion_topic,
     get_topic_by_category
 )
+from ..ai.llm_agent_service import llm_agent_service
 from ..database.database import db
 from ..socket.room_manager import room_manager
 
@@ -217,3 +218,55 @@ async def get_room_state(room_id: str):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to get room state")
+
+
+@router.get("/llm-agent/status")
+async def get_llm_agent_status():
+    """Get LLM Agent service status"""
+    try:
+        return {
+            "success": True,
+            "data": {
+                "enabled": llm_agent_service.is_enabled(),
+                "agentName": llm_agent_service.agent_name,
+                "agentId": llm_agent_service.agent_participant_id
+            }
+        }
+    except Exception as e:
+        print(f"Error getting LLM agent status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get LLM agent status")
+
+
+@router.post("/llm-agent/response/{room_id}")
+async def trigger_llm_agent_response(room_id: str):
+    """
+    Manually trigger an LLM agent response for a room
+    (Useful for testing and manual control)
+    """
+    try:
+        if not llm_agent_service.is_enabled():
+            raise HTTPException(status_code=400, detail="LLM Agent is not enabled")
+        
+        # Get room
+        room = room_manager.get_room(room_id)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        topic = room["discussion"].get("topic")
+        if not topic:
+            raise HTTPException(status_code=400, detail="No active discussion in room")
+        
+        # Generate response
+        response = await llm_agent_service.generate_response(room_id, topic)
+        
+        return {
+            "success": True,
+            "data": response
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error triggering LLM agent response: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to generate LLM agent response")

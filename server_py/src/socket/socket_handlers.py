@@ -11,6 +11,7 @@ import os
 
 from .room_manager import room_manager
 from ..ai.topic_generator import generate_discussion_topic
+from ..ai.llm_agent_service import llm_agent_service
 from ..database.database import db
 
 
@@ -250,6 +251,14 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             user = next((p for p in room["participants"] if p["socketId"] == sid), None)
             
             if user:
+                # Record statement for LLM agent if enabled
+                if llm_agent_service.is_enabled():
+                    llm_agent_service.add_statement(
+                        room_id,
+                        user["anonymousName"],
+                        message_data
+                    )
+                
                 # Broadcast message to room
                 await sio.emit("message", {
                     "id": str(uuid.uuid4()),
@@ -261,6 +270,92 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
         except Exception as e:
             print(f"Error handling message: {str(e)}")
+    
+    @sio.event
+    async def request_agent_response(sid, data):
+        """Handle request for LLM agent response"""
+        try:
+            if not llm_agent_service.is_enabled():
+                await sio.emit("agent-response-error", {
+                    "error": "LLM Agent is not enabled"
+                }, room=sid)
+                return
+            
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                return
+            
+            # Get room data
+            room = room_manager.get_room(room_id)
+            topic = room["discussion"].get("topic")
+            
+            if not topic:
+                return
+            
+            # Generate agent response
+            response = await llm_agent_service.generate_response(room_id, topic)
+            
+            # Broadcast agent response to room
+            await sio.emit("agent-response", response, room=room_id)
+            
+            print(f"[Backend] 🤖 LLM Agent responded in room {room_id}")
+            
+        except Exception as e:
+            print(f"Error generating agent response: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def speaker_turn_changed(sid, data):
+        """Handle when speaker turn changes - trigger agent if it's their turn"""
+        try:
+            if not llm_agent_service.is_enabled():
+                return
+            
+            current_speaker = data.get("currentSpeaker")
+            if not current_speaker:
+                return
+            
+            # Check if it's the agent's turn
+            if current_speaker.get("isAgent"):
+                # Find room
+                rooms = sio.rooms(sid)
+                room_id = None
+                for room in rooms:
+                    if room != sid:
+                        room_id = room
+                        break
+                
+                if not room_id:
+                    return
+                
+                # Get room data
+                room = room_manager.get_room(room_id)
+                topic = room["discussion"].get("topic")
+                
+                if not topic:
+                    return
+                
+                # Generate and send agent response automatically
+                response = await llm_agent_service.generate_response(room_id, topic)
+                
+                # Broadcast agent response
+                await sio.emit("agent-response", response, room=room_id)
+                
+                print(f"[Backend] 🤖 LLM Agent spoke in room {room_id}")
+        
+        except Exception as e:
+            print(f"Error in speaker turn change: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
 
 
 async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, active_sessions: Dict[str, str]):
@@ -280,13 +375,26 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
         
         # Check if we have minimum participants ready
         min_participants = int(os.getenv("MIN_PARTICIPANTS", "1"))
-        ready_participants = [p for p in room["participants"] if p.get("isReady")]
+        ready_participants = [p for p in room["participants"] if p.get("isReady") and not p.get("isAgent")]
         
         if len(ready_participants) >= min_participants and len(ready_participants) >= min_participants:
             print(f"[Backend] Starting discussion in room {room_id}")
             
             # Generate or get topic
             topic = await generate_discussion_topic()
+            
+            # Add LLM Agent as participant if enabled
+            if llm_agent_service.is_enabled():
+                agent_participant = llm_agent_service.get_agent_participant()
+                room_manager.add_user_to_room(room_id, agent_participant)
+                print(f"[Backend] 🤖 Added LLM Agent to room {room_id}")
+                
+                # Initialize agent for this room
+                llm_agent_service.initialize_room(room_id, topic, ready_participants)
+            
+            # Get all participants including agent
+            all_participants = room_manager.get_room_participants(room_id)
+            ready_all = [p for p in all_participants if p.get("isReady")]
             
             # Create session
             session_id = str(uuid.uuid4())
@@ -297,7 +405,7 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                 "id": session_id,
                 "roomId": room_id,
                 "topic": topic,
-                "participantCount": len(ready_participants),
+                "participantCount": len(ready_participants),  # Count human participants only
                 "startedAt": datetime.now().isoformat(),
                 "endedAt": None,
                 "durationSeconds": None,
@@ -314,8 +422,11 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             room["discussion"]["round"] = 1
             room["discussion"]["startedAt"] = datetime.now().isoformat()
             
+            # Notify all participants including agent
+            await sio.emit("participants-update", all_participants, room=room_id)
+            
             # Emit discussion started
-            first_speaker = ready_participants[0] if ready_participants else None
+            first_speaker = ready_all[0] if ready_all else None
             duration = int(os.getenv("DEFAULT_SPEAKING_TIME", "60"))
             
             await sio.emit("discussion-started", {

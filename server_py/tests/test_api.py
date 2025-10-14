@@ -113,3 +113,88 @@ def test_get_room_state(client):
     data = response.json()
     assert "participants" in data
     assert "discussion" in data
+
+
+def test_get_llm_agent_status(client):
+    """Test getting LLM agent status"""
+    response = client.get("/api/llm-agent/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "data" in data
+    assert "enabled" in data["data"]
+    assert "agentName" in data["data"]
+    assert "agentId" in data["data"]
+
+
+def test_get_llm_agent_status_disabled_by_default(client):
+    """Test that LLM agent is disabled by default"""
+    response = client.get("/api/llm-agent/status")
+    assert response.status_code == 200
+    data = response.json()
+    # Should be disabled unless ENABLE_LLM_AGENT is set
+    assert data["data"]["enabled"] is False
+    assert data["data"]["agentName"] == "AI Tutor"
+
+
+@patch.dict(os.environ, {"ENABLE_LLM_AGENT": "true"})
+def test_trigger_llm_agent_response_when_enabled(client):
+    """Test triggering LLM agent response when enabled"""
+    # Temporarily enable the service
+    from src.ai.llm_agent_service import llm_agent_service
+    original_enabled = llm_agent_service.enabled
+    llm_agent_service.enabled = True
+    
+    try:
+        # First create a room with discussion
+        from src.socket.room_manager import room_manager
+        room_manager.add_user_to_room("test-room", {
+            "id": "user1",
+            "anonymousName": "Test User",
+            "isReady": True
+        })
+        
+        # Set up discussion
+        room = room_manager.get_room("test-room")
+        room["discussion"]["active"] = True
+        room["discussion"]["topic"] = {
+            "title": "Test Topic",
+            "description": "Test description"
+        }
+        
+        response = client.post("/api/llm-agent/response/test-room")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "data" in data
+        assert "speaker" in data["data"]
+        assert "content" in data["data"]
+    finally:
+        # Cleanup
+        llm_agent_service.enabled = original_enabled
+        from src.socket.room_manager import room_manager
+        room_manager.remove_user_from_room("test-room", "user1")
+
+
+def test_trigger_llm_agent_response_disabled(client):
+    """Test triggering LLM agent response when disabled"""
+    response = client.post("/api/llm-agent/response/test-room")
+    assert response.status_code == 400
+    data = response.json()
+    assert "LLM Agent is not enabled" in data["detail"]
+
+
+def test_trigger_llm_agent_response_room_not_found(client):
+    """Test triggering LLM agent response for room with no discussion"""
+    from src.ai.llm_agent_service import llm_agent_service
+    original_enabled = llm_agent_service.enabled
+    llm_agent_service.enabled = True
+    
+    try:
+        response = client.post("/api/llm-agent/response/nonexistent-room")
+        # Room will be auto-created, but has no active discussion
+        assert response.status_code == 400
+        data = response.json()
+        assert "No active discussion" in data["detail"]
+    finally:
+        llm_agent_service.enabled = original_enabled
