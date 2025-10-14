@@ -39,7 +39,7 @@ Tests all REST API endpoints:
 
 **Coverage**: All REST endpoints, request/response handling
 
-### 3. `test_database.py` - Database Operations (7 tests)
+### 3. `test_database.py` - Database Operations (8 tests)
 Tests database layer functionality:
 - ✅ Database initialization
 - ✅ Save session data
