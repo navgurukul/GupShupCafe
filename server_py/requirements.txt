@@ -16,6 +16,13 @@ httpx==0.25.1
 # Utility
 python-dateutil==2.8.2
 
+# Testing dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.1
+
+
 # LLM and AI Integrations
 aws-opentelemetry-distro>=0.10.0
 bedrock-agentcore
