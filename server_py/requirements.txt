@@ -22,23 +22,3 @@ pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 httpx==0.25.1
 
-
-# LLM and AI Integrations
-aws-opentelemetry-distro>=0.10.0
-bedrock-agentcore
-bedrock-agentcore-starter-toolkit
-boto3
-litellm
-mcp[cli]
-nova-act
-opensearch-py
-pandas
-retrying
-strands-agents 
-strands-agents-tools[mem0_memory]
-streamlit
-tqdm
-uv
-google-genai
-dotenv
-
