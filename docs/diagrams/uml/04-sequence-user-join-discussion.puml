@@ -1,0 +1,150 @@
+@startuml Sequence Diagram - User Join and Discussion Start
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam maxmessagesize 150
+
+title GupShup Cafe - User Join and Discussion Start Flow
+
+actor "User" as User
+participant "Browser\n(React)" as Browser
+participant "Auth Context" as Auth
+participant "Socket Context" as Socket
+participant "Audio Context" as Audio
+participant "FastAPI\nServer" as Server
+participant "Socket\nHandlers" as SocketHandler
+participant "Room\nManager" as RoomMgr
+participant "LLM\nAgent" as LLM
+participant "Database" as DB
+
+== User Login ==
+User -> Browser : Enter name, campus, location
+Browser -> Auth : login(userData)
+Auth -> Auth : Generate anonymousName
+Auth -> Auth : Store in localStorage
+Auth --> Browser : Authentication success
+Browser -> Browser : Navigate to /lobby
+
+== Join Lobby ==
+Browser -> Socket : initialize()
+Socket -> Server : connect(auth: userData)
+activate Server
+Server -> SocketHandler : connect event
+SocketHandler --> Server : Acknowledge
+Server --> Socket : connected
+deactivate Server
+
+Socket -> Server : emit('join-room', 'general', userData)
+activate Server
+Server -> SocketHandler : join_room handler
+SocketHandler -> RoomMgr : add_user_to_room(roomId, userData)
+activate RoomMgr
+RoomMgr -> RoomMgr : Create room if not exists
+RoomMgr -> RoomMgr : Add participant
+RoomMgr --> SocketHandler : room data
+deactivate RoomMgr
+
+SocketHandler -> Server : emit('participants-update', room.participants)
+Server --> Browser : participants-update event
+SocketHandler -> Server : emit('user-joined', {userId, anonymousName})
+Server --> Browser : user-joined event
+deactivate Server
+
+Browser -> Browser : Display participants in lobby
+
+== Request Audio Permissions ==
+User -> Browser : Click "Join Discussion"
+Browser -> Audio : requestMicrophonePermission()
+activate Audio
+Audio -> Browser : navigator.mediaDevices.getUserMedia()
+Browser --> User : System permission dialog
+User --> Browser : Allow microphone
+Browser --> Audio : MediaStream
+Audio -> Audio : Store localStream
+Audio --> Browser : Permission granted
+deactivate Audio
+
+== Mark Ready ==
+Browser -> Socket : emit('user-ready', true)
+activate Server
+Server -> SocketHandler : user_ready handler
+SocketHandler -> RoomMgr : update_user(roomId, userId, {isReady: true})
+activate RoomMgr
+RoomMgr -> RoomMgr : Update participant state
+RoomMgr -> RoomMgr : Check if all ready (min 2 participants)
+alt All participants ready
+    RoomMgr --> SocketHandler : All ready = true
+else Not all ready
+    RoomMgr --> SocketHandler : All ready = false
+end
+deactivate RoomMgr
+
+SocketHandler -> Server : emit('participants-update', participants)
+Server --> Browser : participants-update event
+Browser -> Browser : Update ready status in UI
+deactivate Server
+
+== Start Discussion (When All Ready) ==
+alt All Participants Ready
+    activate Server
+    SocketHandler -> LLM : generate_discussion_topic()
+    activate LLM
+    LLM -> LLM : Call AI API or fallback
+    LLM --> SocketHandler : topic
+    deactivate LLM
+    
+    SocketHandler -> RoomMgr : start_discussion(roomId, topic)
+    activate RoomMgr
+    RoomMgr -> RoomMgr : Set discussion.active = true
+    RoomMgr -> RoomMgr : Set currentSpeakerIndex = 0
+    RoomMgr -> RoomMgr : Set speakingTime = 60s
+    RoomMgr -> RoomMgr : Start timer
+    RoomMgr --> SocketHandler : discussion state
+    deactivate RoomMgr
+    
+    SocketHandler -> DB : save_session(sessionData)
+    activate DB
+    DB -> DB : INSERT INTO sessions
+    DB --> SocketHandler : session_id
+    deactivate DB
+    
+    SocketHandler -> DB : save_participant(participantData) for each
+    activate DB
+    DB -> DB : INSERT INTO participants
+    DB --> SocketHandler : success
+    deactivate DB
+    
+    SocketHandler -> Server : emit('discussion-start', {topic, participants, currentSpeaker})
+    Server --> Browser : discussion-start event
+    deactivate Server
+    
+    Browser -> Browser : Navigate to /roundtable
+    Browser -> Browser : Display topic and roundtable
+    
+    Browser -> Audio : initializeWebRTC()
+    activate Audio
+    Audio -> Audio : Create RTCPeerConnection for each participant
+    Audio -> Audio : Add localStream tracks
+    Audio -> Socket : emit('ready-for-webrtc')
+    deactivate Audio
+end
+
+note right of RoomMgr
+    Room state includes:
+    - participants list
+    - discussion state
+    - current speaker
+    - timer
+end note
+
+note right of LLM
+    LLM Agent can be used to:
+    - Generate topics
+    - Provide feedback
+    - Facilitate discussion
+end note
+
+@enduml
