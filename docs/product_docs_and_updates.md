@@ -25,6 +25,84 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-15 17:50 UTC] - Added AWS Strands Multi-Agent System & AgentCore Integration
+
+**Commit**: `feat: integrate AWS Strands multi-agent system with AgentCore deployment`  
+**Author**: Copilot (addressing @Vinit-source feedback)  
+**Type**: Architecture | Documentation
+
+**Changes**:
+- **Added AWS Strands Multi-Agent System** as core innovation for MVP
+  - EnglishFeedbackAgent: Real-time grammar, vocabulary, fluency analysis
+  - Debate Facilitator Agent: Turn management and discussion flow
+  - Multi-Agent Orchestrator: Coordinates agents and feedback delivery
+- **Added AWS AgentCore wrapper** for production deployment
+  - Runtime environment configuration
+  - Identity and permissions management  
+  - Internet access for LLM APIs
+  - Logging and monitoring integration
+- **Enhanced English Feedback Modal** (separate from SpeechToText tab)
+  - Private feedback visible only to speaker
+  - Instant feedback (2-3 seconds) during speaking
+  - Comprehensive analysis at end of discussion
+  - Agent gently mentions feedback in conversation
+- **Updated architecture diagrams** to show multi-agent flow
+- **Added code examples** from requirements:
+  ```python
+  # Instant feedback (2-3s)
+  orchestrator.get_english_feedback(recent_statements, instant=True)
+  
+  # Comprehensive feedback
+  orchestrator.get_english_feedback(all_statements, instant=False)
+  ```
+- **Added example feedback output**:
+  ```
+  [Alice]: I thinks AI will replace many jobs.
+  
+  📝 Grammar Feedback:
+  ⚠ Suggestion: "I thinks" should be "I think" (subject-verb agreement).
+  The rest of your statement is clear and well-structured.
+  ```
+
+**Key Architectural Updates**:
+1. **Multi-Agent Orchestration**: AWS Strands coordinates specialized agents for better feedback quality
+2. **Two Feedback Modes**: 
+   - Instant (2-3s): Quick analysis during speaking for real-time UI
+   - Comprehensive: Detailed analysis with progress tracking at end
+3. **Private Feedback Channel**: English Feedback Modal separate from public SpeechToText
+4. **Gentle Agent Mentions**: AI agent subtly mentions feedback in conversation without being intrusive
+5. **AgentCore Deployment**: Production-ready wrapper with runtime, identity, and access management
+
+**Files Modified**:
+- `docs/Architectural Conversations/product_system_design.md`
+  - Updated Section 1.1: MVP Feature Prioritization (added AWS Strands, AgentCore, English Feedback Modal)
+  - Updated Section 2.1: High-Level System Architecture (added multi-agent layer in diagram)
+  - Updated Section 2.2: Data Flow Sequence (detailed multi-agent interaction with example)
+  - Updated Section 3.1: Design Principles (added multi-agent orchestration)
+  - Updated Section 3.2: Architecture (added AWS Strands orchestrator diagram)
+  - Added Section 3.6: AWS Strands Multi-Agent Orchestrator (470+ lines)
+    - 3.6.1: Orchestrator Implementation (Python class with instant/comprehensive modes)
+    - 3.6.2: English Feedback Modal (React component)
+    - 3.6.3: Integration with AWS AgentCore (deployment configuration)
+  - Updated Section 4.1: AWS Cloud Architecture (added AgentCore in infrastructure diagram)
+
+**Impact**:
+- **Enhanced AI Capabilities**: Multi-agent system provides more accurate, context-aware feedback
+- **Better UX**: Instant feedback (2-3s) keeps users engaged without disrupting flow
+- **Production Ready**: AgentCore wrapper ensures enterprise-grade deployment
+- **Privacy**: English Feedback Modal shows private feedback only to speaker
+- **Scalability**: Agent orchestration pattern scales to additional agents (e.g., pronunciation, coherence)
+
+**Next Steps for Implementation**:
+- Day 1: Set up AWS AgentCore environment and IAM roles
+- Day 1: Implement AWSStrandsOrchestrator class with instant/comprehensive modes
+- Day 1: Create EnglishFeedbackAgent with CEFR analysis
+- Day 2: Build English Feedback Modal component (React)
+- Day 2: Integrate private Socket.io channel for feedback
+- Day 3: Deploy to AgentCore and test with Bedrock
+
+---
+
 ### [2025-10-15 17:06 UTC] - MVP System Architecture & 3-Day Hackathon Plan
 
 **Commit**: `Initial analysis and planning for MVP system architecture documentation`  

@@ -35,10 +35,19 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 
 **Priority 3: AI Feedback Engine (Core Innovation)**
 - ✅ Speech-to-Text (STT) using Web Speech Recognition API (MVP)
+- ✅ **AWS Strands Multi-Agent System** for orchestrated AI feedback:
+  - **EnglishFeedbackAgent**: Real-time grammar, vocabulary, and fluency analysis
+  - **Debate Facilitator Agent**: Manages turn-taking and discussion flow
+  - **Multi-Agent Orchestrator**: Coordinates agents and feedback delivery
 - ✅ LLM-based feedback on English quality (grammar, vocabulary, fluency)
 - ✅ CEFR level estimation (A1-C2 scale)
+- ✅ Real-time English Feedback Modal (separate from SpeechToText tab)
+  - Instant feedback (2-3 seconds) during speaking
+  - Comprehensive analysis at end of discussion
+  - Private feedback visible only to speaker
 - ✅ Text-to-Speech (TTS) for AI agent responses
 - ✅ Real-time feedback display to users
+- ✅ **AWS AgentCore** wrapper for production deployment (runtime, identity, internet access)
 
 **Priority 4: Minimal Persistence**
 - ✅ Store session data (participants, transcripts, feedback)
@@ -121,6 +130,33 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
          │
          ▼
 ┌────────────────────────────────────────────────────────────────────────┐
+│                  AWS STRANDS MULTI-AGENT SYSTEM                         │
+│                     (Wrapped in AWS AgentCore)                          │
+│  ┌──────────────────────────────────────────────────────────────┐     │
+│  │              Multi-Agent Orchestrator                         │     │
+│  │  - Coordinates agents for real-time and comprehensive feedback     │
+│  │  - Manages instant (2-3s) vs detailed analysis                │     │
+│  │  - Routes feedback to appropriate UI components               │     │
+│  └────────────┬─────────────────────────┬──────────────────────┘     │
+│               │                         │                             │
+│  ┌────────────▼───────────┐  ┌─────────▼──────────────┐              │
+│  │ EnglishFeedbackAgent   │  │ Debate Facilitator     │              │
+│  │                        │  │      Agent             │              │
+│  │ - Grammar analysis     │  │ - Turn management      │              │
+│  │ - Vocabulary scoring   │  │ - Topic guidance       │              │
+│  │ - Fluency assessment   │  │ - Discussion flow      │              │
+│  │ - CEFR level (A1-C2)   │  │ - Participant support  │              │
+│  │ - Instant feedback     │  │ - Moderation           │              │
+│  └────────────────────────┘  └────────────────────────┘              │
+│                                                                        │
+│  Powered by:                                                           │
+│  - AWS Bedrock (Claude 3 for production)                               │
+│  - Gemini API (for development)                                        │
+│  - AWS AgentCore (runtime, identity, internet access)                  │
+└────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────────────────────────────────────────────────┐
 │                    PLUGGABLE AI SERVICE LAYER                           │
 │  ┌──────────────────────────────────────────────────────────────┐     │
 │  │                  AI Service Abstraction                       │     │
@@ -144,47 +180,93 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Data Flow Sequence
+### 2.2 Data Flow Sequence (with AWS Strands Multi-Agent System)
 
 ```
-┌──────────┐                ┌──────────┐                ┌──────────────┐
-│  User A  │                │  Server  │                │  AI Service  │
-└────┬─────┘                └────┬─────┘                └──────┬───────┘
-     │                           │                              │
-     │ 1. Join Room              │                              │
-     │ ─────────────────────────>│                              │
-     │                           │                              │
-     │ 2. Room State + Topic     │                              │
-     │ <─────────────────────────│                              │
-     │                           │                              │
-     │ 3. WebRTC Offer (P2P)     │                              │
-     │ ─────────────────────────>│────────────────>             │
-     │                           │        (Signaling)           │
-     │ 4. WebRTC Answer          │                              │
-     │ <─────────────────────────│<────────────────             │
-     │                           │                              │
-     │ 5. Audio Stream (P2P) ◄──────────────────────►          │
-     │    (Direct between peers, no server relay)              │
-     │                           │                              │
-     │ 6. Speak (Turn Timer)     │                              │
-     │ ───────────────►          │                              │
-     │    Audio to STT           │                              │
-     │                           │ 7. Transcript Text           │
-     │                           │ ────────────────────────────>│
-     │                           │                              │
-     │                           │ 8. AI Analysis (CEFR)        │
-     │                           │ <────────────────────────────│
-     │                           │    - Grammar check           │
-     │                           │    - Vocabulary level        │
-     │                           │    - Fluency score           │
-     │                           │                              │
-     │ 9. Feedback Display       │                              │
-     │ <─────────────────────────│                              │
-     │    + TTS Audio Response   │                              │
-     │                           │                              │
-     │ 10. Next Turn             │                              │
-     │ <─────────────────────────│                              │
-     │                           │                              │
+┌──────────┐          ┌──────────┐          ┌─────────────────┐          ┌──────────────────┐
+│  User A  │          │  Server  │          │ AWS Strands     │          │ EnglishFeedback  │
+│ (Alice)  │          │ (FastAPI)│          │ Orchestrator    │          │     Agent        │
+└────┬─────┘          └────┬─────┘          └────────┬────────┘          └────────┬─────────┘
+     │                     │                          │                            │
+     │ 1. Join Room        │                          │                            │
+     │ ───────────────────>│                          │                            │
+     │                     │                          │                            │
+     │ 2. Room State       │                          │                            │
+     │ <───────────────────│                          │                            │
+     │                     │                          │                            │
+     │ 3. Speak (Turn)     │                          │                            │
+     │ "I thinks AI will   │                          │                            │
+     │  replace many jobs" │                          │                            │
+     │ ───────────────────>│                          │                            │
+     │    (WebRTC Audio)   │                          │                            │
+     │                     │                          │                            │
+     │                     │ 4. STT Transcript        │                            │
+     │                     │ ────────────────────────>│                            │
+     │                     │                          │                            │
+     │                     │                          │ 5. Quick Analysis Request  │
+     │                     │                          │ ─────────────────────────>│
+     │                     │                          │    (instant=True, 2-3s)    │
+     │                     │                          │                            │
+     │                     │                          │ 6. Grammar Feedback        │
+     │                     │                          │ <─────────────────────────│
+     │                     │                          │    "I thinks" → "I think"  │
+     │                     │                          │    CEFR: B1, Score: 7/10   │
+     │                     │                          │                            │
+     │ 7. English Feedback │ <────────────────────────│                            │
+     │    Modal (Private)  │   (Socket: "english-feedback")                        │
+     │ ┌──────────────────┐│                          │                            │
+     │ │ 📝 Grammar:      ││                          │                            │
+     │ │ ⚠ "I thinks"→    ││                          │                            │
+     │ │   "I think"      ││                          │                            │
+     │ │ ✓ Rest is clear  ││                          │                            │
+     │ └──────────────────┘│                          │                            │
+     │                     │                          │                            │
+     │ 8. Agent mentions   │ <────────────────────────│                            │
+     │    feedback gently  │   (TTS: "Alice, great point!                          │
+     │    in conversation  │    Quick tip: 'I think' instead of 'I thinks'")       │
+     │                     │                          │                            │
+     │ [Continue discussion...]                       │                            │
+     │                     │                          │                            │
+     │ 9. End of Round     │                          │                            │
+     │ ───────────────────>│                          │                            │
+     │                     │                          │                            │
+     │                     │ 10. Comprehensive Analysis│                           │
+     │                     │ ────────────────────────>│ ─────────────────────────>│
+     │                     │    (instant=False)       │  (All statements, context) │
+     │                     │                          │                            │
+     │                     │                          │ 11. Detailed Feedback      │
+     │                     │                          │ <─────────────────────────│
+     │                     │                          │    - Progress tracking     │
+     │                     │                          │    - Improvement areas     │
+     │                     │                          │    - CEFR trajectory       │
+     │                     │                          │                            │
+     │ 12. Summary Report  │ <────────────────────────│                            │
+     │     Dashboard       │                          │                            │
+     │                     │                          │                            │
+
+Example Code (from comment):
+```python
+# Quick analysis during speaking (2-3 seconds)
+english_feedback = orchestrator.get_english_feedback(
+    recent_statements, 
+    instant=True  # Fast response for real-time UI
+)
+
+# Comprehensive analysis at end of discussion
+summary = orchestrator.get_english_feedback(
+    all_statements,
+    instant=False  # Detailed with progress tracking
+)
+```
+
+Example Output:
+```
+[Alice]: I thinks AI will replace many jobs.
+
+📝 Grammar Feedback (Private English Feedback Modal):
+⚠ Suggestion: "I thinks" should be "I think" (subject-verb agreement).
+The rest of your statement is clear and well-structured.
+CEFR Level: B1 | Grammar: 7/10 | Vocabulary: 8/10 | Fluency: 7/10
 ```
 
 ---
@@ -193,14 +275,45 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 
 ### 3.1 Design Principles
 
-1. **Abstraction**: Each AI service (STT, LLM, TTS) is behind an interface
-2. **OpenAI Compatibility**: LLM interface uses standard OpenAI message format
-3. **Easy Switching**: Toggle between Gemini (dev) and Bedrock (prod) with config
-4. **Fallback Support**: Graceful degradation if AI services fail
+1. **AWS Strands Multi-Agent Orchestration**: Coordinate multiple specialized agents (EnglishFeedbackAgent, Debate Facilitator)
+2. **AWS AgentCore Deployment**: Wrap agents in AgentCore for production runtime, identity management, and internet access
+3. **Abstraction**: Each AI service (STT, LLM, TTS) is behind an interface
+4. **OpenAI Compatibility**: LLM interface uses standard OpenAI message format
+5. **Easy Switching**: Toggle between Gemini (dev) and Bedrock (prod) with config
+6. **Fallback Support**: Graceful degradation if AI services fail
+7. **Real-Time Feedback**: Instant (2-3s) feedback during speaking + comprehensive analysis post-discussion
 
-### 3.2 Architecture
+### 3.2 Architecture (with AWS Strands)
 
 ```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        AWS AgentCore Runtime                            │
+│  ┌──────────────────────────────────────────────────────────────┐     │
+│  │           AWS Strands Multi-Agent Orchestrator                │     │
+│  │                                                               │     │
+│  │  ┌──────────────────────┐    ┌─────────────────────────┐    │     │
+│  │  │ EnglishFeedbackAgent │    │ Debate Facilitator Agent │    │     │
+│  │  │                      │    │                          │    │     │
+│  │  │ - Grammar Analysis   │    │ - Turn Management        │    │     │
+│  │  │ - Vocabulary Scoring │    │ - Topic Guidance         │    │     │
+│  │  │ - Fluency Assessment │    │ - Discussion Flow        │    │     │
+│  │  │ - CEFR Leveling      │    │ - Moderation             │    │     │
+│  │  │ - Instant (2-3s)     │    │ - Participant Support    │    │     │
+│  │  │ - Comprehensive Mode │    │                          │    │     │
+│  │  └──────────────────────┘    └─────────────────────────┘    │     │
+│  │                                                               │     │
+│  │  orchestrator.get_english_feedback(statements, instant=True) │     │
+│  │  orchestrator.get_english_feedback(statements, instant=False)│     │
+│  └──────────────────────────────────────────────────────────────┘     │
+│                                                                        │
+│  AgentCore provides:                                                   │
+│  - Runtime environment                                                 │
+│  - Identity & permissions                                              │
+│  - Internet access for LLM APIs                                        │
+│  - Logging & monitoring                                                │
+└────────────────────────────────────────────────────────────────────────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
 ┌────────────────────────────────────────────────────────────────┐
 │                  AI Service Manager (ai_services.py)            │
 │                                                                 │
@@ -208,6 +321,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 │    "stt_provider": "web_speech_api",    # or "aws_transcribe" │
 │    "llm_provider": "gemini",            # or "bedrock"          │
 │    "tts_provider": "browser_tts",       # or "aws_polly"       │
+│    "agent_orchestrator": "aws_strands"  # Multi-agent system   │
 │  }                                                              │
 └────────────────────────────────────────────────────────────────┘
          │                    │                    │
@@ -570,6 +684,407 @@ llm = ai_manager.get_llm()
 feedback = await llm.analyze_english(transcript, context)
 ```
 
+### 3.6 AWS Strands Multi-Agent Orchestrator (Core Innovation)
+
+The AWS Strands Multi-Agent Orchestrator coordinates specialized agents to provide real-time English feedback and facilitate discussions. This is the key innovation for the MVP.
+
+#### 3.6.1 Orchestrator Implementation
+
+```python
+# server_py/src/ai/aws_strands_orchestrator.py
+from aws_agentcore import AgentCore
+from typing import List, Dict, Optional
+
+class AWSStrandsOrchestrator:
+    """
+    Multi-agent orchestrator using AWS Strands.
+    Coordinates EnglishFeedbackAgent and Debate Facilitator Agent.
+    """
+    
+    def __init__(self, agentcore_config: dict):
+        """
+        Initialize with AWS AgentCore for runtime, identity, and internet access.
+        
+        Args:
+            agentcore_config: Configuration for AWS AgentCore deployment
+        """
+        self.agentcore = AgentCore(agentcore_config)
+        self.english_agent = None
+        self.facilitator_agent = None
+        self._initialize_agents()
+    
+    def _initialize_agents(self):
+        """Initialize specialized agents."""
+        # EnglishFeedbackAgent for grammar, vocabulary, fluency analysis
+        self.english_agent = self.agentcore.create_agent(
+            name="EnglishFeedbackAgent",
+            capabilities=["grammar_analysis", "cefr_leveling", "instant_feedback"]
+        )
+        
+        # Debate Facilitator Agent for turn management and discussion flow
+        self.facilitator_agent = self.agentcore.create_agent(
+            name="DebateFacilitatorAgent",
+            capabilities=["turn_management", "topic_guidance", "moderation"]
+        )
+    
+    async def get_english_feedback(
+        self,
+        statements: List[Dict[str, str]],
+        instant: bool = True,
+        context: Optional[Dict] = None
+    ) -> Dict:
+        """
+        Get English feedback from the multi-agent system.
+        
+        Args:
+            statements: List of recent statements with format:
+                [
+                    {"speaker": "Alice", "text": "I thinks AI will replace jobs"},
+                    {"speaker": "Bob", "text": "That's an interesting point"}
+                ]
+            instant: If True, return quick analysis (2-3 seconds).
+                    If False, return comprehensive analysis with progress tracking.
+            context: Optional context including previous feedback, topic, etc.
+        
+        Returns:
+            Feedback dictionary with grammar, vocabulary, fluency scores and suggestions
+        
+        Example Usage:
+            # Quick analysis during speaking (2-3 seconds)
+            english_feedback = orchestrator.get_english_feedback(
+                recent_statements, 
+                instant=True  # Fast response for real-time UI
+            )
+            
+            # Comprehensive analysis at end of discussion
+            summary = orchestrator.get_english_feedback(
+                all_statements,
+                instant=False  # Detailed with progress tracking
+            )
+        """
+        context = context or {}
+        
+        if instant:
+            # Fast analysis for real-time feedback modal
+            return await self._instant_feedback(statements, context)
+        else:
+            # Comprehensive analysis with progress tracking
+            return await self._comprehensive_feedback(statements, context)
+    
+    async def _instant_feedback(self, statements: List[Dict], context: Dict) -> Dict:
+        """
+        Provide instant feedback (2-3 seconds) for real-time display.
+        Focuses on most recent statement.
+        """
+        if not statements:
+            return {"success": False, "error": "No statements provided"}
+        
+        latest = statements[-1]
+        
+        # Quick analysis by EnglishFeedbackAgent
+        result = await self.english_agent.analyze({
+            "text": latest["text"],
+            "mode": "instant",
+            "previous_feedback": context.get("previous_feedback", [])
+        })
+        
+        # Format for English Feedback Modal
+        return {
+            "success": True,
+            "speaker": latest["speaker"],
+            "feedback_type": "instant",
+            "response_time": "2-3s",
+            "grammar": {
+                "score": result.get("grammar_score", 0),
+                "issues": result.get("grammar_issues", []),
+                "suggestions": result.get("grammar_suggestions", [])
+            },
+            "vocabulary": {
+                "score": result.get("vocabulary_score", 0),
+                "level": result.get("vocabulary_level", "intermediate")
+            },
+            "fluency": {
+                "score": result.get("fluency_score", 0),
+                "comments": result.get("fluency_comments", "")
+            },
+            "cefr_level": result.get("cefr_level", "B1"),
+            "overall_score": result.get("overall_score", 7.0),
+            "display_message": self._format_feedback_message(result),
+            "agent_mention": self._format_gentle_mention(latest["speaker"], result)
+        }
+    
+    async def _comprehensive_feedback(self, statements: List[Dict], context: Dict) -> Dict:
+        """
+        Provide comprehensive feedback at end of discussion.
+        Analyzes all statements and tracks progress.
+        """
+        # Detailed analysis by EnglishFeedbackAgent
+        result = await self.english_agent.analyze({
+            "statements": statements,
+            "mode": "comprehensive",
+            "context": context
+        })
+        
+        return {
+            "success": True,
+            "feedback_type": "comprehensive",
+            "participants": self._analyze_per_participant(statements, result),
+            "progress_tracking": {
+                "cefr_trajectory": result.get("cefr_progression", []),
+                "improvement_areas": result.get("improvement_areas", []),
+                "strengths": result.get("strengths", [])
+            },
+            "session_summary": result.get("summary", ""),
+            "recommendations": result.get("recommendations", [])
+        }
+    
+    def _format_feedback_message(self, result: Dict) -> str:
+        """
+        Format feedback for English Feedback Modal display.
+        
+        Example Output:
+        [Alice]: I thinks AI will replace many jobs.
+        
+        📝 Grammar Feedback:
+        ⚠ Suggestion: "I thinks" should be "I think" (subject-verb agreement).
+        The rest of your statement is clear and well-structured.
+        """
+        issues = result.get("grammar_issues", [])
+        if not issues:
+            return "✓ Your grammar is clear and correct!"
+        
+        message = "📝 Grammar Feedback:\n"
+        for issue in issues:
+            message += f"⚠ Suggestion: {issue['original']} → {issue['corrected']} ({issue['reason']})\n"
+        
+        if result.get("positive_note"):
+            message += f"\n{result['positive_note']}"
+        
+        return message
+    
+    def _format_gentle_mention(self, speaker: str, result: Dict) -> str:
+        """
+        Format gentle feedback mention for agent's conversation.
+        Agent mentions feedback subtly during discussion.
+        """
+        issues = result.get("grammar_issues", [])
+        if not issues:
+            return f"{speaker}, great point!"
+        
+        main_issue = issues[0]
+        return (
+            f"{speaker}, great point! "
+            f"Quick tip: '{main_issue['corrected']}' instead of '{main_issue['original']}'"
+        )
+    
+    def _analyze_per_participant(self, statements: List[Dict], result: Dict) -> Dict:
+        """Analyze feedback per participant for summary."""
+        participants = {}
+        for stmt in statements:
+            speaker = stmt["speaker"]
+            if speaker not in participants:
+                participants[speaker] = {
+                    "statements_count": 0,
+                    "cefr_levels": [],
+                    "grammar_scores": [],
+                    "vocabulary_scores": []
+                }
+            participants[speaker]["statements_count"] += 1
+        
+        # Add detailed analysis from result
+        for speaker, data in result.get("per_participant", {}).items():
+            if speaker in participants:
+                participants[speaker].update(data)
+        
+        return participants
+
+
+# Usage in FastAPI endpoint
+@app.post("/api/ai/instant-feedback")
+async def get_instant_feedback(request: FeedbackRequest):
+    """
+    Endpoint for real-time English feedback during speaking.
+    Returns feedback in 2-3 seconds for English Feedback Modal.
+    """
+    orchestrator = get_strands_orchestrator()
+    
+    feedback = await orchestrator.get_english_feedback(
+        statements=request.recent_statements,
+        instant=True,
+        context={
+            "previous_feedback": request.previous_feedback,
+            "topic": request.topic,
+            "participant_name": request.speaker
+        }
+    )
+    
+    # Emit to specific participant only (private feedback)
+    await socketio.emit(
+        "english-feedback",
+        feedback,
+        room=request.participant_socket_id
+    )
+    
+    return {"success": True, "feedback_sent": True}
+
+
+@app.post("/api/ai/comprehensive-feedback")
+async def get_comprehensive_feedback(request: ComprehensiveFeedbackRequest):
+    """
+    Endpoint for detailed feedback at end of discussion.
+    Includes progress tracking and recommendations.
+    """
+    orchestrator = get_strands_orchestrator()
+    
+    summary = await orchestrator.get_english_feedback(
+        statements=request.all_statements,
+        instant=False,
+        context={
+            "session_id": request.session_id,
+            "topic": request.topic,
+            "duration": request.duration
+        }
+    )
+    
+    return summary
+```
+
+#### 3.6.2 English Feedback Modal (Frontend)
+
+The English Feedback Modal is a separate UI component from the SpeechToText tab. It displays private, real-time feedback visible only to the speaker.
+
+```javascript
+// client/src/components/EnglishFeedbackModal.jsx
+import React, { useState, useEffect } from 'react';
+import { useSocket } from '../contexts/SocketContext';
+
+const EnglishFeedbackModal = ({ isOpen, onClose }) => {
+  const [feedback, setFeedback] = useState(null);
+  const socket = useSocket();
+  
+  useEffect(() => {
+    if (!socket) return;
+    
+    // Listen for private English feedback
+    socket.on('english-feedback', (data) => {
+      setFeedback(data);
+    });
+    
+    return () => {
+      socket.off('english-feedback');
+    };
+  }, [socket]);
+  
+  if (!isOpen || !feedback) return null;
+  
+  return (
+    <div className="fixed bottom-20 right-4 w-96 bg-white rounded-lg shadow-xl p-4 z-50">
+      <div className="flex justify-between items-start mb-3">
+        <h3 className="text-lg font-semibold text-gray-800">
+          📝 English Feedback
+        </h3>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          ✕
+        </button>
+      </div>
+      
+      <div className="space-y-3">
+        {/* CEFR Level Badge */}
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            CEFR: {feedback.cefr_level}
+          </span>
+          <span className="text-sm text-gray-600">
+            Score: {feedback.overall_score}/10
+          </span>
+        </div>
+        
+        {/* Grammar Feedback */}
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+          <p className="text-sm font-medium text-yellow-800 mb-1">Grammar</p>
+          {feedback.grammar.issues.map((issue, idx) => (
+            <p key={idx} className="text-sm text-gray-700">
+              ⚠ {issue.original} → {issue.corrected}
+              <span className="text-gray-500 ml-1">({issue.reason})</span>
+            </p>
+          ))}
+          {feedback.grammar.issues.length === 0 && (
+            <p className="text-sm text-green-700">✓ Clear and correct!</p>
+          )}
+        </div>
+        
+        {/* Vocabulary & Fluency Scores */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-50 p-2 rounded">
+            <p className="text-xs text-gray-600">Vocabulary</p>
+            <p className="text-lg font-semibold">{feedback.vocabulary.score}/10</p>
+          </div>
+          <div className="bg-gray-50 p-2 rounded">
+            <p className="text-xs text-gray-600">Fluency</p>
+            <p className="text-lg font-semibold">{feedback.fluency.score}/10</p>
+          </div>
+        </div>
+        
+        {/* Display Message */}
+        <div className="text-sm text-gray-700 whitespace-pre-line">
+          {feedback.display_message}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EnglishFeedbackModal;
+```
+
+#### 3.6.3 Integration with AWS AgentCore
+
+```python
+# server_py/src/deployment/agentcore_config.py
+import os
+from aws_agentcore import AgentCoreConfig
+
+def get_agentcore_config():
+    """
+    Configure AWS AgentCore for production deployment.
+    Provides runtime, identity, and internet access for agents.
+    """
+    return AgentCoreConfig(
+        runtime_environment={
+            "python_version": "3.11",
+            "memory_mb": 2048,
+            "timeout_seconds": 30
+        },
+        identity={
+            "iam_role": os.getenv("AGENTCORE_IAM_ROLE"),
+            "permissions": [
+                "bedrock:InvokeModel",
+                "transcribe:StartStreamTranscription",
+                "polly:SynthesizeSpeech"
+            ]
+        },
+        internet_access={
+            "enabled": True,
+            "allowed_domains": [
+                "generativelanguage.googleapis.com",  # Gemini API
+                "bedrock-runtime.us-east-1.amazonaws.com"  # Bedrock
+            ]
+        },
+        logging={
+            "cloudwatch_log_group": "/aws/agentcore/gupshup-cafe",
+            "log_level": "INFO"
+        },
+        monitoring={
+            "metrics_enabled": True,
+            "traces_enabled": True
+        }
+    )
+
+
+# Initialize orchestrator with AgentCore
+orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
+```
+
 ---
 
 ## 4. AWS Cloud Architecture
@@ -636,6 +1151,18 @@ feedback = await llm.analyze_english(transcript, context)
 │  │  - 20 GB gp3 (general purpose SSD)                               │ │
 │  │  - Stores: Application code, MongoDB/SQLite DB, Logs             │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │          AWS Strands Multi-Agent System (AgentCore)              │   │
+│  │  ┌────────────────────────────────────────────────────────────┐ │   │
+│  │  │            Multi-Agent Orchestrator                         │ │   │
+│  │  │  - Coordinates EnglishFeedbackAgent & Debate Facilitator    │ │   │
+│  │  │  - Instant feedback (2-3s) + Comprehensive analysis         │ │   │
+│  │  │  - Runtime, identity, internet access via AgentCore         │ │   │
+│  │  └────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                  │   │
+│  │  Powered by AWS Bedrock (Claude 3) + Gemini (dev)               │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │              AWS Bedrock (AI/ML Services)                        │   │
