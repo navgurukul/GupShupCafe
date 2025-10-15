@@ -192,7 +192,7 @@ deactivate Server
 Socket -> Browser : Display final summary
 Browser --> User : Show comprehensive feedback
 
-note bottom of MCPServer
+note over MCPServer
     MCP Server provides tools via
     Streamable HTTP at
     http://localhost:8000/mcp/
