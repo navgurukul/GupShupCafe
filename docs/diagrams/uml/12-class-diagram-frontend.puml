@@ -1,0 +1,309 @@
+@startuml Class Diagram - Frontend React Components
+
+!define RECTANGLE class
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+
+title GupShup Cafe - Frontend React Components Class Diagram
+
+package "Context Layer" {
+    class AuthContext {
+        -_user: User | null
+        -_isAuthenticated: boolean
+        --
+        +login(userData: UserData): void
+        +logout(): void
+        +updateUser(updates: Partial<User>): void
+        +getUser(): User | null
+        +isAuthenticated(): boolean
+    }
+    
+    class SocketContext {
+        -_socket: Socket | null
+        -_isConnected: boolean
+        -_room: Room | null
+        -_participants: Participant[]
+        -_discussionState: Discussion | null
+        --
+        +initialize(): void
+        +connect(): Promise<void>
+        +disconnect(): void
+        +emit(event: string, data: any): void
+        +on(event: string, handler: Function): void
+        +joinRoom(roomId: string, userData: UserData): void
+        +leaveRoom(roomId: string): void
+        +markReady(isReady: boolean): void
+        +nextSpeaker(): void
+        +getParticipants(): Participant[]
+        +getDiscussionState(): Discussion | null
+    }
+    
+    class AudioContext {
+        -_localStream: MediaStream | null
+        -_remoteStreams: Map<string, MediaStream>
+        -_peerConnections: Map<string, RTCPeerConnection>
+        -_isMuted: boolean
+        -_audioElements: Map<string, HTMLAudioElement>
+        --
+        +requestMicrophonePermission(): Promise<MediaStream>
+        +initializeWebRTC(participants: Participant[]): void
+        +createPeerConnection(remoteUserId: string): RTCPeerConnection
+        +handleOffer(data: RTCOfferData): Promise<void>
+        +handleAnswer(data: RTCAnswerData): Promise<void>
+        +handleIceCandidate(data: RTCIceCandidateData): void
+        +toggleMute(): void
+        +getAudioLevel(): number
+        +cleanup(): void
+    }
+}
+
+package "Page Components" {
+    class LoginPage {
+        -formData: UserFormData
+        -errors: ValidationErrors
+        -anonymousNames: string[]
+        --
+        +handleInputChange(field: string, value: string): void
+        +validateForm(): boolean
+        +generateAnonymousName(): string
+        +handleSubmit(): void
+    }
+    
+    class LobbyPage {
+        -participants: Participant[]
+        -isReady: boolean
+        -audioPermissionGranted: boolean
+        --
+        +useEffect(): void
+        +handleReady(): void
+        +requestAudioPermission(): Promise<void>
+        +displayParticipants(): JSX.Element
+    }
+    
+    class RoundtablePage {
+        -topic: Topic | null
+        -currentSpeaker: Participant | null
+        -timeRemaining: number
+        -agentFeedback: Feedback[]
+        --
+        +useEffect(): void
+        +handleNextSpeaker(): void
+        +displayTopic(): JSX.Element
+        +displayRoundtable(): JSX.Element
+    }
+}
+
+package "Roundtable Components" {
+    class RoundtableView {
+        -participants: Participant[]
+        -currentSpeaker: Participant | null
+        -tableSize: number
+        --
+        +calculateChairPositions(): Position[]
+        +renderChairs(): JSX.Element[]
+        +highlightCurrentSpeaker(participant: Participant): boolean
+    }
+    
+    class ParticipantChair {
+        -participant: Participant
+        -isCurrentSpeaker: boolean
+        -position: Position
+        -angle: number
+        --
+        +render(): JSX.Element
+        +getChairStyle(): CSSProperties
+        +displayStatus(): JSX.Element
+    }
+    
+    class TopicDisplay {
+        -topic: Topic
+        --
+        +render(): JSX.Element
+        +displayQuestions(): JSX.Element
+    }
+    
+    class TimerDisplay {
+        -timeRemaining: number
+        -speakingTime: number
+        --
+        +formatTime(seconds: number): string
+        +getProgressPercentage(): number
+        +render(): JSX.Element
+    }
+}
+
+package "Audio Components" {
+    class AudioControls {
+        -isMuted: boolean
+        -audioLevel: number
+        --
+        +handleMuteToggle(): void
+        +render(): JSX.Element
+    }
+    
+    class AudioLevelMeter {
+        -audioLevel: number
+        -threshold: number
+        --
+        +visualize(): JSX.Element
+        +detectSpeech(): boolean
+    }
+}
+
+package "Feedback Components" {
+    class FeedbackDisplay {
+        -feedback: Feedback[]
+        --
+        +categorizeFeedback(): CategorizedFeedback
+        +render(): JSX.Element
+    }
+    
+    class SummaryCard {
+        -summary: Summary
+        -stats: Statistics
+        --
+        +render(): JSX.Element
+    }
+}
+
+package "Utility Components" {
+    class ProtectedRoute {
+        -children: ReactNode
+        --
+        +checkAuth(): boolean
+        +render(): JSX.Element
+    }
+}
+
+package "Custom Hooks" {
+    class useAudioPermission {
+        +permissionState: PermissionState
+        +stream: MediaStream | null
+        --
+        +request(): Promise<MediaStream>
+        +check(): Promise<PermissionState>
+    }
+    
+    class useWebRTC {
+        +peerConnections: Map
+        +remoteStreams: Map
+        --
+        +createConnection(userId: string): RTCPeerConnection
+        +closeConnection(userId: string): void
+    }
+    
+    class useTimer {
+        +timeRemaining: number
+        +isRunning: boolean
+        --
+        +start(duration: number): void
+        +pause(): void
+        +reset(): void
+    }
+}
+
+package "Type Definitions" {
+    class User {
+        +id: string
+        +name: string
+        +campus: string
+        +location: string
+        +anonymousName: string
+    }
+    
+    class Participant {
+        +id: string
+        +socketId: string
+        +anonymousName: string
+        +role: 'speaker' | 'listener'
+        +isReady: boolean
+        +campus: string
+        +location: string
+        +joinedAt: string
+    }
+    
+    class Topic {
+        +title: string
+        +description: string
+        +category: string
+        +questions: string[]
+        +source?: 'ai' | 'fallback'
+    }
+    
+    class Discussion {
+        +active: boolean
+        +topic: Topic | null
+        +currentSpeakerIndex: number
+        +speakingTime: number
+        +timeRemaining: number
+        +round: number
+        +startedAt: string | null
+    }
+    
+    class Feedback {
+        +type: string
+        +content: string
+        +timestamp: string
+        +cefr_level?: string
+    }
+}
+
+' Relationships
+LoginPage ..> AuthContext : uses
+LobbyPage ..> SocketContext : uses
+LobbyPage ..> AudioContext : uses
+LobbyPage ..> useAudioPermission : uses
+
+RoundtablePage ..> SocketContext : uses
+RoundtablePage ..> AudioContext : uses
+RoundtablePage ..> useWebRTC : uses
+RoundtablePage ..> useTimer : uses
+
+RoundtablePage *-- RoundtableView
+RoundtablePage *-- TopicDisplay
+RoundtablePage *-- AudioControls
+RoundtablePage *-- FeedbackDisplay
+
+RoundtableView *-- ParticipantChair
+RoundtableView *-- TimerDisplay
+AudioControls *-- AudioLevelMeter
+FeedbackDisplay *-- SummaryCard
+
+SocketContext ..> Participant : manages
+SocketContext ..> Discussion : manages
+AudioContext ..> useWebRTC : uses
+
+AuthContext ..> User : manages
+RoundtablePage ..> Topic : displays
+RoundtablePage ..> Feedback : displays
+
+note right of AuthContext
+    **Provider Pattern:**
+    Wraps app in main.jsx
+    Provides authentication
+    state globally
+end note
+
+note right of SocketContext
+    **Real-time Communication:**
+    Manages Socket.io connection
+    Handles room events
+    Broadcasts state updates
+end note
+
+note right of AudioContext
+    **WebRTC Management:**
+    Handles peer connections
+    Manages audio streams
+    Coordinates signaling
+end note
+
+note bottom of RoundtableView
+    **Dynamic Layout:**
+    Calculates chair positions
+    based on participant count
+    using trigonometry
+end note
+
+@enduml

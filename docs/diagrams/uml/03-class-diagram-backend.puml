@@ -1,0 +1,246 @@
+@startuml Class Diagram - Backend Python (server_py)
+
+!define RECTANGLE class
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+
+title GupShup Cafe - Backend Class Diagram (server_py)
+
+package "main.py" {
+    class FastAPIApplication {
+        +app: FastAPI
+        +sio: AsyncServer
+        +PORT: int
+        +ALLOWED_ORIGINS: List[str]
+        --
+        +check_cors_origin(origin: str): bool
+        +startup_event(): void
+        +shutdown_event(): void
+    }
+}
+
+package "api.routes" {
+    class APIRouter {
+        +router: APIRouter
+        --
+        +health_check(): dict
+        +get_topics(): dict
+        +generate_topic(): dict
+        +get_topic_by_cat(category: str): dict
+        +get_sessions(limit: int): dict
+        +get_topic_analytics(): dict
+        +get_server_stats(): dict
+        +get_room_state(room_id: str): dict
+    }
+}
+
+package "socket.socket_handlers" {
+    class SocketHandlers {
+        +sio: AsyncServer
+        +active_sessions: Dict[str, str]
+        --
+        +setup_socket_handlers(sio: AsyncServer): void
+        +connect(sid, environ, auth): void
+        +disconnect(sid): void
+        +join_room(sid, args): void
+        +leave_room(sid, room_id): void
+        +user_ready(sid, is_ready): void
+        +next_speaker(sid): void
+        +change_role(sid, new_role): void
+        +webrtc_offer(sid, data): void
+        +webrtc_answer(sid, data): void
+        +webrtc_ice_candidate(sid, data): void
+    }
+}
+
+package "socket.room_manager" {
+    class RoomManager {
+        -rooms: Dict[str, Dict]
+        -_skip_cleanup: bool
+        --
+        +get_room(room_id: str): Dict
+        +add_user_to_room(room_id: str, user_data: Dict): void
+        +remove_user_from_room(room_id: str, user_id: str): void
+        +update_user(room_id: str, user_id: str, updates: Dict): void
+        +get_room_participants(room_id: str): List[Dict]
+        +start_discussion(room_id: str, topic: Dict): Dict
+        +end_discussion(room_id: str): Dict
+        +get_discussion_state(room_id: str): Dict
+        +change_user_role(room_id: str, user_id: str, new_role: str): bool
+        +get_role_stats(room_id: str): Dict
+        +next_speaker(room_id: str): Dict
+        +cleanup_room(room_id: str): void
+    }
+    
+    class Room {
+        +id: str
+        +participants: List[Participant]
+        +discussion: Discussion
+        +createdAt: str
+    }
+    
+    class Participant {
+        +id: str
+        +socketId: str
+        +anonymousName: str
+        +campus: str
+        +location: str
+        +name: str
+        +role: str
+        +isReady: bool
+        +joinedAt: str
+    }
+    
+    class Discussion {
+        +active: bool
+        +topic: Dict
+        +currentSpeakerIndex: int
+        +speakingTime: int
+        +timeRemaining: int
+        +round: int
+        +timer: Any
+        +startedAt: str
+        +endedAt: str
+    }
+}
+
+package "database.database" {
+    class Database {
+        -db: Connection
+        -db_path: str
+        --
+        +initialize(db_path: str): Connection
+        -_create_tables(): void
+        +save_session(session_data: Dict): int
+        +update_session_end(session_id: str, ended_at: str, duration: int): int
+        +save_participant(participant_data: Dict): int
+        +get_session_analytics(limit: int): List[Dict]
+        +get_topic_analytics(): List[Dict]
+        +get_server_stats(): Dict
+        +record_topic_usage(topic: Dict): int
+        +close(): void
+    }
+}
+
+package "ai.topic_generator" {
+    class TopicGenerator {
+        +FALLBACK_TOPICS: List[Dict]
+        +HUGGINGFACE_API_KEY: str
+        --
+        +get_all_fallback_topics(): List[Dict]
+        +get_topic_by_category(category: str): Dict
+        +generate_discussion_topic(): Dict
+        -_call_huggingface_api(): Dict
+        -_get_random_fallback(): Dict
+    }
+}
+
+package "llmTutor.debate_room_facilitator" {
+    class DebateRoomFacilitator {
+        -room_type: str
+        -num_rounds: int
+        -participants: List[str]
+        -turn_order: List[str]
+        -current_turn_idx: int
+        -current_round: int
+        -topic: str
+        -conversation_history: List[Dict]
+        -agent: GeminiAgent
+        -mcp_client: MCPClient
+        -tools: List[Tool]
+        --
+        +setup_room(participant_names: List[str]): void
+        +select_topic(): str
+        +get_current_speaker(): str
+        +advance_turn(): void
+        +initialize_agent(): void
+        +process_statement(speaker: str, content: str): void
+        +get_agent_feedback(): str
+        +get_final_english_summary(): str
+        -_extract_and_store_english_feedback(response: str, statements: list): void
+    }
+    
+    class GeminiAgent {
+        -system_prompt: str
+        -tools: List[Tool]
+        -model: str
+        -history: List[Dict]
+        --
+        +__call__(prompt: str): str
+        +add_to_history(role: str, content: str): void
+        +clear_history(): void
+    }
+    
+    class MCPClient {
+        -transport_factory: Callable
+        -tools: List[Tool]
+        --
+        +__enter__(): MCPClient
+        +__exit__(exc_type, exc_val, exc_tb): void
+        +list_tools_sync(): List[Tool]
+        +call_tool(name: str, args: Dict): Any
+    }
+}
+
+package "llmTutor.debate_room_tools" {
+    class DebateRoomTools {
+        --
+        +start_debate(topic: str, participants: List[str]): str
+        +end_turn(speaker: str): str
+        +provide_feedback(participant: str, feedback: str): str
+        +summarize_discussion(): str
+    }
+}
+
+' Relationships
+FastAPIApplication *-down- APIRouter : uses
+FastAPIApplication *-down- SocketHandlers : uses
+FastAPIApplication o-down- Database : depends on
+
+SocketHandlers *-right-> RoomManager : manages
+SocketHandlers o-down-> Database : uses
+
+APIRouter o-down-> Database : queries
+APIRouter o-down-> TopicGenerator : uses
+APIRouter o-right-> RoomManager : queries
+
+RoomManager *-- Room : contains
+Room *-- Participant : has many
+Room *-- Discussion : has one
+
+Database ..> Room : persists
+Database ..> Participant : persists
+
+SocketHandlers o-down-> DebateRoomFacilitator : uses
+DebateRoomFacilitator *-- GeminiAgent : uses
+DebateRoomFacilitator *-- MCPClient : uses
+DebateRoomFacilitator o-- DebateRoomTools : provides
+
+TopicGenerator ..> "External API" : calls
+
+note right of RoomManager
+    Singleton instance
+    In-memory state management
+    for all active rooms
+end note
+
+note right of Database
+    Singleton instance
+    Async SQLite operations
+    for persistence
+end note
+
+note bottom of DebateRoomFacilitator
+    Provides AI-powered facilitation
+    CEFR-based English feedback
+    Manages discussion flow
+end note
+
+note top of MCPClient
+    Model Context Protocol client
+    Connects to MCP server via
+    Streamable HTTP transport
+end note
+
+@enduml

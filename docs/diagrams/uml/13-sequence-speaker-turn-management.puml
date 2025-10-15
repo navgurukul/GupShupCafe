@@ -1,0 +1,238 @@
+@startuml Sequence Diagram - Speaker Turn Management
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam maxmessagesize 150
+
+title GupShup Cafe - Speaker Turn Management & Timer Flow
+
+actor "Current\nSpeaker" as Speaker
+actor "Other\nParticipants" as Others
+participant "Browser\n(React)" as Browser
+participant "Socket\nContext" as Socket
+participant "FastAPI\nServer" as Server
+participant "Socket\nHandlers" as Handler
+participant "Room\nManager" as RoomMgr
+participant "LLM\nAgent" as Agent
+participant "Database" as DB
+
+== Discussion Started - First Turn ==
+Handler -> RoomMgr : start_discussion(roomId, topic)
+activate RoomMgr
+RoomMgr -> RoomMgr : Set currentSpeakerIndex = 0
+RoomMgr -> RoomMgr : Set speakingTime = 60 seconds
+RoomMgr -> RoomMgr : timeRemaining = 60
+RoomMgr -> RoomMgr : Start timer interval (1 second)
+RoomMgr --> Handler : discussion state
+deactivate RoomMgr
+
+Handler -> Server : emit('next-turn', {currentSpeaker, timeRemaining})
+Server --> Browser : next-turn event
+Browser -> Browser : Highlight current speaker
+Browser --> Speaker : "Your turn to speak!"
+Browser --> Others : Display current speaker
+
+== Timer Countdown ==
+loop Every 1 second while timer active
+    RoomMgr -> RoomMgr : Decrement timeRemaining
+    RoomMgr -> Handler : timer tick
+    Handler -> Server : emit('timer-update', {timeRemaining})
+    Server --> Browser : timer-update event
+    Browser -> Browser : Update timer display
+    
+    alt timeRemaining > 30
+        Browser --> Speaker : Show green timer
+    else timeRemaining <= 30 and > 10
+        Browser --> Speaker : Show yellow timer (warning)
+    else timeRemaining <= 10
+        Browser --> Speaker : Show red timer (urgent)
+        Browser -> Browser : Play warning sound (optional)
+    end
+end
+
+== Timer Expires (Automatic Advance) ==
+alt Time Remaining = 0
+    RoomMgr -> RoomMgr : Timer expired
+    RoomMgr -> RoomMgr : Stop current timer
+    RoomMgr -> DB : Update speaking_time for current speaker
+    activate DB
+    DB --> RoomMgr : Updated
+    deactivate DB
+    
+    RoomMgr -> RoomMgr : next_speaker()
+    activate RoomMgr
+    RoomMgr -> RoomMgr : Increment currentSpeakerIndex
+    RoomMgr -> RoomMgr : Check if round completed
+    
+    alt Round Completed (all speakers spoke)
+        RoomMgr -> RoomMgr : Increment round number
+        RoomMgr -> RoomMgr : Reset speakerIndex to 0
+        note right
+            New round starts
+            Same turn order
+        end note
+    end
+    
+    RoomMgr -> RoomMgr : Get next speaker
+    alt Next is LLM Agent
+        RoomMgr --> Handler : Agent's turn
+    else Next is Participant
+        RoomMgr --> Handler : Participant's turn
+    end
+    deactivate RoomMgr
+    
+    Handler -> Server : emit('next-turn', {currentSpeaker, round})
+    Server --> Browser : next-turn event
+    Browser -> Browser : Update UI with new speaker
+end
+
+== Manual Advance (Next Button) ==
+alt User Clicks "Next Speaker" Button
+    Speaker -> Browser : Click "Next" button
+    Browser -> Socket : emit('next-speaker')
+    Socket -> Server : next-speaker event
+    activate Server
+    Server -> Handler : next_speaker handler
+    Handler -> RoomMgr : Stop current timer
+    activate RoomMgr
+    RoomMgr -> RoomMgr : Clear timer interval
+    RoomMgr -> DB : Update speaking_time for current speaker
+    activate DB
+    DB --> RoomMgr : Updated
+    deactivate DB
+    
+    RoomMgr -> RoomMgr : next_speaker()
+    RoomMgr -> RoomMgr : Advance to next speaker
+    RoomMgr -> RoomMgr : Reset timer to 60 seconds
+    RoomMgr -> RoomMgr : Start new timer
+    RoomMgr --> Handler : Next speaker data
+    deactivate RoomMgr
+    
+    Handler -> Server : emit('next-turn', {currentSpeaker, timeRemaining})
+    deactivate Server
+    Server --> Browser : next-turn event
+    Browser -> Browser : Update current speaker highlight
+    Browser --> Speaker : "Listening now"
+    Browser --> Others : Display new current speaker
+end
+
+== Agent's Turn ==
+alt Current Speaker is LLM Agent
+    Handler -> Agent : get_agent_feedback()
+    activate Agent
+    Agent -> Agent : Analyze recent statements
+    Agent -> Agent : Generate CEFR feedback
+    Agent --> Handler : Feedback text
+    deactivate Agent
+    
+    Handler -> Server : emit('agent-feedback', {feedback, timestamp})
+    Server --> Browser : agent-feedback event
+    Browser -> Browser : Display agent feedback
+    Browser --> Speaker : Show feedback in UI
+    Browser --> Others : Show feedback in UI
+    
+    note right of Browser
+        Feedback display includes:
+        - Grammar corrections
+        - Vocabulary tips
+        - CEFR assessment
+        - Encouragement
+    end note
+    
+    ' Agent's turn typically shorter
+    RoomMgr -> RoomMgr : Agent turn timer (20-30s)
+    
+    loop Agent speaking time
+        RoomMgr -> Handler : timer tick
+        Handler -> Server : emit('timer-update', {timeRemaining})
+        Server --> Browser : timer-update event
+    end
+    
+    RoomMgr -> RoomMgr : Agent turn complete
+    RoomMgr -> RoomMgr : next_speaker()
+    Handler -> Server : emit('next-turn', {currentSpeaker})
+    Server --> Browser : next-turn event
+end
+
+== Role Change During Discussion ==
+alt Participant Changes Role
+    Speaker -> Browser : Click "Switch to Listener"
+    Browser -> Socket : emit('change-role', newRole)
+    Socket -> Server : change-role event
+    activate Server
+    Server -> Handler : change_role handler
+    Handler -> RoomMgr : change_user_role(roomId, userId, newRole)
+    activate RoomMgr
+    
+    RoomMgr -> RoomMgr : Update participant role
+    RoomMgr -> RoomMgr : Recalculate turn order
+    
+    alt Current speaker changed role
+        RoomMgr -> RoomMgr : Force next speaker
+        RoomMgr -> RoomMgr : next_speaker()
+    end
+    
+    RoomMgr --> Handler : Updated participants
+    deactivate RoomMgr
+    
+    Handler -> Server : emit('participants-update', participants)
+    Handler -> Server : emit('role-changed', {userId, newRole})
+    deactivate Server
+    Server --> Browser : participants-update event
+    Server --> Browser : role-changed event
+    Browser -> Browser : Update UI
+end
+
+== Discussion End Conditions ==
+alt Check End Conditions
+    alt Insufficient Participants (< 2)
+        RoomMgr -> RoomMgr : Check participant count
+        RoomMgr -> Handler : end_discussion('insufficient_participants')
+        Handler -> Server : emit('discussion-end', {reason, stats})
+        Server --> Browser : discussion-end event
+    else Maximum Rounds Reached
+        RoomMgr -> RoomMgr : Check rounds completed
+        RoomMgr -> Handler : end_discussion('completed')
+        Handler -> Agent : get_final_english_summary()
+        activate Agent
+        Agent --> Handler : Final summary
+        deactivate Agent
+        Handler -> DB : Update session end
+        Handler -> Server : emit('discussion-end', {summary, stats})
+        Server --> Browser : discussion-end event
+    end
+    
+    Browser -> Browser : Navigate to summary view
+    Browser --> Speaker : Display final feedback
+    Browser --> Others : Display final feedback
+end
+
+note right of RoomMgr
+    **Timer Management:**
+    - Default speaking time: 60s
+    - Agent speaking time: 20-30s
+    - Timer updates every 1s
+    - Auto-advance on expiry
+    - Manual advance available
+    
+    **Turn Order:**
+    - Round-robin among speakers
+    - Listeners don't have turns
+    - Agent included in turn order
+    - Role changes affect order
+end note
+
+note left of Browser
+    **UI Visual Cues:**
+    - Green: > 30 seconds
+    - Yellow: 30-10 seconds
+    - Red: < 10 seconds
+    - Pulsing on current speaker
+    - Timer progress bar
+    - Audio level indicator
+end note
+
+@enduml

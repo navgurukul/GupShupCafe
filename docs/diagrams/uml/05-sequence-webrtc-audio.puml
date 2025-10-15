@@ -1,0 +1,184 @@
+@startuml Sequence Diagram - WebRTC Audio Connection
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam maxmessagesize 150
+
+title GupShup Cafe - WebRTC Audio Connection Flow
+
+actor "User A" as UserA
+participant "Browser A\n(React)" as BrowserA
+participant "Audio Context A" as AudioA
+participant "Socket.io\nClient A" as SocketA
+participant "FastAPI\nServer" as Server
+participant "Socket\nHandlers" as Handler
+participant "Socket.io\nClient B" as SocketB
+participant "Audio Context B" as AudioB
+participant "Browser B\n(React)" as BrowserB
+actor "User B" as UserB
+
+== Audio Permission & Local Stream ==
+UserA -> BrowserA : Join discussion
+BrowserA -> AudioA : requestMicrophonePermission()
+activate AudioA
+AudioA -> AudioA : getUserMedia({audio: true})
+AudioA --> BrowserA : localStream
+deactivate AudioA
+
+UserB -> BrowserB : Join discussion
+BrowserB -> AudioB : requestMicrophonePermission()
+activate AudioB
+AudioB -> AudioB : getUserMedia({audio: true})
+AudioB --> BrowserB : localStream
+deactivate AudioB
+
+== WebRTC Initialization ==
+BrowserA -> AudioA : initializeWebRTC(participants)
+activate AudioA
+loop For each remote participant
+    AudioA -> AudioA : createPeerConnection(remoteUserId)
+    AudioA -> AudioA : Add localStream tracks to peer
+    AudioA -> AudioA : Setup ICE candidate handlers
+    AudioA -> AudioA : Setup remote stream handlers
+end
+deactivate AudioA
+
+BrowserB -> AudioB : initializeWebRTC(participants)
+activate AudioB
+loop For each remote participant
+    AudioB -> AudioB : createPeerConnection(remoteUserId)
+    AudioB -> AudioB : Add localStream tracks to peer
+    AudioB -> AudioB : Setup ICE candidate handlers
+    AudioB -> AudioB : Setup remote stream handlers
+end
+deactivate AudioB
+
+== Ready Signal ==
+AudioA -> SocketA : emit('ready-for-webrtc', userId)
+SocketA -> Server : ready-for-webrtc event
+activate Server
+Server -> Handler : Handle ready signal
+Handler -> Server : broadcast to room
+Server -> SocketB : ready-for-webrtc event
+deactivate Server
+
+AudioB -> SocketB : emit('ready-for-webrtc', userId)
+SocketB -> Server : ready-for-webrtc event
+activate Server
+Server -> Handler : Handle ready signal
+Handler -> Server : broadcast to room
+Server -> SocketA : ready-for-webrtc event
+deactivate Server
+
+== WebRTC Offer/Answer Exchange ==
+AudioA -> AudioA : createOffer()
+activate AudioA
+AudioA -> AudioA : setLocalDescription(offer)
+AudioA -> SocketA : emit('webrtc-offer', {to: UserB, offer})
+deactivate AudioA
+
+SocketA -> Server : webrtc-offer event
+activate Server
+Server -> Handler : webrtc_offer handler
+Handler -> Handler : Relay offer to target user
+Handler -> Server : emit to SocketB
+Server -> SocketB : webrtc-offer event
+deactivate Server
+
+SocketB -> AudioB : handle offer
+activate AudioB
+AudioB -> AudioB : setRemoteDescription(offer)
+AudioB -> AudioB : createAnswer()
+AudioB -> AudioB : setLocalDescription(answer)
+AudioB -> SocketB : emit('webrtc-answer', {to: UserA, answer})
+deactivate AudioB
+
+SocketB -> Server : webrtc-answer event
+activate Server
+Server -> Handler : webrtc_answer handler
+Handler -> Handler : Relay answer to initiator
+Handler -> Server : emit to SocketA
+Server -> SocketA : webrtc-answer event
+deactivate Server
+
+SocketA -> AudioA : handle answer
+activate AudioA
+AudioA -> AudioA : setRemoteDescription(answer)
+deactivate AudioA
+
+== ICE Candidate Exchange ==
+loop ICE candidates discovered
+    AudioA -> AudioA : onicecandidate event
+    activate AudioA
+    AudioA -> SocketA : emit('webrtc-ice-candidate', {to: UserB, candidate})
+    SocketA -> Server : webrtc-ice-candidate event
+    activate Server
+    Server -> Handler : webrtc_ice_candidate handler
+    Handler -> Server : relay to SocketB
+    Server -> SocketB : webrtc-ice-candidate event
+    deactivate Server
+    SocketB -> AudioB : handle ICE candidate
+    AudioB -> AudioB : addIceCandidate(candidate)
+    deactivate AudioA
+end
+
+loop ICE candidates discovered
+    AudioB -> AudioB : onicecandidate event
+    activate AudioB
+    AudioB -> SocketB : emit('webrtc-ice-candidate', {to: UserA, candidate})
+    SocketB -> Server : webrtc-ice-candidate event
+    activate Server
+    Server -> Handler : webrtc_ice_candidate handler
+    Handler -> Server : relay to SocketA
+    Server -> SocketA : webrtc-ice-candidate event
+    deactivate Server
+    SocketA -> AudioA : handle ICE candidate
+    AudioA -> AudioA : addIceCandidate(candidate)
+    deactivate AudioB
+end
+
+== Connection Established ==
+AudioA -> AudioA : ontrack event (remote stream)
+activate AudioA
+AudioA -> AudioA : Create <audio> element
+AudioA -> AudioA : Set srcObject = remoteStream
+AudioA -> AudioA : audio.play()
+AudioA --> BrowserA : Remote audio playing
+deactivate AudioA
+
+AudioB -> AudioB : ontrack event (remote stream)
+activate AudioB
+AudioB -> AudioB : Create <audio> element
+AudioB -> AudioB : Set srcObject = remoteStream
+AudioB -> AudioB : audio.play()
+AudioB --> BrowserB : Remote audio playing
+deactivate AudioB
+
+BrowserA --> UserA : Can hear User B
+BrowserB --> UserB : Can hear User A
+
+note right of AudioA
+    Audio optimizations:
+    - Opus codec prioritization
+    - Audio-only constraints
+    - Hidden audio elements
+    - Auto-play policy handling
+end note
+
+note left of Server
+    Server only relays signaling
+    Audio streams flow P2P
+    via WebRTC DataChannel
+    using STUN servers
+end note
+
+note right of AudioB
+    STUN Configuration:
+    stun:stun.l.google.com:19302
+    stun:stun1.l.google.com:19302
+end note
+
+@enduml
