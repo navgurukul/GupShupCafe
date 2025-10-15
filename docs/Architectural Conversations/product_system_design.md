@@ -91,6 +91,14 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 │  │  └────────────┘  └────────────┘  └────────────┘            │     │
 │  │                                                               │     │
 │  │  ┌─────────────────────────────────────────────┐            │     │
+│  │  │           User Data (Stored & Cached)        │            │     │
+│  │  │  - CEFR Level: A0, A1, A2, B1, B2, C1, C2   │            │     │
+│  │  │  - Topic Interests: Technology, Sports, etc.│            │     │
+│  │  │  - Progress History: Session scores & trends│            │     │
+│  │  │  (Used for lobby matching in future versions)│            │     │
+│  │  └─────────────────────────────────────────────┘            │     │
+│  │                                                               │     │
+│  │  ┌─────────────────────────────────────────────┐            │     │
 │  │  │    WebRTC (Peer-to-Peer Audio Mesh)         │            │     │
 │  │  │    - Local/Remote Stream Management          │            │     │
 │  │  │    - STUN/TURN for NAT Traversal            │            │     │
@@ -122,10 +130,12 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
          │               ▼
          │    ┌─────────────────┐
          │    │   MongoDB/SQLite │
+         │    │   - Users        │
          │    │   - Sessions     │
          │    │   - Participants │
          │    │   - Transcripts  │
          │    │   - Feedback     │
+         │    │   - Progress     │
          │    └─────────────────┘
          │
          ▼
@@ -154,6 +164,11 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 │  - Gemini API (for development)                                        │
 │  - AWS AgentCore (runtime, identity, internet access)                  │
 └────────────────────────────────────────────────────────────────────────┘
+         │
+         │  ⬆ DIRECT CONNECTION TO SERVER LAYER
+         │  • FastAPI calls orchestrator.get_english_feedback()
+         │  • Server passes transcripts and context to agents
+         │  • Agents return feedback via standardized interfaces
          │
          ▼
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -268,6 +283,437 @@ Example Output:
 The rest of your statement is clear and well-structured.
 CEFR Level: B1 | Grammar: 7/10 | Vocabulary: 8/10 | Fluency: 7/10
 ```
+
+---
+
+## 2.3 Data Models for the Application
+
+### 2.3.1 Core Data Entities
+
+The application uses the following data models to persist user progress, session information, and feedback:
+
+#### User Model
+
+```python
+# server_py/src/database/models/user.py
+from datetime import datetime
+from typing import Optional, List
+
+class User:
+    """
+    User model tracking individual progress and preferences.
+    """
+    id: str  # UUID
+    username: str  # Optional, can be anonymous
+    email: Optional[str]  # For registered users
+    is_anonymous: bool  # True for guest users
+    
+    # CEFR Progress Tracking (MVP Core Feature)
+    current_cefr_level: str  # "A0", "A1", "A2", "B1", "B2", "C1", "C2"
+    # A0 = Not yet reached A1, used for complete beginners
+    
+    cefr_history: List[dict]  # Historical CEFR levels with timestamps
+    # Example: [
+    #   {"level": "A0", "date": "2025-01-01", "session_id": "abc123"},
+    #   {"level": "A1", "date": "2025-01-15", "session_id": "def456"}
+    # ]
+    
+    # Topic Interests (For Future Lobby Matching)
+    topic_interests: List[str]  # ["Technology", "Sports", "Politics", "Science", etc.]
+    # Note: Lobby matching by CEFR level and topics is a FUTURE FEATURE (not MVP)
+    
+    # Statistics
+    total_sessions: int
+    total_speaking_time: int  # seconds
+    total_words_spoken: int
+    
+    # Average Scores (Calculated from feedback)
+    avg_grammar_score: float  # 0-10
+    avg_vocabulary_score: float  # 0-10
+    avg_fluency_score: float  # 0-10
+    avg_overall_score: float  # 0-10
+    
+    # Metadata
+    created_at: datetime
+    last_active: datetime
+    
+    # Settings
+    preferred_language: str  # "en" for MVP
+    notification_preferences: dict
+```
+
+#### Session Model
+
+```python
+# server_py/src/database/models/session.py
+from datetime import datetime
+from typing import List, Optional
+
+class Session:
+    """
+    Discussion session model.
+    """
+    id: str  # UUID
+    room_code: str  # Human-readable room code
+    
+    # Session Configuration
+    topic: str  # Discussion topic
+    topic_category: str  # "Technology", "Current Events", etc.
+    max_participants: int  # Default: 6
+    speaking_time_per_turn: int  # seconds, default: 60
+    num_rounds: int  # Default: 3
+    
+    # Session State
+    status: str  # "waiting", "in_progress", "completed", "cancelled"
+    current_round: int
+    current_speaker_index: int
+    
+    # Participants
+    participant_ids: List[str]  # User IDs
+    participant_count: int
+    
+    # Timing
+    started_at: Optional[datetime]
+    ended_at: Optional[datetime]
+    duration_seconds: int
+    
+    # Facilitator Agent
+    facilitator_agent_id: str  # AWS Strands agent instance ID
+    
+    # Metadata
+    created_at: datetime
+    created_by: str  # User ID who created the room
+```
+
+#### Participant Model
+
+```python
+# server_py/src/database/models/participant.py
+from datetime import datetime
+from typing import List, Optional
+
+class Participant:
+    """
+    Individual participant in a session.
+    """
+    id: str  # UUID
+    session_id: str
+    user_id: str
+    
+    # Identity
+    display_name: str  # Anonymous name like "Blue Panda", "Red Dragon"
+    avatar_color: str  # Hex color code
+    
+    # Session Role
+    role: str  # "participant", "host", "observer"
+    is_ready: bool  # Ready to start discussion
+    
+    # Speaking Data
+    total_speaking_time: int  # seconds in this session
+    total_words_spoken: int
+    number_of_turns: int
+    
+    # Real-Time State
+    is_speaking: bool
+    is_muted: bool
+    socket_id: str  # Socket.io connection ID
+    
+    # CEFR Level at Session Start (for progress tracking)
+    starting_cefr_level: str
+    ending_cefr_level: Optional[str]  # Updated at session end
+    
+    # Connection
+    joined_at: datetime
+    left_at: Optional[datetime]
+    connection_quality: str  # "excellent", "good", "fair", "poor"
+```
+
+#### Transcript Model
+
+```python
+# server_py/src/database/models/transcript.py
+from datetime import datetime
+from typing import Optional
+
+class Transcript:
+    """
+    Individual speech transcript from a participant.
+    """
+    id: str  # UUID
+    session_id: str
+    participant_id: str
+    user_id: str
+    
+    # Content
+    text: str  # Transcribed speech
+    language: str  # "en" for MVP
+    confidence: float  # STT confidence (0.0-1.0)
+    
+    # Context
+    round_number: int
+    turn_number: int
+    speaker_order: int  # Order in this round
+    
+    # Timing
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
+    
+    # Audio Metadata
+    word_count: int
+    speech_rate: float  # words per minute
+    
+    # Processing Status
+    is_processed: bool  # Has feedback been generated?
+    processed_at: Optional[datetime]
+    
+    # Raw Audio Reference (optional, for future features)
+    audio_file_url: Optional[str]
+```
+
+#### Feedback Model
+
+```python
+# server_py/src/database/models/feedback.py
+from datetime import datetime
+from typing import List, Dict, Optional
+
+class Feedback:
+    """
+    AI-generated English feedback for a transcript.
+    """
+    id: str  # UUID
+    session_id: str
+    participant_id: str
+    user_id: str
+    transcript_id: str
+    
+    # Feedback Type
+    feedback_type: str  # "instant" (2-3s) or "comprehensive"
+    
+    # CEFR Assessment
+    cefr_level: str  # A0, A1, A2, B1, B2, C1, C2
+    cefr_confidence: float  # 0.0-1.0
+    
+    # Detailed Scores (0-10 scale)
+    grammar_score: float
+    vocabulary_score: float
+    fluency_score: float
+    pronunciation_score: Optional[float]  # Future feature
+    coherence_score: Optional[float]  # Future feature
+    overall_score: float  # Average of available scores
+    
+    # Grammar Feedback
+    grammar_issues: List[Dict]  # [{
+    #   "original": "I thinks",
+    #   "corrected": "I think",
+    #   "reason": "subject-verb agreement",
+    #   "severity": "high"  # high, medium, low
+    # }]
+    
+    # Vocabulary Feedback
+    vocabulary_level: str  # "basic", "intermediate", "advanced"
+    vocabulary_suggestions: List[Dict]  # [{
+    #   "word_used": "good",
+    #   "alternatives": ["excellent", "remarkable", "outstanding"],
+    #   "context": "when praising ideas"
+    # }]
+    
+    # Fluency Feedback
+    fluency_issues: List[str]  # ["Long pauses", "Repetitive phrases"]
+    fluency_comments: str  # Detailed comments
+    
+    # Improvement Suggestions
+    suggestions: List[str]  # Top 3-5 actionable suggestions
+    
+    # Positive Feedback
+    strengths: List[str]  # What the user did well
+    
+    # Display Message (For UI)
+    display_message: str  # Formatted feedback for modal
+    agent_mention: str  # Gentle mention for AI conversation
+    
+    # AI Agent Info
+    agent_id: str  # EnglishFeedbackAgent instance
+    agent_model: str  # "gemini-1.5-flash" or "bedrock-claude-3"
+    
+    # Processing
+    generation_time_ms: int  # Time to generate feedback
+    created_at: datetime
+```
+
+#### Progress Model
+
+```python
+# server_py/src/database/models/progress.py
+from datetime import datetime
+from typing import List, Dict
+
+class Progress:
+    """
+    User progress tracking over time.
+    Aggregates feedback from multiple sessions.
+    """
+    id: str  # UUID
+    user_id: str
+    
+    # CEFR Trajectory
+    cefr_progression: List[Dict]  # [{
+    #   "date": "2025-01-15",
+    #   "level": "A1",
+    #   "session_id": "abc123",
+    #   "confidence": 0.85
+    # }]
+    
+    # Score Trends (Last 30 days)
+    grammar_trend: List[Dict]  # [{"date": "2025-01-15", "score": 7.5}]
+    vocabulary_trend: List[Dict]
+    fluency_trend: List[Dict]
+    overall_trend: List[Dict]
+    
+    # Improvement Areas (Identified by AI)
+    current_improvement_areas: List[str]  # ["Subject-verb agreement", "Article usage"]
+    resolved_improvement_areas: List[Dict]  # [{
+    #   "area": "Past tense usage",
+    #   "resolved_date": "2025-01-10",
+    #   "sessions_to_resolve": 5
+    # }]
+    
+    # Strengths
+    identified_strengths: List[str]  # ["Good vocabulary", "Clear pronunciation"]
+    
+    # Topic Performance
+    topic_performance: Dict[str, float]  # {
+    #   "Technology": 8.2,
+    #   "Sports": 7.5,
+    #   "Politics": 6.8
+    # }
+    
+    # Milestones
+    milestones_achieved: List[Dict]  # [{
+    #   "milestone": "Reached B1 level",
+    #   "date": "2025-01-15",
+    #   "badge_id": "b1-achiever"
+    # }]
+    
+    # Statistics
+    total_sessions: int
+    total_speaking_time: int
+    total_words_spoken: int
+    total_feedback_received: int
+    
+    # Metadata
+    last_calculated: datetime
+    next_goal: str  # "Reach B2 level"
+```
+
+### 2.3.2 Database Schema Diagram
+
+```
+┌─────────────┐
+│    User     │
+│─────────────│
+│ id (PK)     │
+│ username    │
+│ email       │◄───────────┐
+│ cefr_level  │            │
+│ topics[]    │            │
+│ stats       │            │
+└─────────────┘            │
+       │                   │
+       │ 1:N               │ 1:1
+       ▼                   │
+┌─────────────┐            │
+│ Participant │            │
+│─────────────│            │
+│ id (PK)     │            │
+│ session_id  │────┐       │
+│ user_id (FK)│    │       │
+│ display_name│    │       │
+│ cefr_level  │    │       │
+└─────────────┘    │       │
+       │           │       │
+       │ 1:N       │ N:1   │
+       ▼           ▼       │
+┌─────────────┐ ┌─────────────┐
+│ Transcript  │ │   Session   │
+│─────────────│ │─────────────│
+│ id (PK)     │ │ id (PK)     │
+│ participant │ │ room_code   │
+│ text        │ │ topic       │
+│ timestamp   │ │ status      │
+└─────────────┘ │ config      │
+       │        └─────────────┘
+       │ 1:N
+       ▼
+┌─────────────┐
+│  Feedback   │
+│─────────────│
+│ id (PK)     │
+│ transcript  │
+│ cefr_level  │
+│ scores      │
+│ suggestions │
+└─────────────┘
+       │
+       │ N:1
+       ▼
+┌─────────────┐
+│  Progress   │
+│─────────────│
+│ id (PK)     │────────────────┘
+│ user_id (FK)│
+│ trends[]    │
+│ milestones[]│
+└─────────────┘
+```
+
+### 2.3.3 Data Flow for User Progress
+
+```
+1. User joins session
+   └─> Create/Update Participant record
+
+2. User speaks during turn
+   └─> Create Transcript record
+   └─> Trigger EnglishFeedbackAgent (instant mode, 2-3s)
+   └─> Create Feedback record (instant)
+   └─> Emit feedback to user's English Feedback Modal (private)
+
+3. Turn ends
+   └─> Update Participant stats (speaking_time, word_count)
+
+4. Session ends
+   └─> Trigger comprehensive feedback for all transcripts
+   └─> Create Feedback records (comprehensive)
+   └─> Update Participant ending_cefr_level
+   └─> Update Session status to "completed"
+
+5. Background job (post-session)
+   └─> Aggregate all session feedback
+   └─> Update User current_cefr_level (if changed)
+   └─> Update Progress record with trends and milestones
+   └─> Update User topic_interests based on session topics
+   
+6. Future: Lobby Matching (not MVP)
+   └─> Query Users by cefr_level range (±1 level)
+   └─> Filter by topic_interests
+   └─> Suggest matched lobbies
+```
+
+### 2.3.4 CEFR Level Definitions (For MVP)
+
+| Level | Name | Description | Expected Scores |
+|-------|------|-------------|-----------------|
+| **A0** | Pre-A1 | Not yet reached A1, complete beginner | Overall < 3.0 |
+| **A1** | Beginner | Basic phrases, simple interactions | Overall 3.0-4.5 |
+| **A2** | Elementary | Simple sentences, common topics | Overall 4.5-5.5 |
+| **B1** | Intermediate | Express opinions, handle common situations | Overall 5.5-7.0 |
+| **B2** | Upper Intermediate | Fluent discussion, complex ideas | Overall 7.0-8.5 |
+| **C1** | Advanced | Precise language, subtle meanings | Overall 8.5-9.5 |
+| **C2** | Proficient | Native-like fluency and accuracy | Overall 9.5-10.0 |
+
+**Note**: CEFR level and topic interests are stored for **all users in MVP**. However, **lobby matching by these fields is a FUTURE FEATURE** and not part of the 3-day MVP scope.
 
 ---
 

@@ -25,6 +25,83 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-15 19:06 UTC] - Added Data Models and Architecture Clarifications
+
+**Commit**: `docs: add comprehensive data models and clarify architecture connections`  
+**Author**: Copilot (addressing @Vinit-source feedback)  
+**Type**: Documentation | Architecture
+
+**Changes**:
+- **Added Section 2.3: Complete Data Models** (400+ lines)
+  - User Model with CEFR progress tracking (A0-C2 levels, including A0 for pre-beginners)
+  - Session Model for discussion management
+  - Participant Model for real-time state
+  - Transcript Model for speech records
+  - Feedback Model for AI-generated analysis
+  - Progress Model for longitudinal tracking
+  - Database schema diagram showing relationships
+  - Data flow for user progress tracking
+  - CEFR level definitions with score ranges
+- **Clarified AWS Strands → Server Layer connection** (Comment 2433634437)
+  - Added direct connection annotation in architecture diagram
+  - FastAPI calls orchestrator.get_english_feedback()
+  - Server passes transcripts and context to agents
+  - Agents return feedback via standardized interfaces
+- **Enhanced User Data in Client Layer** (Comment 2433649852)
+  - Added User Data display showing CEFR level (A0-C2)
+  - Added topic interests storage
+  - Added progress history tracking
+  - Noted that lobby matching by these fields is a FUTURE FEATURE (not MVP)
+- **Enhanced Database Layer**
+  - Added Users and Progress tables to database diagram
+  - Expanded data persistence scope
+
+**Key Features of Data Models**:
+1. **CEFR Progress Tracking**: Complete A0-C2 scale with A0 for beginners not yet at A1
+2. **Topic Interests**: Stored for future lobby matching (not MVP feature)
+3. **Comprehensive Feedback Storage**: Grammar, vocabulary, fluency with detailed issues and suggestions
+4. **Progress Aggregation**: Trends, milestones, and improvement areas
+5. **Real-Time State**: Socket IDs, speaking status, connection quality
+6. **Future-Ready**: Data model supports lobby matching feature for future versions
+
+**CEFR Levels Defined**:
+- A0: Pre-A1, complete beginner (Overall < 3.0)
+- A1: Beginner (3.0-4.5)
+- A2: Elementary (4.5-5.5)
+- B1: Intermediate (5.5-7.0)
+- B2: Upper Intermediate (7.0-8.5)
+- C1: Advanced (8.5-9.5)
+- C2: Proficient (9.5-10.0)
+
+**Architecture Clarifications**:
+- AWS Strands Multi-Agent System connects directly to Server Layer
+- FastAPI endpoints call orchestrator methods
+- Private Socket.io channels deliver feedback to individual users
+- Database stores all feedback and progress for longitudinal analysis
+
+**Files Modified**:
+- `docs/Architectural Conversations/product_system_design.md`
+  - Added Section 2.3: Data Models (6 subsections, 400+ lines)
+  - Updated Section 2.1: Client Layer (added User Data display)
+  - Updated Section 2.1: Server Layer (clarified database tables)
+  - Clarified AWS Strands → Server connection in diagram
+
+**Impact**:
+- **Clear Data Structure**: Complete data models guide implementation
+- **CEFR Progress Tracking**: Users can see their English improvement over time
+- **Future-Ready Architecture**: Data model supports lobby matching when needed
+- **Privacy by Design**: Feedback model supports private delivery to individual users
+- **Comprehensive Analytics**: Progress model enables detailed improvement tracking
+
+**Next Steps for Implementation**:
+- Day 1: Implement User and Session models with SQLite/MongoDB
+- Day 1: Add CEFR level calculation logic to EnglishFeedbackAgent
+- Day 2: Implement Feedback storage with instant and comprehensive modes
+- Day 2: Build Progress aggregation background job
+- Day 3: Test complete data flow from speaking → feedback → progress update
+
+---
+
 ### [2025-10-15 17:50 UTC] - Added AWS Strands Multi-Agent System & AgentCore Integration
 
 **Commit**: `feat: integrate AWS Strands multi-agent system with AgentCore deployment`  
