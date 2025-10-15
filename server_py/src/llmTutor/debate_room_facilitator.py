@@ -7,6 +7,10 @@ This agent facilitates debates and discussions by:
 - Providing feedback with fact-checking
 - Navigating discussions to convergence
 - Exploring common and diverging points
+
+Now uses multi-agent architecture with:
+- English Grammar Agent for language feedback
+- Debate Facilitator Agent for content feedback
 """
 
 import threading
@@ -15,6 +19,7 @@ from typing import List, Dict, Optional
 from mcp.client.streamable_http import streamablehttp_client
 from geminiAgent import GeminiAgent
 from strands.tools.mcp.mcp_client import MCPClient
+from multiAgentOrchestrator import MultiAgentOrchestrator
 
 
 class DebateRoomFacilitator:
@@ -24,13 +29,14 @@ class DebateRoomFacilitator:
     Manages turn-taking, provides feedback, and guides discussions.
     """
     
-    def __init__(self, room_type: str = "discussion", num_rounds: int = 3):
+    def __init__(self, room_type: str = "discussion", num_rounds: int = 3, use_multi_agent: bool = True):
         """
         Initialize the debate room facilitator.
         
         Args:
             room_type: 'debate' or 'discussion'
             num_rounds: Number of rounds for the discussion (default: 3)
+            use_multi_agent: Whether to use multi-agent architecture (default: True)
         """
         self.room_type = room_type
         self.num_rounds = num_rounds
@@ -42,12 +48,24 @@ class DebateRoomFacilitator:
         self.english_feedback_history = {}  # Track English feedback for each participant
         self.agent = None
         self.tools = None
+        self.use_multi_agent = use_multi_agent
+        self.orchestrator = None
         
         # Connect to the debate tools MCP server
         def create_debate_tools_transport():
             return streamablehttp_client("http://localhost:8000/mcp/")
         
         self.mcp_client = MCPClient(create_debate_tools_transport)
+        
+        # Initialize multi-agent orchestrator if enabled
+        if self.use_multi_agent:
+            try:
+                self.orchestrator = MultiAgentOrchestrator(use_aws_agentcore=False)
+                print("✅ Multi-Agent Orchestrator initialized")
+            except Exception as e:
+                print(f"⚠️ Failed to initialize Multi-Agent Orchestrator: {e}")
+                print("   Falling back to single-agent mode")
+                self.use_multi_agent = False
     
     def setup_room(self, participant_names: List[str]):
         """
@@ -111,6 +129,31 @@ class DebateRoomFacilitator:
     
     def initialize_agent(self):
         """Initialize the GeminiAgent with debate facilitation capabilities."""
+        
+        if self.use_multi_agent and self.orchestrator:
+            # Use multi-agent architecture
+            print("Initializing Multi-Agent System...")
+            
+            # Initialize debate facilitator agent through orchestrator
+            success = self.orchestrator.initialize_debate_facilitator(
+                room_type=self.room_type,
+                topic=self.topic if self.topic else "To be determined",
+                participants=self.participants,
+                tools=self.tools
+            )
+            
+            if success:
+                print("✅ Multi-Agent System initialized (Facilitator + English Grammar agents)")
+            else:
+                print("⚠️ Failed to initialize multi-agent system, falling back to single agent")
+                self.use_multi_agent = False
+                self._initialize_single_agent()
+        else:
+            # Use original single-agent architecture
+            self._initialize_single_agent()
+    
+    def _initialize_single_agent(self):
+        """Initialize the original single GeminiAgent (legacy mode)."""
         system_prompt = f"""
 You are a humble, kind, and insightful debate/discussion room facilitator with expertise in English language instruction. Your role is to:
 
@@ -159,6 +202,8 @@ Remember: You are a facilitator AND an English language instructor. Your goal is
         
         with self.mcp_client:
             self.agent = GeminiAgent(system_prompt=system_prompt, tools=self.tools)
+        
+        print("✅ Single Agent initialized (legacy mode)")
     
     def process_statement(self, speaker: str, content: str):
         """
@@ -185,6 +230,35 @@ Remember: You are a facilitator AND an English language instructor. Your goal is
         
         # Build context from recent conversation
         recent_statements = self.conversation_history[-5:]  # Last 5 statements
+        
+        if self.use_multi_agent and self.orchestrator:
+            # Use multi-agent system - get separate feedback from each agent
+            try:
+                combined_feedback = self.orchestrator.get_combined_feedback(
+                    topic=self.topic,
+                    recent_statements=recent_statements
+                )
+                
+                # Format combined feedback
+                response = "**DISCUSSION FEEDBACK:**\n\n"
+                response += combined_feedback["discussion_feedback"]
+                response += "\n\n**ENGLISH LANGUAGE FEEDBACK:**\n\n"
+                response += combined_feedback["english_feedback"]
+                
+                # Store English feedback for final summary
+                self._extract_and_store_english_feedback(response, recent_statements)
+                
+                return response
+            except Exception as e:
+                print(f"⚠️ Multi-agent feedback failed: {e}, falling back to single agent")
+                self.use_multi_agent = False
+                return self._get_single_agent_feedback(recent_statements)
+        else:
+            # Use single agent (legacy mode)
+            return self._get_single_agent_feedback(recent_statements)
+    
+    def _get_single_agent_feedback(self, recent_statements: List[Dict]) -> str:
+        """Get feedback using the single agent (legacy mode)."""
         context = f"Topic: {self.topic}\n\nRecent statements:\n"
         
         for stmt in recent_statements:
@@ -247,6 +321,26 @@ Keep your response concise but informative."""
         if not self.conversation_history:
             return "No conversation history available for summary."
         
+        if self.use_multi_agent and self.orchestrator:
+            # Use English Grammar Agent for comprehensive summary
+            try:
+                summary = self.orchestrator.get_comprehensive_summary(
+                    topic=self.topic,
+                    all_statements=self.conversation_history
+                )
+                
+                # Return the English summary part
+                return summary.get("english_summary", "Summary not available")
+            except Exception as e:
+                print(f"⚠️ Multi-agent summary failed: {e}, falling back to single agent")
+                self.use_multi_agent = False
+                return self._get_single_agent_summary()
+        else:
+            # Use single agent (legacy mode)
+            return self._get_single_agent_summary()
+    
+    def _get_single_agent_summary(self) -> str:
+        """Generate summary using single agent (legacy mode)."""
         # Collect all statements by each participant
         participant_statements = {}
         for stmt in self.conversation_history:
