@@ -1,0 +1,207 @@
+@startuml sequence-discussion
+!theme cerulean
+title GupShup Cafe - Discussion Start and Management Sequence
+
+actor User1 as "User 1\n(Current Speaker)"
+actor User2 as "User 2"
+participant "Roundtable Page" as Page
+participant "Socket Context" as Socket
+participant "Socket.io Client" as Client
+participant "Socket.io Server" as Server
+participant "Room Manager" as RoomMgr
+participant "Topic Generator" as TopicGen
+participant "Database" as DB
+
+== Discussion Start ==
+Server -> Server : checkAndStartDiscussion(roomId)
+activate Server
+
+Server -> RoomMgr : getRoom(roomId)
+activate RoomMgr
+RoomMgr --> Server : room data
+deactivate RoomMgr
+
+Server -> Server : Check participant count\nand ready status
+
+alt Conditions met (min participants ready)
+  
+  Server -> TopicGen : generateDiscussionTopic()
+  activate TopicGen
+  
+  alt AI Topic Generation
+    TopicGen -> TopicGen : Check API key
+    TopicGen -> TopicGen : Call Hugging Face API
+    TopicGen --> Server : AI-generated topic
+  else Fallback Topics
+    TopicGen -> TopicGen : getRandomFallbackTopic()
+    TopicGen --> Server : Fallback topic
+  end
+  deactivate TopicGen
+  
+  Server -> DB : recordTopicUsage(topic)
+  activate DB
+  DB -> DB : Update or insert topic
+  DB --> Server : Recorded
+  deactivate DB
+  
+  Server -> RoomMgr : Update discussion state
+  activate RoomMgr
+  RoomMgr -> RoomMgr : Set active = true
+  RoomMgr -> RoomMgr : Set topic, timer, round = 1
+  RoomMgr -> RoomMgr : currentSpeakerIndex = 0
+  RoomMgr --> Server : Discussion initialized
+  deactivate RoomMgr
+  
+  Server -> DB : saveSession(sessionData)
+  activate DB
+  DB -> DB : INSERT session record
+  DB --> Server : Session ID
+  deactivate DB
+  
+  Server -> Server : Get first speaker
+  Server --> Client : discussion-started event\n{topic, firstSpeaker, duration}
+  
+  Client --> Socket : Handle event
+  Socket --> Page : Update discussion state
+  Page --> User1 : Show discussion UI
+  Page --> User2 : Show discussion UI
+  
+  Server -> Server : startSpeakingTimer(roomId)
+  note right
+    Start 60-second countdown
+    for current speaker
+  end note
+  
+end
+
+== Speaking Timer Loop ==
+loop Every second
+  Server -> Server : Decrement timeRemaining
+  Server --> Client : timer-update event
+  Client --> Socket : Update timer
+  Socket --> Page : Update display
+  Page --> User1 : Show remaining time
+  Page --> User2 : Show remaining time
+end
+
+== Advance to Next Speaker ==
+
+alt Time expired
+  Server -> Server : timeRemaining = 0
+else Manual advance
+  User1 -> Page : Click "Next Speaker"
+  Page -> Socket : Request next speaker
+  Socket -> Client : emit('next-speaker')
+  Client -> Server : next-speaker event
+end
+
+Server -> Server : advanceToNextSpeaker(roomId)
+activate Server
+
+Server -> Server : Clear current timer
+Server -> RoomMgr : Get current discussion state
+activate RoomMgr
+RoomMgr --> Server : discussion data
+deactivate RoomMgr
+
+Server -> Server : Increment currentSpeakerIndex
+Server -> Server : Calculate next speaker\n(currentSpeakerIndex % participantCount)
+
+alt End of round (back to first speaker)
+  Server -> Server : Increment round counter
+  
+  alt Round > 3
+    Server -> Server : endDiscussion(roomId)
+    note right
+      After 3 complete rounds,
+      end the discussion
+    end note
+    
+    Server -> RoomMgr : Set discussion.active = false
+    activate RoomMgr
+    RoomMgr -> RoomMgr : Clear timer
+    RoomMgr -> RoomMgr : Set endedAt
+    RoomMgr --> Server : Discussion ended
+    deactivate RoomMgr
+    
+    Server -> DB : updateSessionEnd(sessionData)
+    activate DB
+    DB -> DB : UPDATE session with end time
+    DB --> Server : Updated
+    deactivate DB
+    
+    Server --> Client : discussion-ended event
+    Client --> Socket : Handle end
+    Socket --> Page : Show discussion ended
+    Page --> User1 : Redirect to Lobby
+    Page --> User2 : Redirect to Lobby
+    
+  else Continue to next round
+    Server -> Server : Reset timeRemaining
+    Server -> Server : Get next speaker
+    Server --> Client : speaker-changed event\n{speaker, timeRemaining, round}
+    Client --> Socket : Update current speaker
+    Socket --> Page : Update UI
+    Page --> User1 : Show current speaker
+    Page --> User2 : Show current speaker
+    
+    Server -> Server : startSpeakingTimer(roomId)
+  end
+  
+else Continue current round
+  Server -> Server : Reset timeRemaining
+  Server -> Server : Get next speaker
+  Server --> Client : speaker-changed event\n{speaker, timeRemaining, round}
+  Client --> Socket : Update current speaker
+  Socket --> Page : Update UI
+  Page --> User1 : You're speaking / listening
+  Page --> User2 : You're speaking / listening
+  
+  Server -> Server : startSpeakingTimer(roomId)
+end
+
+deactivate Server
+
+== User Disconnection Handling ==
+User2 -> Page : Close browser / Leave
+Page -> Socket : Trigger disconnect
+Socket -> Client : socket.disconnect()
+Client -> Server : disconnect event
+activate Server
+
+Server -> RoomMgr : removeUserFromRoom(roomId, userId)
+activate RoomMgr
+RoomMgr -> RoomMgr : Filter out user
+RoomMgr -> RoomMgr : Check if room empty
+RoomMgr --> Server : User removed
+deactivate RoomMgr
+
+Server -> RoomMgr : getRoomParticipants(roomId)
+activate RoomMgr
+RoomMgr --> Server : Updated participants
+deactivate RoomMgr
+
+Server --> Client : participants-update event
+Server --> Client : user-disconnected event
+
+Client --> Socket : Update participants
+Socket --> Page : Update UI
+Page --> User1 : Show updated participants
+
+Server -> Server : checkDiscussionContinuation(roomId)
+note right
+  If participants < minimum,
+  end the discussion
+end note
+
+alt Participants below minimum
+  Server -> Server : endDiscussion(roomId)
+  Server --> Client : discussion-ended event
+  Client --> Page : End discussion
+else Enough participants
+  Server -> Server : Continue discussion
+end
+
+deactivate Server
+
+@enduml

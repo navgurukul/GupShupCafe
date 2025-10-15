@@ -1,0 +1,205 @@
+@startuml activity-diagram
+!theme cerulean
+title GupShup Cafe - Discussion Lifecycle Activity Diagram
+
+|User|
+start
+:Open Application;
+
+:Enter Login Credentials;
+note right
+  * Name
+  * Campus
+  * Location
+end note
+
+|System|
+:Generate Anonymous Name;
+:Authenticate User;
+:Store User Data;
+
+|User|
+:Navigate to Lobby;
+
+|System|
+:Establish Socket Connection;
+:Join Room 'general';
+
+|User|
+:Request Audio Permissions;
+
+|System|
+if (Audio permission granted?) then (yes)
+  :Initialize Microphone;
+  :Create Local Media Stream;
+else (no)
+  :Show permission error;
+  stop
+endif
+
+|User|
+:Click "Ready" Button;
+
+|System|
+:Mark User as Ready;
+:Broadcast Participant Update;
+
+:Check Discussion Start Conditions;
+note right
+  Conditions:
+  * participantCount >= MIN_PARTICIPANTS
+  * readyCount >= MIN_PARTICIPANTS
+  * !discussion.active
+end note
+
+if (Conditions met?) then (yes)
+  
+  partition "Discussion Initialization" {
+    :Generate Discussion Topic;
+    
+    if (Hugging Face API available?) then (yes)
+      :Call AI API;
+      
+      if (API success?) then (yes)
+        :Parse AI Response;
+        :Create Topic from AI;
+      else (no)
+        :Use Fallback Topic;
+      endif
+      
+    else (no)
+      :Select Random Fallback Topic;
+    endif
+    
+    :Record Topic Usage in Database;
+    :Create Session Record;
+    :Initialize Discussion State;
+    note right
+      * active = true
+      * currentSpeakerIndex = 0
+      * round = 1
+      * timeRemaining = 60
+      * topic = generated topic
+    end note
+    
+    :Broadcast Discussion Started;
+  }
+  
+  |User|
+  :Navigate to Roundtable Page;
+  :View Topic and Participants;
+  
+  |System|
+  partition "WebRTC Setup" {
+    repeat
+      :Detect New Participant;
+      :Create Peer Connection;
+      :Exchange SDP Offer/Answer;
+      :Exchange ICE Candidates;
+      :Establish Audio Connection;
+    repeat while (More participants?) is (yes)
+    ->no;
+  }
+  
+  partition "Discussion Loop" {
+    :Set First Speaker;
+    :Start Speaking Timer (60s);
+    
+    repeat
+      |User|
+      if (Current speaker?) then (yes)
+        :Speak into microphone;
+        :Unmute if needed;
+      else (no)
+        :Listen to speaker;
+      endif
+      
+      |System|
+      repeat
+        :Decrement Timer (1s);
+        :Broadcast Timer Update;
+        :Update UI;
+        
+        if (User disconnected?) then (yes)
+          :Remove from Participants;
+          :Update Participant List;
+          
+          if (Participants < MIN?) then (yes)
+            :End Discussion;
+            detach
+          else (no)
+            :Continue Discussion;
+          endif
+        endif
+        
+      repeat while (Time remaining > 0 AND No manual advance?) is (yes)
+      ->no;
+      
+      :Clear Current Timer;
+      :Calculate Next Speaker;
+      note right
+        nextSpeakerIndex = 
+        (currentSpeakerIndex + 1) % participantCount
+      end note
+      
+      if (Back to first speaker?) then (yes)
+        :Increment Round;
+        
+        if (Round > 3?) then (yes)
+          |System|
+          partition "Discussion End" {
+            :Clear Discussion Timer;
+            :Set discussion.active = false;
+            :Calculate Duration;
+            :Update Session End in Database;
+            :Broadcast Discussion Ended;
+          }
+          
+          |User|
+          :View Discussion Summary;
+          :Redirect to Lobby;
+          stop
+        else (no)
+          :Continue to Next Round;
+        endif
+      endif
+      
+      :Set Next Speaker;
+      :Reset Timer to 60s;
+      :Broadcast Speaker Changed;
+      
+    repeat while (Discussion active?) is (yes)
+    ->no;
+  }
+  
+else (no)
+  |User|
+  :Wait in Lobby;
+  :View Participant List;
+  
+  |System|
+  repeat
+    :Monitor Participant Count;
+    :Check Ready Status;
+  repeat while (Conditions not met?)
+  ->conditions met;
+endif
+
+|User|
+if (Leave voluntarily?) then (yes)
+  :Click Leave/Close Browser;
+  
+  |System|
+  :Trigger Disconnect Event;
+  :Remove from Room;
+  :Update Participants;
+  :Close Peer Connections;
+  :Stop Media Streams;
+  
+  |User|
+  stop
+else (no)
+  :Continue in session;
+endif
+
+@enduml

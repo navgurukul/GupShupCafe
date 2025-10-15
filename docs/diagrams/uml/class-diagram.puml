@@ -1,0 +1,328 @@
+@startuml class-diagram
+!theme cerulean
+title GupShup Cafe - Class Diagram
+
+' Backend Classes
+package "Backend" {
+  ' Server Layer
+  class Server {
+    -app: Express
+    -server: HTTPServer
+    -io: SocketIOServer
+    -PORT: number
+    -ALLOWED_ORIGINS: string[]
+    +startServer(): Promise<void>
+    +setupMiddleware(): void
+    +setupRoutes(): void
+  }
+
+  ' Socket Handlers
+  class SocketHandlers {
+    -io: SocketIOServer
+    -activeSessions: Map
+    +setupSocketHandlers(io: SocketIOServer): void
+    +handleConnection(socket: Socket): void
+    +handleJoinRoom(socket: Socket, roomId: string, userData: Object): void
+    +handleUserReady(socket: Socket): void
+    +handleLeaveRoom(socket: Socket): void
+    +handleNextSpeaker(socket: Socket): void
+    +handleRoleChange(socket: Socket, data: Object): void
+    +handleWebRTCSignaling(socket: Socket, data: Object): void
+    +handleDisconnect(socket: Socket): void
+    -checkAndStartDiscussion(roomId: string): Promise<void>
+    -startSpeakingTimer(roomId: string): void
+    -advanceToNextSpeaker(roomId: string): void
+    -endDiscussion(roomId: string): void
+    -checkDiscussionContinuation(roomId: string): void
+  }
+
+  ' Room Manager
+  class RoomManager {
+    -rooms: Map<string, Room>
+    -_skipCleanup: boolean
+    +getRoom(roomId: string): Room
+    +addUserToRoom(roomId: string, userData: Object): void
+    +removeUserFromRoom(roomId: string, userId: string): void
+    +updateUser(roomId: string, userId: string, updates: Object): void
+    +getRoomParticipants(roomId: string): Array<Participant>
+    +getDiscussionState(roomId: string): Object
+    +changeUserRole(roomId: string, userId: string, newRole: string): boolean
+    +getRoleStats(roomId: string): Object
+    +canBecomeSpeaker(roomId: string, maxSpeakers: number): boolean
+    +cleanupRoom(roomId: string): void
+    +getAllRooms(): Array<Object>
+    +getStats(): Object
+  }
+
+  class Room {
+    +id: string
+    +participants: Array<Participant>
+    +discussion: Discussion
+    +createdAt: Date
+  }
+
+  class Participant {
+    +id: string
+    +socketId: string
+    +anonymousName: string
+    +name: string
+    +campus: string
+    +location: string
+    +role: string
+    +isReady: boolean
+    +joinedAt: Date
+  }
+
+  class Discussion {
+    +active: boolean
+    +topic: Topic
+    +currentSpeakerIndex: number
+    +speakingTime: number
+    +timeRemaining: number
+    +round: number
+    +timer: NodeJS.Timer
+    +startedAt: Date
+    +endedAt: Date
+  }
+
+  ' AI Topic Generator
+  class TopicGenerator {
+    -fallbackTopics: Array<Topic>
+    +generateDiscussionTopic(): Promise<Topic>
+    +generateTopicWithAI(): Promise<Topic>
+    +parseAIResponse(aiText: string): Topic
+    +getRandomFallbackTopic(): Topic
+    +getAllFallbackTopics(): Array<Topic>
+    +getTopicByCategory(category: string): Topic
+  }
+
+  class Topic {
+    +title: string
+    +description: string
+    +category: string
+    +questions: Array<string>
+    +source: string
+  }
+
+  ' Database Manager
+  class Database {
+    -db: sqlite3.Database
+    +initializeDatabase(): Promise<Database>
+    +createTables(): Promise<void>
+    +getDatabase(): Database
+    +saveSession(sessionData: Object): Promise<number>
+    +saveParticipant(participantData: Object): Promise<number>
+    +recordTopicUsage(topic: Topic): Promise<void>
+    +getSessionAnalytics(limit: number): Promise<Array<Object>>
+    +getTopicAnalytics(): Promise<Array<Object>>
+    +getServerStats(): Promise<Object>
+    +updateSessionEnd(data: Object): Promise<number>
+    +closeDatabase(): void
+  }
+
+  ' API Router
+  class APIRouter {
+    -router: Express.Router
+    +setupRoutes(): Router
+    +getRoomState(req: Request, res: Response): void
+    +getTopics(req: Request, res: Response): void
+    +generateTopic(req: Request, res: Response): Promise<void>
+    +getTopicByCategory(req: Request, res: Response): void
+    +getSessionAnalytics(req: Request, res: Response): Promise<void>
+    +getTopicAnalytics(req: Request, res: Response): Promise<void>
+    +getServerStats(req: Request, res: Response): Promise<void>
+    +submitFeedback(req: Request, res: Response): void
+    +getConfig(req: Request, res: Response): void
+  }
+}
+
+' Frontend Classes
+package "Frontend" {
+  ' Main App
+  class App {
+    +render(): JSX.Element
+  }
+
+  ' Context Providers
+  class AuthContext {
+    -state: AuthState
+    -dispatch: Dispatch
+    +login(userData: Object): void
+    +logout(): void
+    +updateProfile(data: Object): void
+  }
+
+  class AuthState {
+    +isAuthenticated: boolean
+    +user: User
+    +anonymousName: string
+  }
+
+  class SocketContext {
+    -socketRef: Ref<Socket>
+    -metaRef: Ref<Object>
+    -socket: Socket
+    -connected: boolean
+    +joinRoom(roomId: string, userData: Object): void
+    +leaveRoom(): void
+    +emitReady(): void
+    +emitNextSpeaker(): void
+    +emitRoleChange(userId: string, newRole: string): void
+    +onParticipantsUpdate(callback: Function): void
+    +onDiscussionStarted(callback: Function): void
+    +onSpeakerChanged(callback: Function): void
+    +onTimerUpdate(callback: Function): void
+  }
+
+  class AudioContext {
+    -localStream: MediaStream
+    -peerConnections: Map<string, RTCPeerConnection>
+    -audioLevel: number
+    -isMuted: boolean
+    +initializeAudio(): Promise<void>
+    +setupPeerConnection(targetSocketId: string): RTCPeerConnection
+    +createOffer(targetSocketId: string): Promise<void>
+    +handleOffer(fromSocketId: string, sdp: Object): Promise<void>
+    +handleAnswer(fromSocketId: string, sdp: Object): Promise<void>
+    +handleIceCandidate(fromSocketId: string, candidate: Object): Promise<void>
+    +toggleMute(): void
+    +cleanup(): void
+  }
+
+  ' Page Components
+  class LoginPage {
+    -formData: Object
+    +handleSubmit(e: Event): void
+    +generateAnonymousName(): string
+    +render(): JSX.Element
+  }
+
+  class LobbyPage {
+    -participants: Array<Participant>
+    -isReady: boolean
+    +handleReady(): void
+    +setupAudio(): Promise<void>
+    +render(): JSX.Element
+  }
+
+  class RoundtablePage {
+    -discussion: Discussion
+    -participants: Array<Participant>
+    -currentSpeaker: Participant
+    -timeRemaining: number
+    +handleNextSpeaker(): void
+    +handleEndDiscussion(): void
+    +render(): JSX.Element
+  }
+
+  ' UI Components
+  class RoundtableView {
+    -participants: Array<Participant>
+    -currentSpeaker: Participant
+    +calculateChairPosition(index: number, total: number): Object
+    +render(): JSX.Element
+  }
+
+  class TopicDisplay {
+    -topic: Topic
+    +render(): JSX.Element
+  }
+
+  class SpeakerTimer {
+    -timeRemaining: number
+    -speakingTime: number
+    +formatTime(seconds: number): string
+    +render(): JSX.Element
+  }
+
+  class ParticipantControls {
+    -isMuted: boolean
+    -canAdvanceSpeaker: boolean
+    +handleMuteToggle(): void
+    +handleNextSpeaker(): void
+    +handleRoleChange(newRole: string): void
+    +render(): JSX.Element
+  }
+
+  class LiveAudioLevelBar {
+    -audioLevel: number
+    +render(): JSX.Element
+  }
+
+  class ProtectedRoute {
+    -isAuthenticated: boolean
+    +render(): JSX.Element
+  }
+
+  class User {
+    +id: string
+    +name: string
+    +campus: string
+    +location: string
+  }
+}
+
+' Relationships
+Server --> SocketHandlers : uses
+Server --> APIRouter : uses
+Server --> Database : uses
+
+SocketHandlers --> RoomManager : manages
+SocketHandlers --> TopicGenerator : uses
+SocketHandlers --> Database : stores data
+
+RoomManager --> Room : manages
+Room *-- "0..*" Participant : contains
+Room *-- "1" Discussion : has
+Discussion --> Topic : uses
+
+TopicGenerator ..> Topic : creates
+Database ..> Topic : stores
+
+APIRouter --> RoomManager : queries
+APIRouter --> TopicGenerator : uses
+APIRouter --> Database : queries
+
+App --> AuthContext : provides
+App --> SocketContext : provides
+App --> AudioContext : provides
+
+AuthContext --> AuthState : manages
+AuthContext --> User : stores
+
+SocketContext --> AudioContext : coordinates
+SocketContext ..> SocketHandlers : communicates
+
+LoginPage --> AuthContext : uses
+LobbyPage --> AuthContext : uses
+LobbyPage --> SocketContext : uses
+LobbyPage --> AudioContext : uses
+
+RoundtablePage --> SocketContext : uses
+RoundtablePage --> AudioContext : uses
+RoundtablePage --> RoundtableView : contains
+RoundtablePage --> TopicDisplay : contains
+RoundtablePage --> SpeakerTimer : contains
+RoundtablePage --> ParticipantControls : contains
+
+ParticipantControls --> LiveAudioLevelBar : contains
+
+ProtectedRoute --> AuthContext : uses
+
+note right of Server
+  Express + Socket.io server
+  Handles HTTP and WebSocket
+  communication
+end note
+
+note right of RoomManager
+  Manages in-memory room state
+  Singleton pattern
+end note
+
+note right of AudioContext
+  Handles WebRTC peer connections
+  for real-time audio
+end note
+
+@enduml

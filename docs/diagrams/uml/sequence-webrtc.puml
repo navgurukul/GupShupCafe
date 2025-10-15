@@ -1,0 +1,243 @@
+@startuml sequence-webrtc
+!theme cerulean
+title GupShup Cafe - WebRTC Audio Communication Sequence
+
+actor User1 as "User 1"
+actor User2 as "User 2"
+participant "Audio Context 1" as Audio1
+participant "Audio Context 2" as Audio2
+participant "Socket.io Client 1" as Client1
+participant "Socket.io Client 2" as Client2
+participant "Socket.io Server" as Server
+participant "WebRTC\nSTUN/TURN" as STUN
+
+== Audio Initialization ==
+User1 -> Audio1 : Initialize audio
+activate Audio1
+Audio1 -> Audio1 : navigator.mediaDevices\n.getUserMedia({audio: true})
+Audio1 --> User1 : Local media stream
+deactivate Audio1
+
+User2 -> Audio2 : Initialize audio
+activate Audio2
+Audio2 -> Audio2 : navigator.mediaDevices\n.getUserMedia({audio: true})
+Audio2 --> User2 : Local media stream
+deactivate Audio2
+
+== WebRTC Connection Setup ==
+
+User1 -> Audio1 : Join room with other participants
+activate Audio1
+
+Audio1 -> Audio1 : Detect new participant (User 2)
+Audio1 -> Audio1 : setupPeerConnection(user2SocketId)
+
+Audio1 -> Audio1 : Create RTCPeerConnection
+note right
+  Configuration includes
+  STUN servers for NAT traversal
+end note
+
+Audio1 -> Audio1 : Add local stream tracks
+Audio1 -> Audio1 : Set up ICE candidate handler
+Audio1 -> Audio1 : Set up remote stream handler
+
+Audio1 -> Audio1 : createOffer()
+activate Audio1
+
+Audio1 -> Audio1 : Generate SDP offer
+Audio1 -> Client1 : Send offer
+deactivate Audio1
+
+Client1 -> Server : webrtc-offer event\n{to: user2SocketId, sdp: offer}
+activate Server
+Server -> Server : Relay to target socket
+Server -> Client2 : webrtc-offer event\n{from: user1SocketId, sdp: offer}
+deactivate Server
+
+== Offer Processing ==
+
+Client2 --> Audio2 : Received offer from User 1
+activate Audio2
+
+Audio2 -> Audio2 : handleOffer(user1SocketId, sdp)
+Audio2 -> Audio2 : setupPeerConnection(user1SocketId)
+Audio2 -> Audio2 : Create RTCPeerConnection
+Audio2 -> Audio2 : Add local stream tracks
+Audio2 -> Audio2 : Set remote description (offer)
+
+Audio2 -> Audio2 : createAnswer()
+Audio2 -> Audio2 : Generate SDP answer
+
+Audio2 -> Client2 : Send answer
+deactivate Audio2
+
+Client2 -> Server : webrtc-answer event\n{to: user1SocketId, sdp: answer}
+activate Server
+Server -> Server : Relay to target socket
+Server -> Client1 : webrtc-answer event\n{from: user2SocketId, sdp: answer}
+deactivate Server
+
+== Answer Processing ==
+
+Client1 --> Audio1 : Received answer from User 2
+activate Audio1
+
+Audio1 -> Audio1 : handleAnswer(user2SocketId, sdp)
+Audio1 -> Audio1 : Set remote description (answer)
+note right
+  Connection established
+  between peers
+end note
+
+deactivate Audio1
+
+== ICE Candidate Exchange ==
+
+Audio1 -> Audio1 : Generate ICE candidates
+activate Audio1
+note right
+  RTCPeerConnection discovers
+  local network interfaces
+  and STUN reflexive addresses
+end note
+
+Audio1 -> STUN : Query for public IP
+activate STUN
+STUN --> Audio1 : Return reflexive candidate
+deactivate STUN
+
+loop For each ICE candidate
+  Audio1 -> Client1 : Send ICE candidate
+  Client1 -> Server : webrtc-ice-candidate event\n{to: user2SocketId, candidate}
+  activate Server
+  Server -> Client2 : webrtc-ice-candidate event\n{from: user1SocketId, candidate}
+  deactivate Server
+  
+  Client2 --> Audio2 : ICE candidate
+  activate Audio2
+  Audio2 -> Audio2 : handleIceCandidate(user1SocketId, candidate)
+  Audio2 -> Audio2 : Add ICE candidate to peer connection
+  deactivate Audio2
+end
+
+deactivate Audio1
+
+Audio2 -> Audio2 : Generate ICE candidates
+activate Audio2
+
+Audio2 -> STUN : Query for public IP
+activate STUN
+STUN --> Audio2 : Return reflexive candidate
+deactivate STUN
+
+loop For each ICE candidate
+  Audio2 -> Client2 : Send ICE candidate
+  Client2 -> Server : webrtc-ice-candidate event\n{to: user1SocketId, candidate}
+  activate Server
+  Server -> Client1 : webrtc-ice-candidate event\n{from: user2SocketId, candidate}
+  deactivate Server
+  
+  Client1 --> Audio1 : ICE candidate
+  activate Audio1
+  Audio1 -> Audio1 : handleIceCandidate(user2SocketId, candidate)
+  Audio1 -> Audio1 : Add ICE candidate to peer connection
+  deactivate Audio1
+end
+
+deactivate Audio2
+
+== Connection Established ==
+
+Audio1 -> Audio1 : Connection state: connected
+note right
+  Peer-to-peer audio
+  connection established
+end note
+
+Audio2 -> Audio2 : Connection state: connected
+
+Audio1 --> User1 : Audio connected
+Audio2 --> User2 : Audio connected
+
+== Audio Streaming ==
+
+loop Continuous audio streaming
+  User1 -> Audio1 : Speak into microphone
+  activate Audio1
+  Audio1 -> Audio1 : Capture audio
+  Audio1 ->> Audio2 : Stream audio (P2P)
+  note right
+    Direct peer-to-peer
+    audio transmission
+  end note
+  Audio2 -> Audio2 : Decode and play audio
+  Audio2 --> User2 : Hear User 1's voice
+  deactivate Audio1
+end
+
+loop Continuous audio streaming
+  User2 -> Audio2 : Speak into microphone
+  activate Audio2
+  Audio2 -> Audio2 : Capture audio
+  Audio2 ->> Audio1 : Stream audio (P2P)
+  Audio1 -> Audio1 : Decode and play audio
+  Audio1 --> User1 : Hear User 2's voice
+  deactivate Audio2
+end
+
+== Mute/Unmute Control ==
+
+User1 -> Audio1 : Click mute button
+activate Audio1
+Audio1 -> Audio1 : toggleMute()
+Audio1 -> Audio1 : localStream.getAudioTracks()[0]\n.enabled = false
+Audio1 --> User1 : Microphone muted
+deactivate Audio1
+
+note over Audio2, User2
+  Audio from User 1 stops
+  flowing to User 2
+end note
+
+User1 -> Audio1 : Click unmute button
+activate Audio1
+Audio1 -> Audio1 : toggleMute()
+Audio1 -> Audio1 : localStream.getAudioTracks()[0]\n.enabled = true
+Audio1 --> User1 : Microphone unmuted
+deactivate Audio1
+
+== Audio Level Monitoring ==
+
+loop Every 100ms
+  Audio1 -> Audio1 : Monitor audio level
+  activate Audio1
+  Audio1 -> Audio1 : analyser.getByteFrequencyData()
+  Audio1 -> Audio1 : Calculate average volume
+  Audio1 --> User1 : Display audio level bar
+  deactivate Audio1
+end
+
+== Connection Cleanup ==
+
+User1 -> Audio1 : Leave room
+activate Audio1
+Audio1 -> Audio1 : cleanup()
+Audio1 -> Audio1 : Close all peer connections
+Audio1 -> Audio1 : Stop local media tracks
+Audio1 -> Audio1 : Clear peer connection map
+Audio1 --> User1 : Audio disconnected
+deactivate Audio1
+
+note over Audio2
+  Peer connection state changes
+  to 'disconnected' or 'closed'
+end note
+
+Audio2 -> Audio2 : Handle connection closure
+activate Audio2
+Audio2 -> Audio2 : Remove peer connection
+Audio2 --> User2 : User 1 disconnected
+deactivate Audio2
+
+@enduml

@@ -1,0 +1,160 @@
+@startuml sequence-login-join
+!theme cerulean
+title GupShup Cafe - User Login and Join Room Sequence
+
+actor User
+participant "Login Page" as Login
+participant "Auth Context" as Auth
+participant "Socket Context" as Socket
+participant "Socket.io Client" as SocketClient
+participant "Socket.io Server" as Server
+participant "Room Manager" as RoomMgr
+participant "Database" as DB
+
+== User Login ==
+User -> Login : Enter credentials\n(name, campus, location)
+activate Login
+
+Login -> Login : Generate anonymous name
+note right
+  Creates a friendly
+  anonymous display name
+end note
+
+Login -> Auth : login(userData)
+activate Auth
+
+Auth -> Auth : Store in state
+Auth -> Auth : Save to localStorage
+
+Auth --> Login : Authentication successful
+deactivate Auth
+
+Login --> User : Redirect to Lobby
+deactivate Login
+
+== Socket Connection ==
+User -> Socket : Navigate to Lobby
+activate Socket
+
+Socket -> SocketClient : Connect with auth data
+activate SocketClient
+
+SocketClient -> Server : socket.connect(auth)
+activate Server
+
+Server -> Server : Validate connection
+Server -> Server : Store user data from auth
+
+Server --> SocketClient : connection established
+note right
+  Server assigns socket ID
+  and stores user context
+end note
+
+SocketClient --> Socket : connected event
+Socket --> User : Show connected status
+
+== Join Room ==
+Socket -> SocketClient : emit('join-room', 'general', userData)
+SocketClient -> Server : join-room event
+activate Server
+
+Server -> Server : Extract roomId and userData
+Server -> Server : Leave previous rooms
+
+Server -> RoomMgr : addUserToRoom(roomId, userData)
+activate RoomMgr
+
+RoomMgr -> RoomMgr : Get or create room
+RoomMgr -> RoomMgr : Remove if already exists
+RoomMgr -> RoomMgr : Add user to participants
+
+RoomMgr --> Server : User added
+deactivate RoomMgr
+
+Server -> RoomMgr : getRoomParticipants(roomId)
+activate RoomMgr
+RoomMgr --> Server : participants list
+deactivate RoomMgr
+
+Server -> Server : Emit to room
+Server --> SocketClient : participants-update event
+note right
+  Broadcasts to all users
+  in the room including
+  the newly joined user
+end note
+
+SocketClient --> Socket : Update participants state
+deactivate Server
+
+Socket --> User : Display participants
+deactivate Socket
+
+== Audio Setup ==
+User -> Socket : Request audio permissions
+activate Socket
+
+Socket -> Socket : Get microphone access
+Socket -> Socket : Create local media stream
+
+Socket --> User : Audio ready indicator
+deactivate Socket
+
+== User Ready Signal ==
+User -> Socket : Click "Ready" button
+activate Socket
+
+Socket -> SocketClient : emit('user-ready')
+SocketClient -> Server : user-ready event
+activate Server
+
+Server -> RoomMgr : updateUser(roomId, userId, {isReady: true})
+activate RoomMgr
+RoomMgr -> RoomMgr : Update user status
+RoomMgr --> Server : Updated
+deactivate RoomMgr
+
+Server -> RoomMgr : getRoomParticipants(roomId)
+activate RoomMgr
+RoomMgr --> Server : participants list
+deactivate RoomMgr
+
+Server --> SocketClient : participants-update event
+SocketClient --> Socket : Update state
+Socket --> User : Show ready status
+deactivate Socket
+
+Server -> Server : checkAndStartDiscussion(roomId)
+note right
+  Checks if minimum participants
+  are ready to start discussion
+end note
+
+alt Enough participants ready
+  Server -> DB : Check session data
+  activate DB
+  DB --> Server : No active session
+  deactivate DB
+  
+  Server --> SocketClient : discussion-started event
+  note right
+    Discussion begins
+    with topic and first speaker
+  end note
+  
+  SocketClient --> Socket : Handle discussion start
+  Socket --> User : Navigate to Roundtable
+else Not enough participants
+  Server -> Server : Wait for more participants
+  note right
+    Minimum 2 participants
+    must be ready
+  end note
+end
+
+deactivate Server
+deactivate SocketClient
+
+@enduml

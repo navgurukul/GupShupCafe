@@ -1,0 +1,199 @@
+@startuml component-diagram
+!theme cerulean
+title GupShup Cafe - Component Diagram
+
+' External Systems
+cloud "Internet" {
+  component [Web Browser] as Browser
+  component [Hugging Face API] as HuggingFace
+}
+
+' Frontend Application
+package "Frontend (React + Vite)" {
+  component [React Router] as Router
+  component [Authentication Module] as Auth
+  component [Socket.io Client] as SocketClient
+  component [WebRTC Audio Manager] as WebRTC
+  
+  package "Pages" {
+    component [Login Page] as LoginPage
+    component [Lobby Page] as LobbyPage
+    component [Roundtable Page] as RoundtablePage
+    component [Audio Test Page] as AudioTestPage
+    component [Broadcast Test Page] as BroadcastTestPage
+  }
+  
+  package "UI Components" {
+    component [Roundtable View] as RoundtableView
+    component [Topic Display] as TopicDisplay
+    component [Speaker Timer] as SpeakerTimer
+    component [Participant Controls] as ParticipantControls
+    component [Audio Level Bar] as AudioLevelBar
+    component [Protected Route] as ProtectedRoute
+  }
+  
+  package "Context Providers" {
+    component [Auth Context] as AuthContext
+    component [Socket Context] as SocketContext
+    component [Audio Context] as AudioContext
+  }
+}
+
+' Backend Application
+package "Backend (Node.js + Express)" {
+  component [Express Server] as Express
+  component [Socket.io Server] as SocketServer
+  component [CORS Middleware] as CORS
+  component [Helmet Security] as Helmet
+  
+  package "API Routes" {
+    component [Health Check API] as HealthAPI
+    component [Topics API] as TopicsAPI
+    component [Analytics API] as AnalyticsAPI
+    component [Config API] as ConfigAPI
+    component [Room State API] as RoomStateAPI
+  }
+  
+  package "Socket Handlers" {
+    component [Connection Handler] as ConnHandler
+    component [Room Handler] as RoomHandler
+    component [Discussion Handler] as DiscussionHandler
+    component [WebRTC Signaling Handler] as SignalingHandler
+    component [Broadcast Test Handler] as BroadcastHandler
+  }
+  
+  package "Business Logic" {
+    component [Room Manager] as RoomManager
+    component [Topic Generator] as TopicGenerator
+    component [Database Manager] as DatabaseManager
+  }
+}
+
+' Data Storage
+database "SQLite Database" {
+  storage [sessions table] as SessionsTable
+  storage [participants table] as ParticipantsTable
+  storage [topics table] as TopicsTable
+}
+
+' Deployment Infrastructure
+node "Vercel" {
+  artifact [Frontend Build] as FrontendBuild
+}
+
+node "Render / Cloud" {
+  artifact [Backend Service] as BackendService
+}
+
+' Browser to Frontend connections
+Browser --> Router : HTTP/HTTPS
+Browser --> SocketClient : WebSocket
+Browser --> WebRTC : WebRTC Media
+
+' Frontend internal connections
+Router --> LoginPage
+Router --> LobbyPage
+Router --> RoundtablePage
+Router --> AudioTestPage
+Router --> BroadcastTestPage
+
+LoginPage --> AuthContext
+LobbyPage --> AuthContext
+LobbyPage --> SocketContext
+LobbyPage --> AudioContext
+
+RoundtablePage --> SocketContext
+RoundtablePage --> AudioContext
+RoundtablePage --> RoundtableView
+RoundtablePage --> TopicDisplay
+RoundtablePage --> SpeakerTimer
+RoundtablePage --> ParticipantControls
+
+ParticipantControls --> AudioLevelBar
+
+ProtectedRoute --> AuthContext
+
+AuthContext --> Auth
+SocketContext --> SocketClient
+AudioContext --> WebRTC
+
+' Frontend to Backend connections
+SocketClient --> SocketServer : Socket.io\nWebSocket
+Auth --> HealthAPI : REST API
+TopicsAPI <-- SocketContext : HTTP
+RoomStateAPI <-- SocketContext : HTTP
+
+' Backend internal connections
+Express --> CORS
+Express --> Helmet
+Express --> HealthAPI
+Express --> TopicsAPI
+Express --> AnalyticsAPI
+Express --> ConfigAPI
+Express --> RoomStateAPI
+
+SocketServer --> ConnHandler
+SocketServer --> RoomHandler
+SocketServer --> DiscussionHandler
+SocketServer --> SignalingHandler
+SocketServer --> BroadcastHandler
+
+ConnHandler --> RoomManager
+RoomHandler --> RoomManager
+DiscussionHandler --> RoomManager
+DiscussionHandler --> TopicGenerator
+DiscussionHandler --> DatabaseManager
+SignalingHandler --> RoomManager
+
+TopicsAPI --> TopicGenerator
+AnalyticsAPI --> DatabaseManager
+RoomStateAPI --> RoomManager
+
+' Backend to External connections
+TopicGenerator --> HuggingFace : HTTP API\n(AI Topics)
+
+' Backend to Database connections
+DatabaseManager --> SessionsTable
+DatabaseManager --> ParticipantsTable
+DatabaseManager --> TopicsTable
+
+' Deployment connections
+FrontendBuild .up.> Browser : serves
+BackendService .up.> SocketServer : runs
+BackendService .up.> Express : runs
+
+' Notes
+note right of WebRTC
+  Peer-to-peer audio connections
+  Uses STUN/TURN for NAT traversal
+end note
+
+note right of SocketServer
+  Real-time bidirectional
+  event-based communication
+end note
+
+note right of RoomManager
+  In-memory room state management
+  Participant tracking
+  Discussion coordination
+end note
+
+note right of TopicGenerator
+  AI-powered topic generation
+  Fallback to curated topics
+end note
+
+note left of SessionsTable
+  Stores session analytics
+  Discussion metadata
+  Performance metrics
+end note
+
+note bottom of HuggingFace
+  Optional AI integration
+  Uses DialoGPT model
+  Falls back gracefully
+end note
+
+@enduml

@@ -1,0 +1,274 @@
+@startuml package-diagram
+!theme cerulean
+title GupShup Cafe - Package Diagram
+
+package "Client Application" {
+  
+  package "React Application" {
+    package "Core" {
+      [App Component]
+      [Router Configuration]
+      [Main Entry Point]
+    }
+    
+    package "Pages" {
+      [Login Page]
+      [Lobby Page]
+      [Roundtable Page]
+      [Audio Test Page]
+      [Broadcast Test Page]
+    }
+    
+    package "Components" {
+      [Roundtable View]
+      [Topic Display]
+      [Speaker Timer]
+      [Participant Controls]
+      [Audio Level Bar]
+      [Protected Route]
+    }
+    
+    package "Context Providers" {
+      [Auth Context]
+      [Socket Context]
+      [Audio Context]
+    }
+    
+    package "Utilities" {
+      [Anonymous Name Generator]
+      [Time Formatter]
+      [Validation Helpers]
+    }
+  }
+  
+  package "Build Tools" {
+    [Vite]
+    [ESLint]
+    [Tailwind CSS]
+    [PostCSS]
+  }
+}
+
+package "Server Application" {
+  
+  package "Core Server" {
+    [Express Server]
+    [Socket.io Server]
+    [HTTP Server]
+  }
+  
+  package "Middleware" {
+    [CORS Handler]
+    [Helmet Security]
+    [JSON Parser]
+    [Error Handler]
+  }
+  
+  package "API Routes" {
+    [Health Check Route]
+    [Topics Routes]
+    [Analytics Routes]
+    [Config Routes]
+    [Room State Routes]
+  }
+  
+  package "Socket Handlers" {
+    [Connection Handler]
+    [Room Join/Leave Handler]
+    [Discussion Handler]
+    [WebRTC Signaling Handler]
+    [Broadcast Test Handler]
+  }
+  
+  package "Business Logic" {
+    package "Room Management" {
+      [Room Manager]
+      [Participant Manager]
+      [Discussion State Manager]
+    }
+    
+    package "AI Integration" {
+      [Topic Generator]
+      [Hugging Face Client]
+      [Fallback Topics]
+    }
+    
+    package "Data Persistence" {
+      [Database Manager]
+      [Session Repository]
+      [Participant Repository]
+      [Topic Repository]
+    }
+  }
+  
+  package "External Integrations" {
+    [Hugging Face API Client]
+  }
+}
+
+package "Database Layer" {
+  database "SQLite Database" {
+    [Sessions Table]
+    [Participants Table]
+    [Topics Table]
+  }
+}
+
+package "External Services" {
+  cloud "Hugging Face" {
+    [DialoGPT Model API]
+  }
+  
+  cloud "WebRTC Infrastructure" {
+    [STUN Servers]
+    [TURN Servers]
+  }
+}
+
+package "Deployment Infrastructure" {
+  
+  package "Frontend Hosting" {
+    cloud "Vercel" {
+      [CDN Distribution]
+      [Build Pipeline]
+      [Static Assets]
+    }
+  }
+  
+  package "Backend Hosting" {
+    cloud "Render / Cloud" {
+      [Node.js Container]
+      [Process Manager]
+      [Health Monitoring]
+    }
+  }
+}
+
+package "Development Tools" {
+  [Git Repository]
+  [NPM Registry]
+  [Environment Configuration]
+  [Documentation]
+}
+
+' React Application Dependencies
+[Core] --> [Pages]
+[Core] --> [Context Providers]
+[Pages] --> [Components]
+[Pages] --> [Context Providers]
+[Components] --> [Context Providers]
+[Context Providers] --> [Utilities]
+
+[React Application] --> [Build Tools]
+
+' Socket Context to Socket.io Client
+[Socket Context] ..> [Socket.io Server] : WebSocket
+
+' Auth Context to API
+[Auth Context] ..> [API Routes] : HTTP
+
+' Audio Context to WebRTC
+[Audio Context] ..> [WebRTC Infrastructure] : WebRTC
+
+' Server Core Dependencies
+[Express Server] --> [Middleware]
+[Express Server] --> [API Routes]
+[Socket.io Server] --> [Socket Handlers]
+
+' API Routes Dependencies
+[API Routes] --> [Business Logic]
+[API Routes] --> [Middleware]
+
+' Socket Handlers Dependencies
+[Socket Handlers] --> [Room Management]
+[Socket Handlers] --> [AI Integration]
+[Socket Handlers] --> [Data Persistence]
+
+' Room Management Internal
+[Room Manager] --> [Participant Manager]
+[Room Manager] --> [Discussion State Manager]
+
+' AI Integration
+[Topic Generator] --> [Hugging Face Client]
+[Topic Generator] --> [Fallback Topics]
+[Hugging Face Client] ..> [DialoGPT Model API] : HTTP API
+
+' Data Persistence
+[Database Manager] --> [Session Repository]
+[Database Manager] --> [Participant Repository]
+[Database Manager] --> [Topic Repository]
+
+[Session Repository] --> [Sessions Table]
+[Participant Repository] --> [Participants Table]
+[Topic Repository] --> [Topics Table]
+
+' Deployment
+[React Application] ..> [CDN Distribution] : deployed to
+[Server Application] ..> [Node.js Container] : deployed to
+[SQLite Database] ..> [Node.js Container] : runs in
+
+' Development Tools
+[Git Repository] --> [React Application]
+[Git Repository] --> [Server Application]
+[NPM Registry] --> [React Application]
+[NPM Registry] --> [Server Application]
+[Environment Configuration] --> [React Application]
+[Environment Configuration] --> [Server Application]
+
+note right of [Context Providers]
+  **Global State Management**
+  - Authentication state
+  - Socket connection state
+  - Audio/WebRTC state
+  - Provides data to all components
+end note
+
+note right of [Socket Handlers]
+  **Real-time Event Management**
+  - Connection lifecycle
+  - Room operations
+  - Discussion coordination
+  - WebRTC signaling relay
+end note
+
+note left of [Room Manager]
+  **In-Memory State**
+  - Singleton pattern
+  - Manages all active rooms
+  - Participant tracking
+  - Discussion state coordination
+end note
+
+note right of [Database Manager]
+  **Persistence Layer**
+  - Session analytics
+  - Topic usage tracking
+  - Participant history
+  - SQLite operations
+end note
+
+note bottom of [WebRTC Infrastructure]
+  **Peer-to-Peer Audio**
+  - STUN for NAT traversal
+  - TURN for restrictive networks
+  - Direct audio streaming
+  - Reduces server bandwidth
+end note
+
+note left of [Build Tools]
+  **Development & Build**
+  - Vite for fast HMR
+  - Tailwind for styling
+  - ESLint for code quality
+  - Production optimization
+end note
+
+note bottom of [CDN Distribution]
+  **Global Distribution**
+  - Edge caching
+  - HTTPS by default
+  - Automatic builds
+  - Environment injection
+end note
+
+@enduml
