@@ -1,8 +1,9 @@
 # Quick Reference Guide - UML Diagrams
 
 **Location:** `/docs/diagrams/uml/`
-**Total Diagrams:** 13 PlantUML diagrams
+**Total Diagrams:** 13 PlantUML diagrams (.wsd format)
 **Total Lines:** ~2,700 lines of PlantUML code
+**PlantUML Version:** 1.2024.8 (Latest)
 
 ---
 
@@ -10,32 +11,31 @@
 
 ### View Diagrams Online (Easiest)
 1. Go to http://www.plantuml.com/plantuml/uml/
-2. Copy the content of any `.puml` file
+2. Copy the content of any `.wsd` file
 3. Paste and view instantly
 
 ### View in VS Code (Recommended for Development)
 1. Install the **PlantUML** extension by jebbs
-2. Open any `.puml` file
+2. Open any `.wsd` file
 3. Press `Alt+D` to open preview
 4. Press `Ctrl+Shift+P` and search "PlantUML: Preview Current Diagram"
 
-### Generate PNG Images
+### Generate PNG Images (Latest PlantUML)
 ```bash
-# Install PlantUML (one-time setup)
-sudo apt-get update
-sudo apt-get install plantuml
+# Download latest PlantUML JAR (one-time setup)
+wget https://github.com/plantuml/plantuml/releases/download/v1.2024.8/plantuml-1.2024.8.jar
 
 # Navigate to diagrams directory
-cd /home/runner/work/GupShupCafe/GupShupCafe/docs/diagrams/uml/
+cd docs/diagrams/uml/
 
 # Generate all PNG images
-plantuml *.puml
+java -jar plantuml-1.2024.8.jar *.wsd
 
 # Generate specific diagram
-plantuml 01-component-diagram.puml
+java -jar plantuml-1.2024.8.jar 01-component-diagram.wsd
 
 # Generate as SVG (scalable)
-plantuml -tsvg 01-component-diagram.puml
+java -jar plantuml-1.2024.8.jar -tsvg 01-component-diagram.wsd
 ```
 
 ---
@@ -43,67 +43,67 @@ plantuml -tsvg 01-component-diagram.puml
 ## 📊 Diagram Quick Reference
 
 ### 1️⃣ Component Diagram
-**File:** `01-component-diagram.puml`
+**File:** `01-component-diagram.wsd`
 **Best For:** Understanding overall system architecture
 **Shows:** All layers (Client, Communication, Server, Data)
 
 ### 2️⃣ Deployment Diagram
-**File:** `02-deployment-diagram.puml`
+**File:** `02-deployment-diagram.wsd`
 **Best For:** Setting up environments
 **Shows:** Dev setup (local) and Prod setup (AWS)
 
 ### 3️⃣ Class Diagram - Backend
-**File:** `03-class-diagram-backend.puml`
+**File:** `03-class-diagram-backend.wsd`
 **Best For:** Backend development in server_py
 **Shows:** Python classes, relationships, methods
 
 ### 4️⃣ Sequence - User Join
-**File:** `04-sequence-user-join-discussion.puml`
+**File:** `04-sequence-user-join-discussion.wsd`
 **Best For:** Understanding user onboarding flow
 **Shows:** Login → Lobby → Discussion Start
 
 ### 5️⃣ Sequence - WebRTC
-**File:** `05-sequence-webrtc-audio.puml`
+**File:** `05-sequence-webrtc-audio.wsd`
 **Best For:** Debugging audio issues
 **Shows:** P2P audio connection setup
 
 ### 6️⃣ Sequence - LLM Agent
-**File:** `06-sequence-llm-agent-interaction.puml`
+**File:** `06-sequence-llm-agent-interaction.wsd`
 **Best For:** Understanding AI integration
 **Shows:** Agent initialization, feedback, MCP
 
 ### 7️⃣ Activity Diagram
-**File:** `07-activity-discussion-lifecycle.puml`
+**File:** `07-activity-discussion-lifecycle.wsd`
 **Best For:** Complete flow understanding
 **Shows:** End-to-end discussion lifecycle
 
 ### 8️⃣ State Diagram
-**File:** `08-state-room-management.puml`
+**File:** `08-state-room-management.wsd`
 **Best For:** Room state debugging
 **Shows:** All room states and transitions
 
 ### 9️⃣ Use Case Diagram
-**File:** `09-usecase-diagram.puml`
+**File:** `09-usecase-diagram.wsd`
 **Best For:** Feature planning
 **Shows:** 33 use cases across 7 packages
 
 ### 🔟 ER Diagram
-**File:** `10-er-diagram-database.puml`
+**File:** `10-er-diagram-database.wsd`
 **Best For:** Database development
 **Shows:** Tables, relationships, constraints
 
 ### 1️⃣1️⃣ Package Diagram - Frontend
-**File:** `11-package-diagram-frontend.puml`
+**File:** `11-package-diagram-frontend.wsd`
 **Best For:** Frontend architecture
 **Shows:** React app structure and organization
 
 ### 1️⃣2️⃣ Class Diagram - Frontend
-**File:** `12-class-diagram-frontend.puml`
+**File:** `12-class-diagram-frontend.wsd`
 **Best For:** Frontend development
 **Shows:** React components, contexts, hooks
 
 ### 1️⃣3️⃣ Sequence - Turn Management
-**File:** `13-sequence-speaker-turn-management.puml`
+**File:** `13-sequence-speaker-turn-management.wsd`
 **Best For:** Understanding speaking turns
 **Shows:** Timer, turn rotation, agent turns
 
@@ -112,40 +112,40 @@ plantuml -tsvg 01-component-diagram.puml
 ## 🎯 Common Use Cases
 
 ### I want to understand the overall architecture
-→ Start with **01-component-diagram.puml**
+→ Start with **01-component-diagram.wsd**
 
 ### I'm setting up the project
-→ Check **02-deployment-diagram.puml**
+→ Check **02-deployment-diagram.wsd**
 
 ### I'm developing backend features
-→ Reference **03-class-diagram-backend.puml**
+→ Reference **03-class-diagram-backend.wsd**
 
 ### I'm implementing user flow
-→ Use **04-sequence-user-join-discussion.puml**
+→ Use **04-sequence-user-join-discussion.wsd**
 
 ### Audio isn't working
-→ Debug with **05-sequence-webrtc-audio.puml**
+→ Debug with **05-sequence-webrtc-audio.wsd**
 
 ### I'm integrating LLM features
-→ Follow **06-sequence-llm-agent-interaction.puml**
+→ Follow **06-sequence-llm-agent-interaction.wsd**
 
 ### I need to understand the full flow
-→ Study **07-activity-discussion-lifecycle.puml**
+→ Study **07-activity-discussion-lifecycle.wsd**
 
 ### Room state is confusing
-→ Refer to **08-state-room-management.puml**
+→ Refer to **08-state-room-management.wsd**
 
 ### I'm planning new features
-→ Check **09-usecase-diagram.puml**
+→ Check **09-usecase-diagram.wsd**
 
 ### I'm working with the database
-→ Use **10-er-diagram-database.puml**
+→ Use **10-er-diagram-database.wsd**
 
 ### I'm developing React components
-→ Reference **11-package-diagram-frontend.puml** and **12-class-diagram-frontend.puml**
+→ Reference **11-package-diagram-frontend.wsd** and **12-class-diagram-frontend.wsd**
 
 ### Turn management is unclear
-→ Follow **13-sequence-speaker-turn-management.puml**
+→ Follow **13-sequence-speaker-turn-management.wsd**
 
 ---
 
@@ -252,8 +252,8 @@ open diagram.png # macOS
 - Architecture changed → Update component/deployment diagrams
 
 ### How to Update
-1. Edit the `.puml` file
-2. Regenerate images: `plantuml filename.puml`
+1. Edit the `.wsd` file
+2. Regenerate images: `plantuml filename.wsd`
 3. Review in preview
 4. Commit to Git
 5. Update documentation if needed

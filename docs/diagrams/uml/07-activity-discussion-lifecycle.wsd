@@ -163,7 +163,7 @@ else (no)
     stop
 endif
 
-note right of "LLM Agent"
+floating note right
     **CEFR Feedback includes:**
     • Grammar corrections
     • Vocabulary suggestions
@@ -172,7 +172,7 @@ note right of "LLM Agent"
     • Overall assessment
 end note
 
-note right of "Room Manager"
+floating note right
     **Room State includes:**
     • Participants list
     • Discussion topic
@@ -181,7 +181,7 @@ note right of "Room Manager"
     • Round number
 end note
 
-note right of "Audio System"
+floating note right
     **WebRTC Features:**
     • P2P audio streaming
     • Low latency

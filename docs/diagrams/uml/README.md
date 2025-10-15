@@ -2,10 +2,12 @@
 
 This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roundtable Discussion Platform) created using PlantUML. These diagrams document the system architecture, focusing on the **server_py (Python FastAPI backend)** which is the target backend going forward, with LLM Agent integration.
 
+**Note:** All diagrams use the `.wsd` (WebSequence Diagram) file format, which is compatible with PlantUML 1.2024.8 and later versions.
+
 ## 📋 Diagram Index
 
 ### 1. Component Diagram
-**File:** `01-component-diagram.puml`
+**File:** `01-component-diagram.wsd`
 
 **Purpose:** Shows the overall system architecture with all major components and their interactions.
 
@@ -20,7 +22,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 2. Deployment Diagram
-**File:** `02-deployment-diagram.puml`
+**File:** `02-deployment-diagram.wsd`
 
 **Purpose:** Illustrates deployment architecture for both development and production environments.
 
@@ -35,7 +37,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 3. Class Diagram - Backend (server_py)
-**File:** `03-class-diagram-backend.puml`
+**File:** `03-class-diagram-backend.wsd`
 
 **Purpose:** Detailed class structure of the Python FastAPI backend (server_py).
 
@@ -54,7 +56,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 4. Sequence Diagram - User Join and Discussion Start
-**File:** `04-sequence-user-join-discussion.puml`
+**File:** `04-sequence-user-join-discussion.wsd`
 
 **Purpose:** Shows the complete flow from user login to discussion start.
 
@@ -71,7 +73,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 5. Sequence Diagram - WebRTC Audio Connection
-**File:** `05-sequence-webrtc-audio.puml`
+**File:** `05-sequence-webrtc-audio.wsd`
 
 **Purpose:** Detailed WebRTC peer-to-peer audio connection flow.
 
@@ -92,7 +94,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 6. Sequence Diagram - LLM Agent Interaction
-**File:** `06-sequence-llm-agent-interaction.puml`
+**File:** `06-sequence-llm-agent-interaction.wsd`
 
 **Purpose:** Shows how the LLM Agent interacts with the discussion system.
 
@@ -113,7 +115,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 7. Activity Diagram - Complete Discussion Lifecycle
-**File:** `07-activity-discussion-lifecycle.puml`
+**File:** `07-activity-discussion-lifecycle.wsd`
 
 **Purpose:** Shows the complete end-to-end flow of a discussion session.
 
@@ -138,7 +140,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 8. State Diagram - Room State Management
-**File:** `08-state-room-management.puml`
+**File:** `08-state-room-management.wsd`
 
 **Purpose:** Shows the state transitions of a discussion room.
 
@@ -161,7 +163,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 9. Use Case Diagram
-**File:** `09-usecase-diagram.puml`
+**File:** `09-usecase-diagram.wsd`
 
 **Purpose:** Shows all user interactions and system capabilities.
 
@@ -184,7 +186,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 10. Database ER Diagram
-**File:** `10-er-diagram-database.puml`
+**File:** `10-er-diagram-database.wsd`
 
 **Purpose:** Enhanced Entity-Relationship diagram for the database schema.
 
@@ -206,7 +208,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 11. Package Diagram - Frontend React
-**File:** `11-package-diagram-frontend.puml`
+**File:** `11-package-diagram-frontend.wsd`
 
 **Purpose:** Shows the organization of the React frontend (client/).
 
@@ -226,7 +228,7 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 ---
 
 ### 12. Class Diagram - Frontend React Components
-**File:** `12-class-diagram-frontend.puml`
+**File:** `12-class-diagram-frontend.wsd`
 
 **Purpose:** Detailed class structure of React components and contexts.
 
@@ -242,37 +244,58 @@ This directory contains comprehensive UML diagrams for the GupShup Cafe (AI Roun
 
 ---
 
+### 13. Sequence Diagram - Speaker Turn Management
+**File:** `13-sequence-speaker-turn-management.wsd`
+
+**Purpose:** Shows the detailed flow of speaker turn management during a discussion.
+
+**Flow Steps:**
+1. Timer countdown and turn management
+2. Speaker transitions
+3. Mute/unmute management
+4. Turn completion and next speaker selection
+
+**Key Components:**
+- Room Manager
+- Audio Context
+- Timer Management
+- Participant State Tracking
+
+---
+
 ## 🚀 How to Use These Diagrams
 
 ### Viewing PlantUML Diagrams
 
 #### Option 1: PlantUML Online Server
-Visit [PlantUML Online Editor](http://www.plantuml.com/plantuml/uml/) and paste the content of any `.puml` file.
+Visit [PlantUML Online Editor](http://www.plantuml.com/plantuml/uml/) and paste the content of any `.wsd` file.
 
 #### Option 2: VS Code Extension
 1. Install the "PlantUML" extension in VS Code
-2. Open any `.puml` file
+2. Open any `.wsd` file
 3. Press `Alt+D` to preview
 
-#### Option 3: Command Line
+#### Option 3: Command Line (Latest PlantUML)
 ```bash
-# Install PlantUML
-sudo apt-get install plantuml
+# Download latest PlantUML (v1.2024.8 or later)
+wget https://github.com/plantuml/plantuml/releases/download/v1.2024.8/plantuml-1.2024.8.jar
 
 # Generate PNG
-plantuml 01-component-diagram.puml
+java -jar plantuml-1.2024.8.jar 01-component-diagram.wsd
 
 # Generate SVG
-plantuml -tsvg 01-component-diagram.puml
+java -jar plantuml-1.2024.8.jar -tsvg 01-component-diagram.wsd
 ```
 
 #### Option 4: Generate All Diagrams
 ```bash
 # From this directory
-plantuml *.puml
+java -jar plantuml-1.2024.8.jar *.wsd
 ```
 
 This will generate PNG images for all diagrams in the `uml/` directory.
+
+**Note:** These diagrams require PlantUML version 1.2024.8 or later for proper rendering.
 
 ---
 
@@ -355,8 +378,8 @@ These diagrams should be updated when:
 5. Component structure changes
 
 ### Update Process
-1. Modify the relevant `.puml` file
-2. Regenerate images: `plantuml filename.puml`
+1. Modify the relevant `.wsd` file
+2. Regenerate images: `java -jar plantuml-1.2024.8.jar filename.wsd`
 3. Update this README if needed
 4. Commit changes to Git
 
@@ -368,17 +391,20 @@ These diagrams should be updated when:
 - **LLM Focus:** Diagrams emphasize the LLM Agent facilitation feature
 - **Migration:** Node.js backend (server/) is being phased out
 - **Future Enhancements:** Some features (like `feedback` table) are marked as future enhancements
+- **File Format:** All diagrams now use `.wsd` format for better compatibility with latest PlantUML
+- **PlantUML Version:** Requires version 1.2024.8 or later for proper rendering
 
 ---
 
 ## 🤝 Contributing
 
 When adding new diagrams:
-1. Use consistent naming: `##-descriptive-name.puml`
-2. Follow PlantUML best practices
+1. Use consistent naming: `##-descriptive-name.wsd`
+2. Follow PlantUML best practices for latest version (1.2024.8+)
 3. Add comprehensive notes and documentation
 4. Update this README with the new diagram
-5. Generate PNG/SVG for easy viewing
+5. Generate PNG/SVG for easy viewing using the latest PlantUML JAR
+6. Test diagram rendering before committing
 
 ---
 
@@ -392,5 +418,7 @@ For questions about these diagrams:
 ---
 
 **Last Updated:** 2025-10-15
-**PlantUML Version:** 1.2024.x
-**Total Diagrams:** 12
+**PlantUML Version:** 1.2024.8 (Latest)
+**File Format:** .wsd (WebSequence Diagrams)
+**Total Diagrams:** 13
+**Migration Status:** Successfully migrated from .puml to .wsd format

@@ -210,34 +210,8 @@ package "client/" {
         }
     }
     
-    package "public/" {
-        artifact index.html
-        artifact favicon.ico
-        artifact assets/
-    }
-    
-    artifact package.json {
-        dependencies
-        devDependencies
-        scripts
-    }
-    
-    artifact vite.config.js {
-        build config
-        dev server
-        plugins
-    }
-    
-    artifact tailwind.config.js {
-        theme config
-        plugins
-        content paths
-    }
-    
-    artifact ".env" {
-        VITE_API_URL
-        VITE_SOCKET_URL
-    }
+    note "Configuration Files:\n- package.json\n- vite.config.js\n- tailwind.config.js\n- .env" as ConfigFiles
+    note "Public Assets:\n- index.html\n- favicon.ico\n- assets/" as PublicAssets
 }
 
 ' Relationships
