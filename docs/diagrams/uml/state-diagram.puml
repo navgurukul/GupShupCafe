@@ -1,0 +1,210 @@
+@startuml state-diagram
+!theme cerulean
+title GupShup Cafe - Room and Discussion State Diagram
+
+[*] --> NotAuthenticated : Application Start
+
+state "User Authentication" as Auth {
+  NotAuthenticated --> Authenticating : Enter credentials
+  Authenticating --> Authenticated : Success
+  Authenticating --> NotAuthenticated : Failure
+}
+
+Authenticated --> LobbyJoining : Navigate to Lobby
+
+state "Lobby State" as Lobby {
+  LobbyJoining --> LobbyConnecting : Join room request
+  LobbyConnecting --> LobbyWaiting : Socket connected
+  LobbyConnecting --> LobbyError : Connection failed
+  LobbyError --> LobbyConnecting : Retry
+  
+  LobbyWaiting : Room exists, participants < min
+  LobbyWaiting : User not ready
+  
+  LobbyWaiting --> AudioSetup : Request audio
+  AudioSetup --> AudioGranted : Permission granted
+  AudioSetup --> AudioDenied : Permission denied
+  AudioDenied --> AudioSetup : Retry
+  
+  AudioGranted --> ParticipantReady : Click "Ready"
+  
+  ParticipantReady : User ready, waiting for others
+  ParticipantReady : entry / Mark user as ready
+  ParticipantReady : entry / Broadcast participant update
+  
+  ParticipantReady --> CheckConditions : New participant joins\nor becomes ready
+  
+  CheckConditions : Check if discussion can start
+  CheckConditions : - Count >= MIN_PARTICIPANTS
+  CheckConditions : - Ready count >= MIN_PARTICIPANTS
+  CheckConditions : - Discussion not active
+  
+  CheckConditions --> ParticipantReady : Conditions not met\n(wait for more)
+  CheckConditions --> DiscussionInitializing : Conditions met
+}
+
+state "Discussion Lifecycle" as Discussion {
+  DiscussionInitializing --> TopicGenerating : Start discussion
+  
+  state "Topic Generation" as TopicGen {
+    TopicGenerating --> AITopicGeneration : AI available
+    TopicGenerating --> FallbackTopicSelection : No AI / AI failed
+    
+    AITopicGeneration --> TopicReady : Success
+    AITopicGeneration --> FallbackTopicSelection : API error
+    
+    FallbackTopicSelection --> TopicReady : Random topic selected
+  }
+  
+  TopicReady --> SessionCreating : Topic ready
+  SessionCreating --> WebRTCSetup : Create session record
+  
+  state "WebRTC Connection Setup" as WebRTC {
+    WebRTCSetup --> PeerDiscovery : Detect participants
+    PeerDiscovery --> OfferCreation : For each peer
+    OfferCreation --> OfferSent : Send SDP offer
+    OfferSent --> AnswerReceived : Receive SDP answer
+    AnswerReceived --> ICEExchange : Exchange ICE candidates
+    ICEExchange --> ConnectionEstablished : All peers connected
+  }
+  
+  ConnectionEstablished --> DiscussionActive : All connections ready
+  
+  state "Active Discussion" as ActiveDiscussion {
+    DiscussionActive --> SpeakerSpeaking : Set first speaker
+    DiscussionActive : entry / Initialize round = 1
+    DiscussionActive : entry / currentSpeakerIndex = 0
+    DiscussionActive : entry / Start 60s timer
+    
+    state "Speaking Turn" as SpeakingTurn {
+      SpeakerSpeaking : Current speaker has floor
+      SpeakerSpeaking : entry / Start timer
+      SpeakerSpeaking : entry / Broadcast speaker change
+      SpeakerSpeaking : do / Decrement timer every 1s
+      SpeakerSpeaking : do / Broadcast timer updates
+      SpeakerSpeaking : do / Stream audio to peers
+      
+      SpeakerSpeaking --> TimerCheck : Each second
+      
+      TimerCheck : Check timer and events
+      
+      TimerCheck --> SpeakerSpeaking : Timer > 0,\nno manual advance
+      TimerCheck --> AdvanceSpeaker : Timer = 0\nOR manual advance
+      TimerCheck --> DisconnectHandler : User disconnected
+    }
+    
+    state "Speaker Advancement" as Advancement {
+      AdvanceSpeaker --> CalculateNextSpeaker : Clear current timer
+      CalculateNextSpeaker --> CheckRoundComplete : Increment speaker index
+      
+      CheckRoundComplete : index = (index + 1) % participantCount
+      
+      CheckRoundComplete --> ContinueRound : Not back to first
+      CheckRoundComplete --> RoundComplete : Back to first speaker
+      
+      ContinueRound --> SpeakerSpeaking : Set next speaker,\nreset timer
+      
+      state "Round Management" as RoundMgmt {
+        RoundComplete --> IncrementRound : Completed one round
+        IncrementRound --> CheckRoundLimit : round++
+        
+        CheckRoundLimit : Is round > 3?
+        
+        CheckRoundLimit --> SpeakerSpeaking : Round <= 3,\ncontinue discussion
+        CheckRoundLimit --> DiscussionEnding : Round > 3,\nend discussion
+      }
+    }
+    
+    state "Disconnection Handling" as DisconnectHandling {
+      DisconnectHandler --> RemoveParticipant : User left
+      RemoveParticipant --> UpdateParticipants : Remove from room
+      UpdateParticipants --> CheckMinimum : Broadcast update
+      
+      CheckMinimum : participants >= MIN?
+      
+      CheckMinimum --> SpeakerSpeaking : Yes, continue
+      CheckMinimum --> DiscussionEnding : No, end discussion
+    }
+  }
+  
+  state "Discussion Termination" as Termination {
+    DiscussionEnding --> CleanupTimer : Stop discussion
+    CleanupTimer --> UpdateDatabase : Clear timer
+    UpdateDatabase --> BroadcastEnd : Save end time,\nduration, rounds
+    BroadcastEnd --> DiscussionEnded : Notify all participants
+  }
+}
+
+DiscussionEnded --> LobbyReturning : Discussion complete
+LobbyReturning --> LobbyWaiting : Navigate to lobby
+
+LobbyWaiting --> UserLeaving : User clicks leave
+UserLeaving --> Disconnecting : Leave room
+
+ParticipantReady --> UserLeaving : User clicks leave
+ActiveDiscussion --> UserLeaving : User clicks leave
+
+Disconnecting --> Cleanup : Close connections
+Cleanup --> Disconnected : Stop streams,\nclose peer connections
+
+Disconnected --> NotAuthenticated : Logout
+Disconnected --> LobbyJoining : Return to lobby
+
+NotAuthenticated --> [*] : Close application
+
+' Concurrent states for audio
+state AudioManagement {
+  [*] --> AudioDisabled
+  AudioDisabled --> AudioEnabled : Unmute
+  AudioEnabled --> AudioDisabled : Mute
+  AudioEnabled : do / Monitor audio level
+  AudioEnabled : do / Stream to peers
+}
+
+note right of DiscussionInitializing
+  Triggered when:
+  - MIN_PARTICIPANTS met
+  - All required ready
+  - No active discussion
+end note
+
+note right of SpeakerSpeaking
+  **Timer Events:**
+  - Countdown from 60s to 0s
+  - Broadcast every second
+  - Advance when 0 or manual
+  
+  **Audio:**
+  - Speaker can unmute
+  - Others listen only
+end note
+
+note left of CheckRoundLimit
+  Default: 3 complete rounds
+  Each participant speaks
+  3 times before end
+end note
+
+note bottom of DisconnectHandler
+  **Graceful Handling:**
+  - Update all participants
+  - Adjust speaker rotation
+  - End if below minimum
+end note
+
+note right of WebRTCSetup
+  **Peer-to-Peer Setup:**
+  - SDP offer/answer exchange
+  - ICE candidate gathering
+  - STUN server interaction
+  - Connection establishment
+end note
+
+note left of TopicGenerating
+  **Topic Selection:**
+  1. Try Hugging Face API
+  2. Fall back to curated list
+  3. Record usage in database
+end note
+
+@enduml

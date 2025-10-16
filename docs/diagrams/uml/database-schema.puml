@@ -1,0 +1,208 @@
+@startuml database-schema
+!theme cerulean
+title GupShup Cafe - Database Schema (Entity-Relationship Diagram)
+
+' Hide the circle for relationships
+hide circle
+
+' Entity definitions
+entity "sessions" as sessions {
+  * **id** : TEXT <<PK>>
+  --
+  * room_id : TEXT
+  topic_title : TEXT
+  topic_category : TEXT
+  participant_count : INTEGER
+  started_at : DATETIME
+  ended_at : DATETIME
+  duration_seconds : INTEGER
+  rounds_completed : INTEGER
+  created_at : DATETIME
+  --
+  Stores discussion session metadata
+  and analytics information
+}
+
+entity "participants" as participants {
+  * **id** : TEXT <<PK>>
+  --
+  * session_id : TEXT <<FK>>
+  * user_id : TEXT
+  anonymous_name : TEXT
+  campus : TEXT
+  location : TEXT
+  joined_at : DATETIME
+  left_at : DATETIME
+  speaking_time_seconds : INTEGER
+  --
+  Tracks individual participants
+  within each session
+}
+
+entity "topics" as topics {
+  * **id** : INTEGER <<PK, AUTO_INCREMENT>>
+  --
+  * title : TEXT
+  description : TEXT
+  category : TEXT
+  source : TEXT
+  used_count : INTEGER
+  created_at : DATETIME
+  --
+  Stores discussion topics and
+  tracks their usage statistics
+}
+
+' Relationships
+sessions ||--o{ participants : "has many"
+note on link
+  One session can have
+  multiple participants
+end note
+
+' Additional notes
+note right of sessions
+  **Session Lifecycle:**
+  1. Created when discussion starts
+  2. ended_at initially NULL
+  3. Updated when discussion ends
+  4. duration_seconds calculated
+  
+  **Key Metrics:**
+  - Total duration
+  - Number of rounds completed
+  - Participant count at end
+end note
+
+note right of participants
+  **Participant Tracking:**
+  - Links users to sessions
+  - Stores join/leave times
+  - Tracks speaking duration
+  - Anonymous for privacy
+  
+  **User Info:**
+  - user_id: unique identifier
+  - anonymous_name: display name
+  - campus, location: optional
+end note
+
+note left of topics
+  **Topic Management:**
+  - Auto-increment ID
+  - Source: 'AI' or 'fallback'
+  - used_count incremented each use
+  - Categories: Education, Technology,
+    Health, Environment, etc.
+  
+  **Usage Analytics:**
+  - Track popular topics
+  - Identify trending categories
+  - Optimize topic selection
+end note
+
+' Index and performance notes
+note bottom of sessions
+  **Indexes (Recommended):**
+  - idx_room_id ON room_id
+  - idx_started_at ON started_at
+  - idx_ended_at ON ended_at
+  
+  **Queries:**
+  - Recent sessions by started_at DESC
+  - Active sessions where ended_at IS NULL
+  - Session analytics with participant join
+end note
+
+note bottom of participants
+  **Indexes (Recommended):**
+  - idx_session_id ON session_id
+  - idx_user_id ON user_id
+  
+  **Queries:**
+  - Participants per session
+  - Unique user count
+  - User participation history
+end note
+
+note bottom of topics
+  **Indexes (Recommended):**
+  - idx_category ON category
+  - idx_used_count ON used_count
+  - idx_source ON source
+  
+  **Queries:**
+  - Most used topics by used_count DESC
+  - Topics by category
+  - AI vs fallback usage stats
+end note
+
+' Sample data examples
+note as SampleData
+  **Sample Session:**
+  id: "550e8400-e29b-41d4-a716-446655440000"
+  room_id: "general"
+  topic_title: "The Future of Education"
+  topic_category: "Education"
+  participant_count: 4
+  started_at: "2024-01-15 10:30:00"
+  ended_at: "2024-01-15 10:45:00"
+  duration_seconds: 900
+  rounds_completed: 3
+  
+  **Sample Participant:**
+  id: "part-001"
+  session_id: "550e8400-e29b-41d4-a716-446655440000"
+  user_id: "user-123"
+  anonymous_name: "Brave Eagle"
+  campus: "Main Campus"
+  location: "City Center"
+  joined_at: "2024-01-15 10:30:00"
+  speaking_time_seconds: 180
+  
+  **Sample Topic:**
+  id: 1
+  title: "The Future of Education"
+  category: "Education"
+  source: "fallback"
+  used_count: 5
+end note
+
+' Analytics queries
+note as AnalyticsQueries
+  **Common Analytics Queries:**
+  
+  1. Total sessions:
+     SELECT COUNT(*) FROM sessions
+  
+  2. Average session duration:
+     SELECT AVG(duration_seconds) FROM sessions
+     WHERE duration_seconds > 0
+  
+  3. Most popular topics:
+     SELECT title, category, used_count
+     FROM topics
+     ORDER BY used_count DESC
+     LIMIT 10
+  
+  4. Unique participants:
+     SELECT COUNT(DISTINCT user_id)
+     FROM participants
+  
+  5. Session with participants:
+     SELECT s.*, COUNT(p.id) as participant_count
+     FROM sessions s
+     LEFT JOIN participants p ON s.id = p.session_id
+     GROUP BY s.id
+  
+  6. Average participants per session:
+     SELECT AVG(participant_count) FROM sessions
+  
+  7. Category distribution:
+     SELECT category, COUNT(*) as count
+     FROM topics
+     WHERE used_count > 0
+     GROUP BY category
+end note
+
+@enduml

@@ -1,0 +1,229 @@
+@startuml use-case-diagram
+!theme cerulean
+title GupShup Cafe - Use Case Diagram
+
+left to right direction
+
+' Actors
+actor "Student" as Student
+actor "Educator" as Educator
+actor "Participant" as Participant
+actor "Speaker" as Speaker
+actor "Listener" as Listener
+actor "System Administrator" as Admin
+
+' External Systems
+actor "Hugging Face API" as AI
+actor "WebRTC STUN/TURN" as STUN
+
+' Student and Educator are types of Participants
+Student -up-|> Participant
+Educator -up-|> Participant
+
+' Speaker and Listener are roles within a discussion
+Speaker -up-|> Participant
+Listener -up-|> Participant
+
+rectangle "GupShup Cafe Platform" {
+  
+  ' Authentication & User Management
+  package "Authentication" {
+    usecase "UC1: Login to Platform" as UC1
+    usecase "UC2: Generate Anonymous Name" as UC2
+    usecase "UC3: Logout" as UC3
+  }
+  
+  ' Lobby Management
+  package "Lobby Management" {
+    usecase "UC4: Join Lobby" as UC4
+    usecase "UC5: View Participants" as UC5
+    usecase "UC6: Setup Audio" as UC6
+    usecase "UC7: Signal Ready" as UC7
+    usecase "UC8: Leave Lobby" as UC8
+  }
+  
+  ' Discussion Management
+  package "Discussion Management" {
+    usecase "UC9: Start Discussion" as UC9
+    usecase "UC10: View Discussion Topic" as UC10
+    usecase "UC11: Participate in Discussion" as UC11
+    usecase "UC12: Monitor Speaking Timer" as UC12
+    usecase "UC13: Advance to Next Speaker" as UC13
+    usecase "UC14: End Discussion" as UC14
+    usecase "UC15: Complete Discussion Rounds" as UC15
+  }
+  
+  ' Audio Communication
+  package "Audio Communication" {
+    usecase "UC16: Enable Microphone" as UC16
+    usecase "UC17: Mute/Unmute Audio" as UC17
+    usecase "UC18: Monitor Audio Level" as UC18
+    usecase "UC19: Establish WebRTC Connection" as UC19
+    usecase "UC20: Stream Audio to Peers" as UC20
+    usecase "UC21: Receive Audio from Peers" as UC21
+  }
+  
+  ' Role Management
+  package "Role Management" {
+    usecase "UC22: Request Speaker Role" as UC22
+    usecase "UC23: Switch to Listener Role" as UC23
+    usecase "UC24: View Role Statistics" as UC24
+  }
+  
+  ' Topic Management
+  package "Topic Management" {
+    usecase "UC25: Generate AI Topic" as UC25
+    usecase "UC26: Use Fallback Topic" as UC26
+    usecase "UC27: Browse Available Topics" as UC27
+    usecase "UC28: Filter Topics by Category" as UC28
+  }
+  
+  ' Analytics & Monitoring
+  package "Analytics & Monitoring" {
+    usecase "UC29: View Session Analytics" as UC29
+    usecase "UC30: View Topic Usage Stats" as UC30
+    usecase "UC31: View Server Statistics" as UC31
+    usecase "UC32: Monitor System Health" as UC32
+  }
+  
+  ' Room Management
+  package "Room Management" {
+    usecase "UC33: Create/Join Room" as UC33
+    usecase "UC34: Manage Room State" as UC34
+    usecase "UC35: Handle Disconnections" as UC35
+    usecase "UC36: Clean Up Empty Rooms" as UC36
+  }
+}
+
+' Participant Use Cases
+Participant --> UC1
+Participant --> UC2
+Participant --> UC3
+Participant --> UC4
+Participant --> UC5
+Participant --> UC6
+Participant --> UC7
+Participant --> UC8
+Participant --> UC10
+Participant --> UC11
+Participant --> UC12
+Participant --> UC16
+Participant --> UC17
+Participant --> UC18
+Participant --> UC21
+Participant --> UC22
+Participant --> UC23
+Participant --> UC24
+Participant --> UC27
+Participant --> UC28
+
+' Speaker-specific Use Cases
+Speaker --> UC13
+Speaker --> UC20
+
+' Listener-specific Use Cases
+Listener --> UC21
+
+' Educator/Admin Use Cases
+Educator --> UC9
+Educator --> UC14
+Educator --> UC29
+Educator --> UC30
+
+' Admin Use Cases
+Admin --> UC31
+Admin --> UC32
+Admin --> UC36
+
+' System Use Cases (automated)
+UC9 ..> UC25 : <<include>>
+UC25 ..> UC26 : <<extends>>\nif AI fails
+UC9 ..> UC33 : <<include>>
+
+UC7 ..> UC9 : <<triggers>>\nwhen min ready
+
+UC11 ..> UC12 : <<include>>
+UC11 ..> UC13 : <<include>>
+
+UC13 ..> UC15 : <<include>>
+UC15 ..> UC14 : <<triggers>>\nafter 3 rounds
+
+UC4 ..> UC33 : <<include>>
+UC4 ..> UC6 : <<requires>>
+
+UC6 ..> UC16 : <<include>>
+UC16 ..> UC19 : <<include>>
+
+UC20 ..> UC19 : <<requires>>
+UC21 ..> UC19 : <<requires>>
+
+UC33 ..> UC34 : <<include>>
+UC8 ..> UC35 : <<triggers>>
+UC35 ..> UC36 : <<include>>
+
+UC3 ..> UC8 : <<include>>
+
+' External System Interactions
+UC25 --> AI : calls
+UC19 --> STUN : uses
+
+' Notes
+note right of UC1
+  Users enter name, campus,
+  and location to authenticate
+end note
+
+note right of UC2
+  System generates friendly
+  anonymous display names
+  (e.g., "Brave Eagle")
+end note
+
+note right of UC9
+  Automatically starts when
+  minimum participants are ready
+end note
+
+note right of UC25
+  Uses Hugging Face API
+  for AI-generated topics
+  Falls back gracefully
+end note
+
+note right of UC19
+  Peer-to-peer connections
+  established via WebRTC
+  with ICE candidate exchange
+end note
+
+note right of UC13
+  Can be triggered by:
+  - Timer expiry (60s)
+  - Manual advance by current speaker
+end note
+
+note right of UC15
+  Discussion runs for 3 complete
+  rounds before automatic end
+end note
+
+note bottom of UC29
+  Available analytics:
+  - Session duration
+  - Participant count
+  - Topics used
+  - Speaking time distribution
+end note
+
+note right of UC22
+  Subject to room limits
+  (max 6 speakers by default)
+end note
+
+note left of UC35
+  Handles graceful disconnection
+  and updates remaining participants
+  Ends discussion if below minimum
+end note
+
+@enduml

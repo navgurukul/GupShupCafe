@@ -1,0 +1,206 @@
+@startuml deployment-diagram
+!theme cerulean
+title GupShup Cafe - Deployment Diagram
+
+' Client Devices
+node "Client Device 1" as Client1 {
+  artifact "React App\n(JavaScript Bundle)" as ReactApp1
+  artifact "Socket.io Client" as SocketClient1
+  artifact "WebRTC Audio" as WebRTC1
+}
+
+node "Client Device 2" as Client2 {
+  artifact "React App\n(JavaScript Bundle)" as ReactApp2
+  artifact "Socket.io Client" as SocketClient2
+  artifact "WebRTC Audio" as WebRTC2
+}
+
+node "Client Device N" as ClientN {
+  artifact "React App\n(JavaScript Bundle)" as ReactAppN
+  artifact "Socket.io Client" as SocketClientN
+  artifact "WebRTC Audio" as WebRTCN
+}
+
+' Frontend Hosting
+cloud "Vercel Platform" {
+  node "CDN Edge Nodes" as CDN {
+    artifact "Static Files\n(HTML, CSS, JS)" as StaticFiles
+    artifact "Build Output\n(dist/)" as BuildOutput
+    note right of BuildOutput
+      Optimized production build
+      - Minified JavaScript
+      - Optimized assets
+      - Gzipped responses
+    end note
+  }
+  
+  node "Vercel Build System" as VercelBuild {
+    component [Build Pipeline] as BuildPipeline
+    artifact "package.json" as ClientPackage
+    artifact "vite.config.js" as ViteConfig
+  }
+}
+
+' Backend Hosting
+cloud "Render / Cloud Platform" as RenderCloud {
+  node "Backend Server Instance" as BackendNode {
+    artifact "server.js\n(Express + Socket.io)" as ServerApp
+    artifact "package.json" as ServerPackage
+    artifact "API Routes" as APIRoutes
+    artifact "Middleware\n(CORS, Helmet)" as Middleware
+    artifact "Socket Handlers" as SocketHandlers
+    artifact "Room Manager" as RoomManager
+    artifact "WebRTC Signaling" as SignalingServer
+    artifact "Topic Generator" as TopicGenerator
+    artifact "Database Manager" as DatabaseManager
+  }
+  
+  node "Persistent Storage" as Storage {
+    database "SQLite Database\nroundtable.db" as SQLiteDB {
+      storage "sessions" as SessionsTable
+      storage "participants" as ParticipantsTable
+      storage "topics" as TopicsTable
+    }
+  }
+}
+
+' External Services
+cloud "External Services" {
+  node "Hugging Face\nInference API" as HuggingFace {
+    component [DialoGPT Model] as AIModel
+    note right
+      Optional AI service
+      for topic generation
+    end note
+  }
+  
+  node "WebRTC Infrastructure" as WebRTCInfra {
+    component [STUN Servers] as STUN
+    component [TURN Servers\n(if needed)] as TURN
+    note right
+      For NAT traversal
+      and firewall bypass
+    end note
+  }
+}
+
+' Network Connections
+
+' Client to CDN (Frontend)
+Client1 -down-> CDN : HTTPS\n(Download App)
+Client2 -down-> CDN : HTTPS\n(Download App)
+ClientN -down-> CDN : HTTPS\n(Download App)
+
+' CDN to Build System
+CDN <-up- VercelBuild : Deploy\n(CI/CD)
+
+' Client to Backend (API)
+ReactApp1 -down-> APIRoutes : HTTPS\nREST API
+ReactApp2 -down-> APIRoutes : HTTPS\nREST API
+ReactAppN -down-> APIRoutes : HTTPS\nREST API
+
+' Client to Backend (WebSocket)
+SocketClient1 -down-> SocketHandlers : WSS\nWebSocket
+SocketClient2 -down-> SocketHandlers : WSS\nWebSocket
+SocketClientN -down-> SocketHandlers : WSS\nWebSocket
+
+' Backend Internal
+ServerApp <--> APIRoutes
+ServerApp <--> Middleware
+ServerApp <--> SocketHandlers
+SocketHandlers <--> RoomManager
+SocketHandlers <--> SignalingServer
+APIRoutes <--> TopicGenerator
+SocketHandlers <--> TopicGenerator
+
+' Backend to Database
+DatabaseManager -down-> SQLiteDB : SQLite Protocol
+
+' Backend to External Services
+TopicGenerator -up-> HuggingFace : HTTPS\nAPI Calls
+
+' WebRTC Peer-to-Peer
+WebRTC1 <.right.> STUN : UDP\nICE Candidates
+WebRTC2 <.right.> STUN : UDP\nICE Candidates
+WebRTCN <.right.> STUN : UDP\nICE Candidates
+
+WebRTC1 <.down.> WebRTC2 : Peer-to-Peer\nAudio Stream\n(UDP/RTP)
+WebRTC1 <.down.> WebRTCN : Peer-to-Peer\nAudio Stream\n(UDP/RTP)
+WebRTC2 <.down.> WebRTCN : Peer-to-Peer\nAudio Stream\n(UDP/RTP)
+
+' Deployment Notes
+note right of Client1
+  **Client Requirements:**
+  - Modern browser (Chrome, Firefox, Safari, Edge)
+  - WebRTC support
+  - Microphone access
+  - JavaScript enabled
+end note
+
+note left of CDN
+  **Frontend Deployment:**
+  - Automatic builds on git push
+  - Global CDN distribution
+  - HTTPS by default
+  - Environment variables injected at build
+end note
+
+note right of BackendNode
+  **Backend Deployment:**
+  - Auto-deploy from repository
+  - Environment variables configured
+  - Health check endpoint: /health
+  - Automatic restarts on crash
+  - Scaling: Can run multiple instances
+    with shared database
+end note
+
+note bottom of SQLiteDB
+  **Database:**
+  - File-based (./data/roundtable.db)
+  - Persistent storage
+  - For production at scale,
+    consider PostgreSQL/MySQL
+end note
+
+note left of HuggingFace
+  **External Dependencies:**
+  - Optional (has fallback)
+  - Free tier available
+  - Rate limits apply
+end note
+
+note bottom of STUN
+  **WebRTC Configuration:**
+  - Public STUN servers
+  - TURN servers may be needed
+    for restrictive NAT/firewalls
+  - Peer-to-peer reduces
+    server bandwidth
+end note
+
+' Environment Variables
+package "Configuration" {
+  component "Frontend .env" as FrontendEnv
+  note right of FrontendEnv
+    VITE_API_URL
+    VITE_SOCKET_URL
+    VITE_HUGGINGFACE_API_KEY (optional)
+  end note
+  
+  component "Backend .env" as BackendEnv
+  note right of BackendEnv
+    PORT
+    ALLOWED_ORIGINS
+    HUGGINGFACE_API_KEY (optional)
+    DATABASE_URL
+    MIN_PARTICIPANTS
+    DEFAULT_SPEAKING_TIME
+    NODE_ENV
+  end note
+}
+
+ReactApp1 ..> FrontendEnv : reads at build
+ServerApp ..> BackendEnv : reads at runtime
+
+@enduml
