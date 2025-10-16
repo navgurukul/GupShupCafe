@@ -41,10 +41,11 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             if room_id != sid:  # Skip the default room (socket's own room)
                 # Get user data from room before removing
                 room = room_manager.get_room(room_id)
-                user = next((p for p in room["participants"] if p["socketId"] == sid), None)
+                user = room.get_participant_by_socket(sid)
                 
                 if user:
-                    user_id = user["id"]
+                    user_id = user.id
+                    anonymous_name = user.anonymous_name
                     room_manager.remove_user_from_room(room_id, user_id)
                     
                     # Get updated participants
@@ -52,10 +53,12 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     
                     # Notify others
                     await sio.emit("participants-update", participants, room=room_id)
-                    await sio.emit("user-left", {
-                        "userId": user_id,
-                        "anonymousName": user.get("anonymousName")
+                    await sio.emit("participant-left", {
+                        "participantId": user_id,
+                        "anonymousName": anonymous_name
                     }, room=room_id)
+                    
+                    print(f"[Backend] {anonymous_name} disconnected from room {room_id}")
     
     @sio.event
     async def join_room(sid, *args):
@@ -112,9 +115,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     await sio.leave_room(sid, room)
                     # Find and remove user from that room
                     old_room = room_manager.get_room(room)
-                    old_user = next((p for p in old_room["participants"] if p["socketId"] == sid), None)
+                    old_user = old_room.get_participant_by_socket(sid)
                     if old_user:
-                        room_manager.remove_user_from_room(room, old_user["id"])
+                        room_manager.remove_user_from_room(room, old_user.id)
             
             # Join the new room
             await sio.enter_room(sid, room_id)
@@ -126,28 +129,28 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             # Get updated participants
             participants = room_manager.get_room_participants(room_id)
             
+            # Emit participant-joined event
+            await sio.emit("participant-joined", {
+                "participant": participants[-1] if participants else None
+            }, room=room_id)
+            
             # Emit participants update to all users in the room
             await sio.emit("participants-update", participants, room=room_id)
             print("[Backend] Emitted participants-update")
             
             # Check if there's an active discussion and sync state
             room = room_manager.get_room(room_id)
-            if room["discussion"]["active"]:
+            if room.status.value == "in_progress":
                 print(f"[Backend] Syncing active discussion state with {effective_user_data['anonymousName']}")
                 
-                discussion = room["discussion"]
-                first_speaker = None
-                if room["participants"]:
-                    speaker_idx = discussion.get("currentSpeakerIndex", 0)
-                    if 0 <= speaker_idx < len(room["participants"]):
-                        first_speaker = room["participants"][speaker_idx]
+                current_speaker = room.get_current_speaker()
                 
                 discussion_state = {
-                    "topic": discussion["topic"],
-                    "firstSpeaker": first_speaker,
-                    "duration": discussion["speakingTime"],
-                    "currentSpeakerIndex": discussion.get("currentSpeakerIndex", 0),
-                    "round": discussion.get("round", 1)
+                    "topic": room.topic,
+                    "firstSpeaker": current_speaker.to_dict() if current_speaker else None,
+                    "duration": room.speaking_time,
+                    "currentSpeakerIndex": room.current_speaker_index,
+                    "round": room.current_round
                 }
                 
                 await sio.emit("discussion-started", discussion_state, room=sid)
@@ -261,6 +264,268 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
         except Exception as e:
             print(f"Error handling message: {str(e)}")
+    
+    @sio.event
+    async def webrtc_offer(sid, data):
+        """Relay WebRTC offer to target peer"""
+        try:
+            target_sid = data.get("to")
+            offer = data.get("offer")
+            
+            if not target_sid or not offer:
+                print(f"[Backend] Invalid webrtc-offer data: {data}")
+                return
+            
+            print(f"[Backend] Relaying WebRTC offer from {sid} to {target_sid}")
+            await sio.emit("webrtc-offer", {
+                "from": sid,
+                "offer": offer
+            }, room=target_sid)
+            
+        except Exception as e:
+            print(f"Error handling webrtc-offer: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def webrtc_answer(sid, data):
+        """Relay WebRTC answer to target peer"""
+        try:
+            target_sid = data.get("to")
+            answer = data.get("answer")
+            
+            if not target_sid or not answer:
+                print(f"[Backend] Invalid webrtc-answer data: {data}")
+                return
+            
+            print(f"[Backend] Relaying WebRTC answer from {sid} to {target_sid}")
+            await sio.emit("webrtc-answer", {
+                "from": sid,
+                "answer": answer
+            }, room=target_sid)
+            
+        except Exception as e:
+            print(f"Error handling webrtc-answer: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def webrtc_ice_candidate(sid, data):
+        """Relay ICE candidate to target peer"""
+        try:
+            target_sid = data.get("to")
+            candidate = data.get("candidate")
+            
+            if not target_sid or not candidate:
+                print(f"[Backend] Invalid webrtc-ice-candidate data: {data}")
+                return
+            
+            print(f"[Backend] Relaying ICE candidate from {sid} to {target_sid}")
+            await sio.emit("webrtc-ice-candidate", {
+                "from": sid,
+                "candidate": candidate
+            }, room=target_sid)
+            
+        except Exception as e:
+            print(f"Error handling webrtc-ice-candidate: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def speech_transcript(sid, data):
+        """Handle speech transcript from participant"""
+        try:
+            text = data.get("text", "")
+            speaker_id = data.get("speakerId")
+            
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                print(f"[Backend] No room found for speech transcript from {sid}")
+                return
+            
+            # Get session ID
+            session_id = active_sessions.get(room_id)
+            if not session_id:
+                print(f"[Backend] No active session for room {room_id}")
+                return
+            
+            # Save transcript to database
+            transcript_id = str(uuid.uuid4())
+            await db.save_transcript({
+                "id": transcript_id,
+                "sessionId": session_id,
+                "participantId": speaker_id,
+                "text": text,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            print(f"[Backend] Saved transcript for session {session_id}: {text[:50]}...")
+            
+        except Exception as e:
+            print(f"Error handling speech-transcript: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def end_turn(sid, data):
+        """Handle end of speaking turn"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                print(f"[Backend] No room found for end-turn from {sid}")
+                return
+            
+            room = room_manager.get_room(room_id)
+            
+            # Get current speaker
+            current_speaker = room.get_current_speaker()
+            if not current_speaker:
+                print(f"[Backend] No current speaker in room {room_id}")
+                return
+            
+            # Emit turn-ended event
+            await sio.emit("turn-ended", {
+                "speaker": current_speaker.to_dict()
+            }, room=room_id)
+            
+            # Advance to next speaker
+            next_speaker = room.advance_turn()
+            
+            # Check if discussion is complete
+            if room.status.value == "completed":
+                print(f"[Backend] Discussion completed in room {room_id}")
+                
+                # Update session in database
+                session_id = active_sessions.get(room_id)
+                if session_id:
+                    await db.update_session(session_id, {
+                        "endedAt": datetime.now().isoformat(),
+                        "roundsCompleted": room.current_round - 1
+                    })
+                    
+                    # Remove from active sessions
+                    del active_sessions[room_id]
+                
+                # Emit discussion-ended event
+                await sio.emit("discussion-ended", {
+                    "sessionId": session_id,
+                    "roundsCompleted": room.current_round - 1
+                }, room=room_id)
+                
+                return
+            
+            # Check if round is complete
+            if room.current_speaker_index == 0:
+                await sio.emit("round-complete", {
+                    "round": room.current_round - 1,
+                    "next": room.current_round
+                }, room=room_id)
+            
+            # Emit turn-started for next speaker
+            if next_speaker:
+                await sio.emit("turn-started", {
+                    "speaker_index": room.current_speaker_index,
+                    "speaker": next_speaker.to_dict(),
+                    "timer": room.speaking_time
+                }, room=room_id)
+                
+                print(f"[Backend] Next speaker: {next_speaker.anonymous_name}")
+            
+        except Exception as e:
+            print(f"Error handling end-turn: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def next_speaker(sid, data):
+        """Handle request for next speaker (manual progression)"""
+        try:
+            # Reuse end_turn logic
+            await end_turn(sid, data)
+        except Exception as e:
+            print(f"Error handling next-speaker: {str(e)}")
+    
+    @sio.event
+    async def leave_room(sid, data=None):
+        """Handle user leaving room"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                return
+            
+            # Get user data from room before removing
+            room = room_manager.get_room(room_id)
+            user = next((p for p in room.participants if p.socket_id == sid), None)
+            
+            if user:
+                user_id = user.id
+                room_manager.remove_user_from_room(room_id, user_id)
+                
+                # Leave socket.io room
+                await sio.leave_room(sid, room_id)
+                
+                # Get updated participants
+                participants = room_manager.get_room_participants(room_id)
+                
+                # Notify others
+                await sio.emit("participants-update", participants, room=room_id)
+                await sio.emit("participant-left", {
+                    "participantId": user_id,
+                    "anonymousName": user.anonymous_name
+                }, room=room_id)
+                
+                print(f"[Backend] {user.anonymous_name} left room {room_id}")
+            
+        except Exception as e:
+            print(f"Error handling leave-room: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.event
+    async def ready_for_webrtc(sid, data=None):
+        """Handle client ready for WebRTC connections"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                return
+            
+            print(f"[Backend] Client {sid} is ready for WebRTC in room {room_id}")
+            
+            # Notify other participants that this user is ready
+            await sio.emit("peer-ready", {
+                "socketId": sid
+            }, room=room_id, skip_sid=sid)
+            
+        except Exception as e:
+            print(f"Error handling ready-for-webrtc: {str(e)}")
 
 
 async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, active_sessions: Dict[str, str]):
@@ -275,14 +540,14 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
         room = room_manager.get_room(room_id)
         
         # Don't start if already active
-        if room["discussion"]["active"]:
+        if room.status.value == "in_progress":
             return
         
         # Check if we have minimum participants ready
         min_participants = int(os.getenv("MIN_PARTICIPANTS", "1"))
-        ready_participants = [p for p in room["participants"] if p.get("isReady")]
+        ready_participants = [p for p in room.participants if p.is_ready]
         
-        if len(ready_participants) >= min_participants and len(ready_participants) >= min_participants:
+        if len(ready_participants) >= min_participants:
             print(f"[Backend] Starting discussion in room {room_id}")
             
             # Generate or get topic
@@ -308,21 +573,33 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             await db.record_topic_usage(topic)
             
             # Update room state
-            room["discussion"]["active"] = True
-            room["discussion"]["topic"] = topic
-            room["discussion"]["currentSpeakerIndex"] = 0
-            room["discussion"]["round"] = 1
-            room["discussion"]["startedAt"] = datetime.now().isoformat()
+            from ..models.enums import RoomStatus
+            room.status = RoomStatus.IN_PROGRESS
+            room.topic = topic
+            room.current_speaker_index = 0
+            room.current_round = 1
+            room.started_at = datetime.now().isoformat()
+            
+            # Get first speaker
+            first_speaker = room.get_current_speaker()
+            duration = int(os.getenv("DEFAULT_SPEAKING_TIME", "60"))
+            room.speaking_time = duration
+            room.time_remaining = duration
             
             # Emit discussion started
-            first_speaker = ready_participants[0] if ready_participants else None
-            duration = int(os.getenv("DEFAULT_SPEAKING_TIME", "60"))
-            
             await sio.emit("discussion-started", {
                 "topic": topic,
-                "firstSpeaker": first_speaker,
+                "firstSpeaker": first_speaker.to_dict() if first_speaker else None,
                 "duration": duration
             }, room=room_id)
+            
+            # Emit turn-started for the first speaker
+            if first_speaker:
+                await sio.emit("turn-started", {
+                    "speaker_index": 0,
+                    "speaker": first_speaker.to_dict(),
+                    "timer": duration
+                }, room=room_id)
             
             print(f"[Backend] Discussion started with topic: {topic['title']}")
         else:
