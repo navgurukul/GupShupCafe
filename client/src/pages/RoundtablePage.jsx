@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSocket } from '../contexts/SocketContext'
-import { useAuth } from '../contexts/AuthContext'
-import { useAudio } from '../contexts/AudioContext'
-import RoundtableView from '../components/RoundtableView'
-import TopicDisplay from '../components/TopicDisplay'
-import SpeakerTimer from '../components/SpeakerTimer'
+import { useSocket } from '../hooks/useSocket'
+import { useAuth } from '../hooks/useAuth'
+import { useAudio } from '../hooks/useAudio'
+import RoundtableView from '../components/ui/RoundtableView'
+import TopicDisplay from '../components/ui/TopicDisplay'
+import SpeakerTimer from '../components/ui/SpeakerTimer'
 import ParticipantControls from '../components/ParticipantControls'
-import SpeechToText from '../components/SpeechToText'
+import SpeechToTextPanel from '../components/feedback/SpeechToTextPanel'
 import { LogOut, Users } from 'lucide-react'
-import LiveAudioLevelBar from '../components/LiveAudioLevelBar'
+import AudioLevelBar from '../components/ui/AudioLevelBar'
 
 /**
  * Roundtable Page Component
@@ -259,7 +259,7 @@ function RoundtablePage() {
             </div>
             {/* Add the live audio level bar for your own mic */}
             <div className="ml-6">
-              <LiveAudioLevelBar />
+              <AudioLevelBar />
             </div>
           </div>
           
@@ -363,7 +363,7 @@ function RoundtablePage() {
           
           {/* Speech to Text - Show when current user is speaking */}
           {discussionStarted && isCurrentUserSpeaking() && (
-            <SpeechToText
+            <SpeechToTextPanel
               isActive={isCurrentUserSpeaking()}
               speakerName={user?.anonymousName || 'You'}
             />

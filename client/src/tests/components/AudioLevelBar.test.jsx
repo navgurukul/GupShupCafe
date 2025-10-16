@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '../test-utils'
-import LiveAudioLevelBar from '../../components/LiveAudioLevelBar'
+import AudioLevelBar from '../../components/ui/AudioLevelBar'
 
-describe('LiveAudioLevelBar', () => {
+describe('AudioLevelBar', () => {
   let mockAudioContext
   let mockAnalyser
   let mockMediaStreamSource
