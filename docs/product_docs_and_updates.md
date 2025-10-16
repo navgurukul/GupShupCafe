@@ -25,6 +25,32 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 18:35 UTC] - Bugfix: Lobby Page Connection Issue
+
+**Commit**: `Fix user-ready event handler to work without data parameter`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix
+
+**Changes**:
+- **Fixed lobby page connection issue** where the page was stuck at 'Waiting' status and 'Connecting to lobby' state
+- Modified `user_ready` event handler in `socket_handlers.py` to handle cases where client emits the event without data
+- The handler now extracts user information from the room using socket ID instead of requiring it in the data parameter
+- Maintains backward compatibility with clients that do send data
+- Added comprehensive test coverage for the user_ready event handler
+
+**Root Cause**:
+- Client's `SocketContext.jsx` emits `'user-ready'` event without any data (line 137)
+- Python backend's `user_ready` handler expected `data.get("userId")` which would fail when data is None
+- This prevented users from being marked as ready, blocking the lobby from proceeding
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Fixed user_ready handler to accept optional data parameter
+- `server_py/tests/test_socket_handlers.py` - Added 5 new test cases for user_ready event
+
+**Testing**:
+- All 67 tests pass (including 5 new tests for socket handlers)
+- Tested scenarios: no data, with data, setting ready to false, no room found, discussion start trigger
+
 ### [2025-10-16 17:40 UTC] - Frontend-Backend Integration: Socket Event Handlers & Timer Management
 
 **Commit**: `Add timer management system for turn-based discussions`  
