@@ -25,6 +25,235 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 15:08 UTC] - Migrated UML Diagrams to WSD Format (PlantUML 1.2025.3)
+
+**Commit**: `Migrate all PlantUML diagrams from .puml to .wsd format for PlantUML 1.2025.3`  
+**Author**: Copilot (addressing @Vinit-source feedback)  
+**Type**: Documentation | Migration
+
+**Changes**:
+- **Migrated all 14 PlantUML files** from `.puml` to `.wsd` format:
+  - Renamed 01-component-diagram.puml → 01-component-diagram.wsd
+  - Renamed 02-deployment-diagram.puml → 02-deployment-diagram.wsd
+  - Renamed 03-class-diagram-backend.puml → 03-class-diagram-backend.wsd
+  - Renamed 04-class-diagram-frontend.puml → 04-class-diagram-frontend.wsd
+  - Renamed 05-sequence-user-join-discussion.puml → 05-sequence-user-join-discussion.wsd
+  - Renamed 06-sequence-webrtc-audio.puml → 06-sequence-webrtc-audio.wsd
+  - Renamed 07-sequence-llm-agent-interaction.puml → 07-sequence-llm-agent-interaction.wsd
+  - Renamed 08-sequence-english-feedback-flow.puml → 08-sequence-english-feedback-flow.wsd
+  - Renamed 09-activity-discussion-lifecycle.puml → 09-activity-discussion-lifecycle.wsd
+  - Renamed 10-state-room-management.puml → 10-state-room-management.wsd
+  - Renamed 11-usecase-diagram.puml → 11-usecase-diagram.wsd
+  - Renamed 12-er-diagram-database.puml → 12-er-diagram-database.wsd
+  - Renamed 13-package-diagram-frontend.puml → 13-package-diagram-frontend.wsd
+  - Renamed 14-communication-diagram-events.puml → 14-communication-diagram-events.wsd
+
+- **Updated all documentation references**:
+  - Updated README.md to reference .wsd files
+  - Updated IMPLEMENTATION_SUMMARY.md
+  - Updated product_docs_and_updates.md (this file)
+  - Specified PlantUML version 1.2025.3 explicitly
+
+- **PlantUML Version Specification**:
+  - Explicitly specified PlantUML 1.2025.3 in documentation
+  - Updated installation instructions with version 1.2025.3 download link
+  - All diagrams compatible with PlantUML 1.2025.3
+
+**Impact**:
+- **Standard Format**: `.wsd` is the standard PlantUML file extension
+- **Version Clarity**: Explicitly specifies PlantUML 1.2025.3 for consistency
+- **Better Compatibility**: WSD format recognized by more tools and IDEs
+- **Maintained Functionality**: All diagram content unchanged, only file extension updated
+
+**Files Renamed** (14 files):
+- All `.puml` files in `docs/diagrams/plan/uml/` → `.wsd`
+
+**Files Modified** (3 files):
+- `docs/diagrams/plan/uml/README.md`
+- `docs/diagrams/plan/IMPLEMENTATION_SUMMARY.md`
+- `docs/product_docs_and_updates.md`
+
+**Technical Details**:
+- **PlantUML Version**: 1.2025.3 (explicitly specified)
+- **File Format**: .wsd (standard PlantUML extension)
+- **Syntax**: Modern PlantUML with `!theme plain` directive
+- **Compatibility**: All major PlantUML tools support .wsd format
+
+---
+
+### [2025-10-16 14:47 UTC] - Updated UML Diagrams to Latest PlantUML Version
+
+**Commit**: `Update all UML diagrams to use latest PlantUML syntax and features`  
+**Author**: Copilot (addressing @Vinit-source feedback)  
+**Type**: Documentation | Enhancement
+
+**Changes**:
+- **Updated all 14 PlantUML diagrams** to use latest PlantUML version syntax:
+  - Replaced deprecated `!define` macros with modern alternatives
+  - Added `!theme plain` directive for consistent theming
+  - Implemented Material Design-inspired color schemes with better contrast
+  - Disabled shadows for cleaner, modern appearance
+  - Added custom font settings (Arial) for better readability
+  - Enhanced arrow colors and thickness for better visibility
+  - Improved stereotype-based styling for component categorization
+  
+- **Modern Color Schemes**:
+  - Frontend components: Blue tones (#E3F2FD background, #1976D2 border)
+  - Backend components: Green tones (#E8F5E9 background, #388E3C border)
+  - AI/LLM components: Yellow tones (#FFF9C4 background, #F57C00 border)
+  - Infrastructure: Grey tones (#ECEFF1 background, #546E7A border)
+  
+- **Enhanced Styling Features**:
+  - `skinparam shadowing false` - Cleaner, flat design
+  - `skinparam defaultFontName Arial` - Better readability
+  - `skinparam defaultFontSize 11` - Optimal viewing size
+  - Stereotype-based coloring using `<<frontend>>`, `<<backend>>`, `<<ai>>`, `<<infrastructure>>`
+  
+- **Updated README.md** with:
+  - Information about latest PlantUML version usage
+  - Details on modern features implemented
+  - Instructions for obtaining latest PlantUML version
+  - Enhanced color scheme documentation
+
+**Impact**:
+- **Better Visual Quality**: Modern color schemes provide better contrast and readability
+- **Consistency**: All diagrams now use consistent styling approach
+- **Maintainability**: Latest syntax is more maintainable and future-proof
+- **Professional Look**: Cleaner, modern appearance without shadows
+- **Better Rendering**: Improved compatibility with latest PlantUML renderers
+
+**Files Modified**:
+- `docs/diagrams/plan/uml/01-component-diagram.wsd`
+- `docs/diagrams/plan/uml/02-deployment-diagram.wsd`
+- `docs/diagrams/plan/uml/03-class-diagram-backend.wsd`
+- `docs/diagrams/plan/uml/04-class-diagram-frontend.wsd`
+- `docs/diagrams/plan/uml/05-sequence-user-join-discussion.wsd`
+- `docs/diagrams/plan/uml/06-sequence-webrtc-audio.wsd`
+- `docs/diagrams/plan/uml/07-sequence-llm-agent-interaction.wsd`
+- `docs/diagrams/plan/uml/08-sequence-english-feedback-flow.wsd`
+- `docs/diagrams/plan/uml/09-activity-discussion-lifecycle.wsd`
+- `docs/diagrams/plan/uml/10-state-room-management.wsd`
+- `docs/diagrams/plan/uml/11-usecase-diagram.wsd`
+- `docs/diagrams/plan/uml/12-er-diagram-database.wsd`
+- `docs/diagrams/plan/uml/13-package-diagram-frontend.wsd`
+- `docs/diagrams/plan/uml/14-communication-diagram-events.wsd`
+- `docs/diagrams/plan/uml/README.md`
+
+**Technical Details**:
+- **PlantUML Version**: Latest (uses modern `!theme` directive)
+- **Deprecated Features Removed**: `!define` macros replaced with inline styling
+- **Color Format**: Hex colors for precise control (#RRGGBB)
+- **Backward Compatibility**: All diagrams maintain semantic structure
+
+---
+
+### [2025-10-16 12:45 UTC] - Updated to AWS Fargate & Created MVP Plan UML Diagrams
+
+**Commit**: `Update EC2 to AWS Fargate and create comprehensive MVP plan UML diagrams`  
+**Author**: Copilot  
+**Type**: Architecture | Documentation
+
+**Changes**:
+- **Updated product_system_design.md**: Replaced all EC2 references with AWS Fargate
+  - Changed deployment architecture from EC2 instances to Fargate containers
+  - Updated from EBS (Elastic Block Storage) to EFS (Elastic File System) for persistent storage
+  - Removed SSH access requirement (no longer needed with containers)
+  - Updated security group configuration (ALB only access)
+  - Modified cost estimates: $25-35/month for MVP with Fargate
+  - Added Application Load Balancer (ALB) details for routing
+  - Updated CloudWatch monitoring for Fargate metrics
+  - Changed DNS routing to point to ALB instead of Elastic IP
+  
+- **Created 14 comprehensive PlantUML diagrams** in `docs/diagrams/plan/uml/`:
+  1. **Component Diagram**: System architecture with server_py and AWS Strands Multi-Agent System
+  2. **Deployment Diagram**: AWS Fargate/ECS, ALB, EFS, VPC, and cloud services
+  3. **Class Diagram - Backend**: FastAPI, RoomManager, LLM agents, database service
+  4. **Class Diagram - Frontend**: React components, contexts, hooks, and data models
+  5. **Sequence Diagram - User Join & Discussion**: Complete user flow from login to summary
+  6. **Sequence Diagram - WebRTC Audio**: P2P audio connection setup and management
+  7. **Sequence Diagram - LLM Agent Interaction**: AWS Strands orchestration and feedback
+  8. **Sequence Diagram - English Feedback Flow**: Real-time feedback modal (2-3s target)
+  9. **Activity Diagram - Discussion Lifecycle**: Full activity flow with rounds and turns
+  10. **State Diagram - Room Management**: Room state machine and transitions
+  11. **Use Case Diagram**: 60+ MVP use cases with actor interactions
+  12. **ER Diagram - Database Schema**: Complete SQLite schema with relationships
+  13. **Package Diagram - Frontend**: React code organization and dependencies
+  14. **Communication Diagram - Events**: Socket.io real-time event flow
+
+- **Created comprehensive README.md** for UML diagrams with:
+  - Detailed description of each diagram
+  - Usage instructions and viewing options
+  - PlantUML generation commands
+  - MVP focus areas and architecture highlights
+  - Diagram statistics and maintenance guidelines
+
+**Impact**:
+- **Infrastructure**: Migration path from EC2 to serverless Fargate containers
+  - Better scalability with auto-scaling based on CPU/memory
+  - Reduced operational overhead (no server management)
+  - Simplified deployment with ECS task definitions
+  - Shared storage via EFS for SQLite database
+  
+- **Architecture Documentation**: Complete visual documentation of MVP plan
+  - 14 detailed UML diagrams covering all architectural aspects
+  - Focus on server_py (Python FastAPI) as primary backend
+  - AWS Strands Multi-Agent System for LLM functionality
+  - Clear separation between MVP and post-MVP features
+  
+- **Developer Experience**:
+  - Visual reference for implementation
+  - Better understanding of system interactions
+  - PlantUML format allows version control of diagrams
+  - Easy to update and maintain
+
+**Files Modified**:
+- `docs/Architectural Conversations/product_system_design.md`
+- `docs/diagrams/plan/uml/01-component-diagram.wsd`
+- `docs/diagrams/plan/uml/02-deployment-diagram.wsd`
+- `docs/diagrams/plan/uml/03-class-diagram-backend.wsd`
+- `docs/diagrams/plan/uml/04-class-diagram-frontend.wsd`
+- `docs/diagrams/plan/uml/05-sequence-user-join-discussion.wsd`
+- `docs/diagrams/plan/uml/06-sequence-webrtc-audio.wsd`
+- `docs/diagrams/plan/uml/07-sequence-llm-agent-interaction.wsd`
+- `docs/diagrams/plan/uml/08-sequence-english-feedback-flow.wsd`
+- `docs/diagrams/plan/uml/09-activity-discussion-lifecycle.wsd`
+- `docs/diagrams/plan/uml/10-state-room-management.wsd`
+- `docs/diagrams/plan/uml/11-usecase-diagram.wsd`
+- `docs/diagrams/plan/uml/12-er-diagram-database.wsd`
+- `docs/diagrams/plan/uml/13-package-diagram-frontend.wsd`
+- `docs/diagrams/plan/uml/14-communication-diagram-events.wsd`
+- `docs/diagrams/plan/uml/README.md`
+- `docs/product_docs_and_updates.md` (this file)
+
+**Technical Details**:
+- **Fargate Configuration**:
+  - Task CPU: 0.5 vCPU (scalable)
+  - Task Memory: 1 GB
+  - Container Port: 3003
+  - Health Check: /health endpoint
+  - Auto-scaling: 1-4 tasks based on CPU
+
+- **EFS Configuration**:
+  - Mount path: /mnt/efs
+  - SQLite database location: /mnt/efs/data/roundtable.db
+  - Shared across all Fargate tasks
+  - Automatic backups enabled
+
+- **ALB Configuration**:
+  - Target Group pointing to Fargate tasks on port 3003
+  - HTTP (80) redirects to HTTPS (443)
+  - WebSocket (WSS) support for Socket.io
+  - SSL/TLS via ACM
+
+**Next Steps**:
+- Generate diagram images (PNG/SVG) for documentation
+- Implement Dockerfile for Fargate deployment
+- Create ECS task definition
+- Set up ALB with target groups
+- Configure EFS mount for Fargate tasks
+
+---
+
 ### [2025-10-15 19:06 UTC] - Added Data Models and Architecture Clarifications
 
 **Commit**: `docs: add comprehensive data models and clarify architecture connections`  

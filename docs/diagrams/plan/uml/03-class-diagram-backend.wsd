@@ -1,0 +1,307 @@
+@startuml GupShup Cafe - Backend Class Diagram (server_py + LLM)
+
+' Use latest PlantUML version features
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam class {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+    ArrowColor #546E7A
+}
+skinparam package {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+
+title GupShup Cafe - Backend Class Diagram (server_py with LLM Agent)
+
+package "FastAPI Application (main.py)" {
+    class FastAPIApp {
+        + app: FastAPI
+        + sio: AsyncServer
+        + room_manager: RoomManager
+        --
+        + startup_event()
+        + shutdown_event()
+        + register_routes()
+        + register_socket_handlers()
+    }
+}
+
+package "API Routes (src/api/routes.py)" {
+    class APIRoutes {
+        + get_health()
+        + get_topics()
+        + post_generate_topic()
+        + get_analytics()
+        + post_session_feedback()
+    }
+    
+    note right of APIRoutes
+        REST endpoints:
+        - GET /health
+        - GET /api/topics
+        - POST /api/topics/generate
+        - GET /api/analytics
+        - POST /api/feedback
+    end note
+}
+
+package "Socket Handlers (src/socket/)" {
+    class SocketHandlers {
+        + on_connect(sid, environ, auth)
+        + on_disconnect(sid)
+        + on_create_room(sid, data)
+        + on_join_room(sid, data)
+        + on_ready(sid, data)
+        + on_start_discussion(sid, data)
+        + on_webrtc_offer(sid, data)
+        + on_webrtc_answer(sid, data)
+        + on_webrtc_ice_candidate(sid, data)
+        + on_speech_transcript(sid, data)
+        + on_end_turn(sid, data)
+    }
+    
+    class RoomManager {
+        - rooms: Dict[str, Room]
+        - participant_to_room: Dict[str, str]
+        --
+        + create_room(room_code, config) : Room
+        + join_room(room_code, participant) : bool
+        + remove_participant(sid) : void
+        + start_discussion(room_code) : bool
+        + next_speaker(room_code) : Participant
+        + end_discussion(room_code) : void
+        + get_room_state(room_code) : dict
+    }
+    
+    class Room {
+        + room_code: str
+        + topic: str
+        + participants: List[Participant]
+        + status: RoomStatus
+        + current_speaker_index: int
+        + current_round: int
+        + max_rounds: int
+        + speaking_time: int
+        --
+        + add_participant(p: Participant)
+        + remove_participant(sid: str)
+        + set_participant_ready(sid: str)
+        + all_ready() : bool
+        + get_current_speaker() : Participant
+        + advance_turn() : Participant
+        + to_dict() : dict
+    }
+    
+    class Participant {
+        + id: str
+        + socket_id: str
+        + anonymous_name: str
+        + avatar_color: str
+        + role: ParticipantRole
+        + is_ready: bool
+        + is_speaking: bool
+        + is_muted: bool
+        + cefr_level: str
+        + transcripts: List[str]
+        --
+        + to_dict() : dict
+    }
+    
+    enum RoomStatus {
+        WAITING
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
+    }
+    
+    enum ParticipantRole {
+        HOST
+        PARTICIPANT
+        LISTENER
+    }
+}
+
+package "Database Service (src/database/)" {
+    class DatabaseService {
+        - db_path: str
+        - connection: Connection
+        --
+        + init_database()
+        + create_session(data: dict) : str
+        + get_session(session_id: str) : dict
+        + create_participant(data: dict) : str
+        + update_participant(id: str, data: dict)
+        + save_transcript(data: dict) : str
+        + save_feedback(data: dict) : str
+        + get_user_progress(user_id: str) : dict
+        + get_analytics() : dict
+    }
+    
+    class Session {
+        + id: str
+        + room_code: str
+        + topic: str
+        + status: str
+        + started_at: datetime
+        + ended_at: datetime
+        + participant_count: int
+    }
+    
+    class ParticipantDB {
+        + id: str
+        + session_id: str
+        + user_id: str
+        + anonymous_name: str
+        + cefr_level: str
+        + is_ready: bool
+        + joined_at: datetime
+    }
+    
+    class Transcript {
+        + id: str
+        + session_id: str
+        + participant_id: str
+        + text: str
+        + timestamp: datetime
+        + turn_number: int
+    }
+    
+    class Feedback {
+        + id: str
+        + session_id: str
+        + participant_id: str
+        + feedback_type: str
+        + grammar_score: float
+        + vocabulary_score: float
+        + fluency_score: float
+        + cefr_level: str
+        + suggestions: List[str]
+        + created_at: datetime
+    }
+}
+
+package "LLM Tutor (src/llmTutor/)" {
+    class AWSStrandsOrchestrator {
+        - agentcore: AgentCore
+        - english_agent: EnglishFeedbackAgent
+        - facilitator_agent: DebateFacilitatorAgent
+        --
+        + get_english_feedback(statements, instant, context) : dict
+        - _instant_feedback(statements, context) : dict
+        - _comprehensive_feedback(statements, context) : dict
+        - _format_feedback_message(result) : str
+        - _format_gentle_mention(speaker, result) : str
+    }
+    
+    class EnglishFeedbackAgent {
+        - llm_provider: LLMInterface
+        --
+        + analyze(data: dict) : dict
+        + analyze_grammar(text: str) : dict
+        + analyze_vocabulary(text: str) : dict
+        + analyze_fluency(text: str) : dict
+        + determine_cefr_level(scores: dict) : str
+    }
+    
+    class DebateFacilitatorAgent {
+        - llm_provider: LLMInterface
+        --
+        + facilitate_turn(context: dict) : str
+        + suggest_topic_direction(statements: List) : str
+        + moderate_discussion(context: dict) : dict
+        + generate_speaking_prompt(topic: str) : str
+    }
+    
+    interface LLMInterface {
+        + chat(messages, temperature, max_tokens) : dict
+        + analyze_english(transcript, context) : dict
+    }
+    
+    class GeminiLLM implements LLMInterface {
+        - api_key: str
+        - model: GenerativeModel
+        --
+        + chat(messages, temperature, max_tokens) : dict
+        + analyze_english(transcript, context) : dict
+    }
+    
+    class BedrockLLM implements LLMInterface {
+        - client: BedrockClient
+        - model_id: str
+        --
+        + chat(messages, temperature, max_tokens) : dict
+        + analyze_english(transcript, context) : dict
+    }
+    
+    class AIServiceManager {
+        - config: dict
+        - _llm: LLMInterface
+        --
+        + get_llm() : LLMInterface
+        + switch_provider(provider: str) : void
+    }
+}
+
+package "Topic Generation (src/ai/)" {
+    class TopicGenerator {
+        - huggingface_api_key: str
+        - fallback_topics: List[str]
+        --
+        + generate_topic(category: str) : str
+        + get_curated_topics() : List[str]
+        + validate_topic(topic: str) : bool
+    }
+}
+
+' Relationships
+FastAPIApp --> APIRoutes : "registers"
+FastAPIApp --> SocketHandlers : "registers"
+FastAPIApp --> RoomManager : "uses"
+
+SocketHandlers --> RoomManager : "manages"
+RoomManager --> Room : "maintains"
+Room --> Participant : "contains"
+Room --> RoomStatus : "has"
+Participant --> ParticipantRole : "has"
+
+SocketHandlers --> DatabaseService : "persists"
+DatabaseService --> Session : "stores"
+DatabaseService --> ParticipantDB : "stores"
+DatabaseService --> Transcript : "stores"
+DatabaseService --> Feedback : "stores"
+
+SocketHandlers --> AWSStrandsOrchestrator : "requests feedback"
+AWSStrandsOrchestrator --> EnglishFeedbackAgent : "coordinates"
+AWSStrandsOrchestrator --> DebateFacilitatorAgent : "coordinates"
+
+EnglishFeedbackAgent --> LLMInterface : "uses"
+DebateFacilitatorAgent --> LLMInterface : "uses"
+AIServiceManager --> GeminiLLM : "provides"
+AIServiceManager --> BedrockLLM : "provides"
+
+APIRoutes --> TopicGenerator : "generates topics"
+APIRoutes --> DatabaseService : "queries"
+
+note as ArchitectureNote
+    **Key Design Patterns:**
+    
+    1. **Singleton Pattern**: RoomManager, DatabaseService
+    2. **Factory Pattern**: AIServiceManager creates LLM providers
+    3. **Strategy Pattern**: LLMInterface with multiple implementations
+    4. **Observer Pattern**: Socket.io event handlers
+    5. **Repository Pattern**: DatabaseService abstracts data access
+    
+    **AI Integration:**
+    - AWS Strands orchestrates multiple agents
+    - EnglishFeedbackAgent for language analysis
+    - DebateFacilitatorAgent for discussion management
+    - Pluggable LLM providers (Gemini/Bedrock)
+end note
+
+@enduml
