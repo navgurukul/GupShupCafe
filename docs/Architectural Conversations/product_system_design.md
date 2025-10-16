@@ -316,7 +316,7 @@ class User:
     # ]
     
     # Topic Interests (For Future Lobby Matching)
-    topic_interests: List[str]  # ["Technology", "Sports", "Politics", "Science", etc.]
+    topic_categories: List[str]  # ["Technology", "Sports", "Politics", "Science", etc.]
     # Note: Lobby matching by CEFR level and topics is a FUTURE FEATURE (not MVP)
     
     # Statistics - not in MVP
@@ -613,7 +613,7 @@ class Progress:
 │             │
 │ email       │◄───────────┐
 │ cefr_level  │            │
-│ topics[]    │            │
+│ topic_categories[]       │
 │ stats       │            │
 └─────────────┘            │
        │                   │
@@ -636,9 +636,10 @@ class Progress:
 │─────────────│ │─────────────│
 │ id (PK)     │ │ id (PK)     │
 │ participant │ │ room_name   │
-│ text        │ │ topic       │
+│ text        │ │ topic_category       
 │ timestamp   │ │ status      │
-└─────────────┘ │ config      │
+└─────────────┘ │ topic       |
+       │          max_participants: default = 3
        │        └─────────────┘
        │ 1:N
        ▼
@@ -663,8 +664,35 @@ class Progress:
 │ milestones[]│
 └─────────────┘
 ```
+### 2.3.3 Data Flow for User Login 
+```
+1. User sign up (for the first time)
+   └─> Google Authentication.
+   └─> Create a new User record
+       └─> Email (get from the google sign in object)
+       └─> CEFR_level (initially A0)
+       └─> Save createdAt time (not in MVP)
+       └─> Initialise lastActive (not in MVP)
+       └─> Initialise stats variables to zeroes (not in MVP)
+   └─> Find user's topics of interests: (not in MVP)
+       └─> Provide a list of suggested topic categories (Education, Technology, etc.) that can be clicked and added to interested topics input
+       └─> Save the topics of interest.
+2. Lobby page displayed
+   └─> List the online lobbies/rooms (filtered with user's topics of interest - not in MVP) as cards - Each lobby card shows the room_name, topic category, CEFR_level and # of participants
+   └─> User can create a new room by clicking the 'Create new room' button.
+       └─> Create new room button clicked
+       └─> Room creation form opened - User becomes the host for the room - Enter room_name, max_participants and select the topic_category for the room. Host's CEFR level is assigned to the room
+       └─> Host mentions his anonymous name for the session
+       └─> Publish room for others to join
+       └─> Other participants join and click 'I'm ready to start!' button.
+       └─> When all participants are ready to start, the session starts.
+   └─> User can join an online room published by another user by clicking the one of the available room cards on the screen.
+       └─> User mentions his anonymous name for the session
+       └─> User clicks 'I'm ready to start!' button when mic and network working fine and ready to start.
+       └─> When all participants are ready to start, the session starts. 
+```
 
-### 2.3.3 Data Flow for User Progress
+### 2.3.4 Data Flow for Session
 
 ```
 1. User joins session
