@@ -4,7 +4,7 @@
 The lobby page was stuck at 'Waiting' status and 'Connecting to lobby' state when using server_py backend.
 
 ## Root Cause
-- **Client behavior**: `SocketContext.jsx` line 137 emits `'user-ready'` event without any data parameter
+- **Client behavior**: `SocketContext.jsx` emits `'user-ready'` event without any data parameter in the `signalReady` function
   ```javascript
   const signalReady = () => {
     const s = socketRef.current || socket
@@ -12,7 +12,7 @@ The lobby page was stuck at 'Waiting' status and 'Connecting to lobby' state whe
   }
   ```
 
-- **Server expectation**: The Python backend's `user_ready` handler (socket_handlers.py line 165-196) expected a `data` parameter with `userId` and `isReady` fields
+- **Server expectation**: The Python backend's `user_ready` handler in `socket_handlers.py` expected a `data` parameter with `userId` and `isReady` fields
   ```python
   async def user_ready(sid, data):
       user_id = data.get("userId")  # This would fail when data is None
