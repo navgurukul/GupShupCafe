@@ -1,0 +1,157 @@
+@startuml State Diagram - Room State Management
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam stateBackgroundColor #E8F4F8
+skinparam stateBorderColor #4A90E2
+
+title GupShup Cafe - Room State Management
+
+state "Room Not Exists" as NotExists
+state "Room Created" as Created
+state "Waiting for Participants" as Waiting
+state "Participants Joining" as Joining
+state "Ready Check" as ReadyCheck
+state "Discussion Active" as Active
+state "Discussion Ended" as Ended
+state "Room Cleanup" as Cleanup
+
+[*] --> NotExists
+
+NotExists --> Created : First user joins room\nget_room(room_id)
+
+Created --> Waiting : Room initialized with:\n- participants: []\n- discussion.active: false\n- createdAt: timestamp
+
+Waiting --> Joining : add_user_to_room()\nEmit: participants-update
+
+Joining --> Joining : More users join\nadd_user_to_room()
+
+Joining --> ReadyCheck : User marks ready\nupdate_user(isReady: true)
+
+ReadyCheck --> ReadyCheck : Users toggle ready\nEmit: participants-update
+
+ReadyCheck --> Joining : User unmarks ready\nupdate_user(isReady: false)
+
+ReadyCheck --> Active : All ready (min 2)\nstart_discussion()
+
+state Active {
+    state "Speaking Turn" as Speaking
+    state "Timer Running" as Timer
+    state "Waiting for Next" as NextWait
+    state "Agent Feedback" as AgentTurn
+    
+    [*] --> Speaking
+    
+    Speaking --> Timer : Start timer (60s)\nSet currentSpeakerIndex\nEmit: next-turn
+    
+    Timer --> Timer : Countdown\nEmit: timer-update (every 1s)
+    
+    Timer --> NextWait : Timer expires OR\nUser clicks next
+    
+    Timer --> AgentTurn : Agent's turn
+    
+    AgentTurn --> NextWait : Feedback provided\nEmit: agent-feedback
+    
+    NextWait --> Speaking : next_speaker()\nAdvance to next participant
+    
+    Speaking --> [*] : Discussion ends
+}
+
+Active --> Ended : end_discussion() called:\n- Insufficient participants\n- Manual end\n- All rounds complete
+
+state Ended {
+    state "Saving Session" as Save
+    state "Generating Summary" as Summary
+    state "Broadcasting End" as Broadcast
+    
+    [*] --> Save
+    Save --> Summary : save_session()\nsave_participants()
+    Summary --> Broadcast : Generate final feedback\nLLM summary
+    Broadcast --> [*] : Emit: discussion-end
+}
+
+Ended --> Cleanup : All users leave OR\nInactivity timeout
+
+Cleanup --> [*] : cleanup_room()\nRemove from memory
+
+Joining --> Cleanup : All users leave\nbefore starting
+
+Active --> Cleanup : Insufficient participants\n(< 2 remaining)
+
+note right of NotExists
+    Initial state before
+    any user joins
+end note
+
+note right of Created
+    Room object structure:
+    {
+        id: string,
+        participants: [],
+        discussion: {
+            active: false,
+            topic: null,
+            currentSpeakerIndex: 0,
+            speakingTime: 60,
+            timeRemaining: 0,
+            round: 1,
+            timer: null,
+            startedAt: null,
+            endedAt: null
+        },
+        createdAt: timestamp
+    }
+end note
+
+note right of ReadyCheck
+    Minimum 2 participants
+    must be ready to start
+    
+    Each participant has:
+    - isReady: boolean
+    - role: 'speaker' | 'listener'
+end note
+
+note right of Active
+    **During discussion:**
+    - Timer runs per speaker
+    - Turn-based speaking
+    - WebRTC audio active
+    - Real-time updates
+    - LLM agent monitoring
+    
+    **Timer Management:**
+    - Default: 60 seconds
+    - Configurable per room
+    - Auto-advance on expire
+    - Manual advance available
+end note
+
+note right of Ended
+    **Session ends when:**
+    1. All rounds completed
+    2. Insufficient participants
+    3. Manual termination
+    4. System error
+    
+    **Final actions:**
+    - Save statistics to DB
+    - Generate LLM summary
+    - Broadcast to clients
+    - Cleanup resources
+end note
+
+note right of Cleanup
+    **Cleanup triggers:**
+    - All users disconnected
+    - Inactivity > timeout
+    - Discussion ended
+    
+    **Cleanup actions:**
+    - Clear timers
+    - Remove from rooms map
+    - Release memory
+end note
+
+@enduml

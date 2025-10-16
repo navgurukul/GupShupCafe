@@ -1,0 +1,143 @@
+@startuml Deployment Diagram - GupShup Cafe
+
+!define RECTANGLE class
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FFFFFF
+
+title GupShup Cafe - Deployment Diagram
+
+' Development Environment
+node "Development Environment" as DevEnv {
+    node "Developer Machine" as DevMachine {
+        artifact "Vite Dev Server\n(Port 5173)" as ViteDev
+        artifact "Python FastAPI\n(Port 3003)" as FastAPIDev
+        database "SQLite\n(./data/roundtable.db)" as DevDB
+        
+        ViteDev -[hidden]down- FastAPIDev
+        FastAPIDev -down-> DevDB : "file access"
+    }
+    
+    note right of DevMachine
+        Quick Start:
+        1. npm run install:all
+        2. npm run dev
+        Runs both frontend & backend
+    end note
+}
+
+' Production Environment
+cloud "Production Environment - AWS" as ProdEnv {
+    
+    node "AWS Amplify" as Amplify {
+        artifact "React App\n(Static Build)" as ReactProd
+        artifact "Global CDN" as CDN
+        artifact "Auto-deploy\nfrom Git" as AutoDeploy
+        
+        ReactProd -down-> CDN
+        AutoDeploy .up.> ReactProd : "builds"
+    }
+    
+    node "AWS EC2 + AgentCore" as EC2 {
+        artifact "Python FastAPI\nRunning via uvicorn" as FastAPIProd
+        artifact "Socket.io Server" as SocketIOProd
+        artifact "systemd Service\n(gupshup-api.service)" as Systemd
+        
+        Systemd .up.> FastAPIProd : "manages"
+        FastAPIProd -down-> SocketIOProd : "embedded"
+    }
+    
+    database "SQLite Database\n(Persistent Storage)" as ProdDB {
+    }
+    
+    cloud "AWS AI Services" as AWSAI {
+        artifact "AWS Strands\n(Development)" as Strands
+        artifact "AWS Bedrock\n(Production)" as Bedrock
+        artifact "Gemini API" as GeminiProd
+    }
+    
+    cloud "External Services" as ExtServices {
+        artifact "Hugging Face API\n(Topic Generation)" as HFProd
+        artifact "STUN/TURN Servers\n(WebRTC)" as STUNProd
+    }
+}
+
+' Client devices
+actor "End Users" as Users
+
+node "Client Devices" as Clients {
+    artifact "Web Browser\n(Chrome/Firefox/Safari)" as Browser {
+        component "React App" as ClientApp
+        component "WebRTC Engine" as WebRTCClient
+        component "Socket.io Client" as SocketClient
+    }
+}
+
+' Connections - Development
+Users -down-> Browser : "HTTPS"
+Browser -down-> ViteDev : "http://localhost:5173\nHMR WebSocket"
+Browser -down-> FastAPIDev : "http://localhost:3003\nREST + WebSocket"
+
+' Connections - Production
+Browser -down-> ReactProd : "HTTPS"
+Browser -down-> FastAPIProd : "HTTPS/WSS"
+ClientApp --> CDN : "Static Assets"
+SocketClient --> SocketIOProd : "Real-time Events"
+WebRTCClient ..> SocketIOProd : "Signaling"
+WebRTCClient --> STUNProd : "NAT Traversal"
+
+FastAPIProd -down-> ProdDB : "async SQLite"
+FastAPIProd -right-> AWSAI : "API Calls"
+FastAPIProd --> HFProd : "Topic Generation"
+
+note top of Amplify
+    Frontend Hosting:
+    - Auto SSL/TLS
+    - Global CDN
+    - CI/CD from Git
+    - Environment Variables
+end note
+
+note top of EC2
+    Backend Hosting:
+    - Ubuntu Server
+    - Python 3.11+
+    - Nginx Reverse Proxy
+    - systemd for process mgmt
+    - Automatic restarts
+end note
+
+note right of AWSAI
+    AI Model Selection:
+    - Dev: AWS Strands + Gemini
+    - Prod: Bedrock Models
+    Environment controlled via
+    .env configuration
+end note
+
+note bottom of ProdDB
+    Data Persistence:
+    - Session history
+    - Participant records
+    - Topic usage analytics
+    - Progress tracking
+end note
+
+' Environment separation note
+note as N1
+    **Two Environments:**
+    
+    1. **Development** (Local)
+       - Fast iteration
+       - Hot Module Replacement
+       - Local database
+       - Console logging
+       
+    2. **Production** (AWS)
+       - Scalable infrastructure
+       - Global distribution
+       - Secure communication
+       - Production monitoring
+end note
+
+@enduml

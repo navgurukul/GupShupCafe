@@ -1,0 +1,193 @@
+@startuml Activity Diagram - Complete Discussion Lifecycle
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam activityBackgroundColor #E8F4F8
+skinparam activityBorderColor #4A90E2
+skinparam activityDiamondBackgroundColor #FFE6CC
+skinparam activityDiamondBorderColor #FF9933
+
+title GupShup Cafe - Complete Discussion Lifecycle
+
+|User|
+start
+:Navigate to application;
+:Fill login form
+(Name, Campus, Location);
+
+|Auth System|
+:Generate anonymous name;
+:Store user data in localStorage;
+:Authenticate user;
+
+|User|
+:Navigate to Lobby;
+
+|Socket System|
+:Connect to Socket.io server;
+:Join 'general' room;
+
+|Room Manager|
+:Add user to room;
+:Update participants list;
+
+|Socket System|
+:Broadcast participants-update;
+
+|User|
+:See other participants;
+:Click "Ready" button;
+
+|Socket System|
+:Emit user-ready event;
+
+|Room Manager|
+:Update user ready status;
+
+if (All participants ready?\n(min 2 participants)) then (yes)
+    |LLM Agent|
+    :Generate discussion topic;
+    note right
+        Uses AI API or
+        fallback topics
+    end note
+    
+    |Room Manager|
+    :Start discussion;
+    :Set active = true;
+    :Initialize timer (60s);
+    :Set first speaker;
+    
+    |Database|
+    :Save session record;
+    :Save participant records;
+    
+    |Socket System|
+    :Emit discussion-start event;
+    
+    |User|
+    :Navigate to Roundtable;
+    :Display topic;
+    
+    |Audio System|
+    :Request microphone permission;
+    
+    if (Permission granted?) then (yes)
+        :Initialize WebRTC;
+        :Create peer connections;
+        :Exchange offers/answers;
+        :Connect audio streams;
+        
+        |User|
+        repeat
+            |Room Manager|
+            if (Current speaker?) then (yes)
+                |User|
+                :Speak (60 seconds);
+                :Audio transmitted via WebRTC;
+                
+                |LLM Agent|
+                fork
+                    :Listen to conversation;
+                    :Analyze speech content;
+                fork again
+                    :Monitor CEFR compliance;
+                end fork
+                
+                |Room Manager|
+                :Timer countdown;
+                :Emit timer-update events;
+                
+                if (Timer expired or\nNext clicked?) then (yes)
+                    |LLM Agent|
+                    if (Agent's turn?) then (yes)
+                        :Generate CEFR feedback;
+                        :Provide corrections;
+                        :Emit agent-feedback event;
+                        
+                        |User|
+                        :View agent feedback;
+                    endif
+                    
+                    |Room Manager|
+                    :Advance to next speaker;
+                    :Reset timer;
+                    :Emit next-turn event;
+                    
+                    if (Round completed?) then (yes)
+                        :Increment round number;
+                    endif
+                endif
+            else (no)
+                |User|
+                :Listen to current speaker;
+            endif
+        repeat while (Discussion active and\nparticipants >= 2?) is (yes)
+        
+        |Room Manager|
+        :End discussion;
+        
+        |LLM Agent|
+        :Generate final summary;
+        :Compile all feedback;
+        :Provide growth tips;
+        
+        |Database|
+        :Update session end time;
+        :Save final statistics;
+        
+        |Socket System|
+        :Emit discussion-end event;
+        
+        |User|
+        :View final feedback;
+        :View session statistics;
+    else (no - permission denied)
+        :Show permission error;
+        :Remain in lobby;
+    endif
+else (no - not all ready)
+    |User|
+    :Wait in lobby;
+    :See ready status of others;
+    stop
+endif
+
+|User|
+if (Continue?) then (yes)
+    :Return to lobby;
+    :Start new discussion;
+else (no)
+    :Logout;
+    stop
+endif
+
+floating note right
+    **CEFR Feedback includes:**
+    • Grammar corrections
+    • Vocabulary suggestions
+    • Sentence structure
+    • Pronunciation tips
+    • Overall assessment
+end note
+
+floating note right
+    **Room State includes:**
+    • Participants list
+    • Discussion topic
+    • Current speaker
+    • Timer state
+    • Round number
+end note
+
+floating note right
+    **WebRTC Features:**
+    • P2P audio streaming
+    • Low latency
+    • NAT traversal (STUN)
+    • Opus codec
+    • Auto gain control
+end note
+
+@enduml

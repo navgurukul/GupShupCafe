@@ -327,17 +327,24 @@ Testing, troubleshooting, and additional guides.
 
 ---
 
-## 📐 Diagrams and Visuals
+## 📐 UML Diagrams
 
-This documentation includes various diagrams:
+Comprehensive UML diagrams created with PlantUML:
 
-- **Architecture Diagrams:** System design and component interactions
-- **Sequence Diagrams:** Event flows and interactions
-- **Entity Relationship Diagrams:** Database schema
-- **Flow Charts:** User flows and decision trees
-- **State Diagrams:** Component and application states
+- **[UML Diagrams Collection](./diagrams/uml/)** - 13 comprehensive diagrams
+  - Component Diagram - System architecture
+  - Deployment Diagram - Development & production setup
+  - Class Diagrams - Backend (server_py) and Frontend (React)
+  - Sequence Diagrams - User flows, WebRTC, LLM Agent, Turn management
+  - Activity Diagram - Complete discussion lifecycle
+  - State Diagram - Room state management
+  - Use Case Diagram - 33 documented use cases
+  - ER Diagram - Enhanced database schema
+  - Package Diagram - Frontend structure
 
-All diagrams are created using ASCII art for maximum compatibility.
+**Focus:** server_py (Python FastAPI backend) with LLM Agent integration
+
+See [UML Diagrams README](./diagrams/uml/README.md) and [Summary](./Miscellaneous/UML_DIAGRAMS_SUMMARY.md) for details.
 
 ---
 
