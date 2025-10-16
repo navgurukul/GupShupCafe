@@ -21,7 +21,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 ### 1.1 Must-Have Features (Core Loop - Days 1-3)
 
 **Priority 1: Basic Room Operations**
-- ✅ User authentication (anonymous or simple login)
+- ✅ User authentication (simple login)
 - ✅ Create/join discussion room (max 4-6 participants for MVP)
 - ✅ Lobby system with ready-check mechanism
 - ✅ Room state management (waiting, active, completed)
@@ -280,8 +280,7 @@ Example Output:
 
 📝 Grammar Feedback (Private English Feedback Modal):
 ⚠ Suggestion: "I thinks" should be "I think" (subject-verb agreement).
-The rest of your statement is clear and well-structured.
-CEFR Level: B1 | Grammar: 7/10 | Vocabulary: 8/10 | Fluency: 7/10
+The rest of your statement is clear and well-structured. (Instant feedbacks are subjective and verbal only)
 ```
 
 ---
@@ -304,9 +303,7 @@ class User:
     User model tracking individual progress and preferences.
     """
     id: str  # UUID
-    username: str  # Optional, can be anonymous
     email: Optional[str]  # For registered users
-    is_anonymous: bool  # True for guest users
     
     # CEFR Progress Tracking (MVP Core Feature)
     current_cefr_level: str  # "A0", "A1", "A2", "B1", "B2", "C1", "C2"
@@ -322,12 +319,12 @@ class User:
     topic_interests: List[str]  # ["Technology", "Sports", "Politics", "Science", etc.]
     # Note: Lobby matching by CEFR level and topics is a FUTURE FEATURE (not MVP)
     
-    # Statistics
+    # Statistics - not in MVP
     total_sessions: int
     total_speaking_time: int  # seconds
     total_words_spoken: int
     
-    # Average Scores (Calculated from feedback)
+    # Average Scores (Calculated from feedback - not in MVP)
     avg_grammar_score: float  # 0-10
     avg_vocabulary_score: float  # 0-10
     avg_fluency_score: float  # 0-10
@@ -338,7 +335,6 @@ class User:
     last_active: datetime
     
     # Settings
-    preferred_language: str  # "en" for MVP
     notification_preferences: dict
 ```
 
@@ -401,11 +397,11 @@ class Participant:
     user_id: str
     
     # Identity
-    display_name: str  # Anonymous name like "Blue Panda", "Red Dragon"
+    anonymous_name: str  # Anonymous name like "Blue Panda", "Red Dragon"
     avatar_color: str  # Hex color code
     
     # Session Role
-    role: str  # "participant", "host", "observer"
+    role: str  # "participant", "host", "listener"
     is_ready: bool  # Ready to start discussion
     
     # Speaking Data
@@ -614,7 +610,7 @@ class Progress:
 │    User     │
 │─────────────│
 │ id (PK)     │
-│ username    │
+│             │
 │ email       │◄───────────┐
 │ cefr_level  │            │
 │ topics[]    │            │
@@ -639,7 +635,7 @@ class Progress:
 │ Transcript  │ │   Session   │
 │─────────────│ │─────────────│
 │ id (PK)     │ │ id (PK)     │
-│ participant │ │ room_code   │
+│ participant │ │ room_name   │
 │ text        │ │ topic       │
 │ timestamp   │ │ status      │
 └─────────────┘ │ config      │
