@@ -34,10 +34,10 @@ def test_get_room(room_manager):
     room = room_manager.get_room("test-room")
     
     assert room is not None
-    assert room["id"] == "test-room"
-    assert "participants" in room
-    assert "discussion" in room
-    assert len(room["participants"]) == 0
+    assert room.room_code == "test-room"
+    assert hasattr(room, "participants")
+    assert hasattr(room, "status")
+    assert len(room.participants) == 0
 
 
 def test_add_user_to_room(room_manager, sample_user):
@@ -45,8 +45,8 @@ def test_add_user_to_room(room_manager, sample_user):
     room_manager.add_user_to_room("test-room", sample_user)
     
     room = room_manager.get_room("test-room")
-    assert len(room["participants"]) == 1
-    assert room["participants"][0]["id"] == sample_user["id"]
+    assert len(room.participants) == 1
+    assert room.participants[0].id == sample_user["id"]
 
 
 def test_remove_user_from_room(room_manager, sample_user):
@@ -65,7 +65,7 @@ def test_update_user(room_manager, sample_user):
     room_manager.update_user("test-room", sample_user["id"], {"isReady": True})
     
     room = room_manager.get_room("test-room")
-    assert room["participants"][0]["isReady"] is True
+    assert room.participants[0].is_ready is True
 
 
 def test_get_room_participants(room_manager, sample_user):
@@ -87,7 +87,7 @@ def test_change_user_role(room_manager, sample_user):
     assert success is True
     
     room = room_manager.get_room("test-room")
-    assert room["participants"][0]["role"] == "listener"
+    assert room.participants[0].role.value == "listener"
 
 
 def test_change_invalid_role(room_manager, sample_user):

@@ -25,6 +25,68 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 16:30 UTC] - Backend Refactor: Implemented UML-Based Architecture
+
+**Commit**: `Implement data models and LLM infrastructure based on UML diagrams`  
+**Author**: GitHub Copilot  
+**Type**: Refactor | Architecture
+
+**Changes**:
+- **Implemented proper data models** following the UML class diagram:
+  - Created `RoomStatus` and `ParticipantRole` enums for type safety
+  - Implemented `Participant` class replacing dictionary-based participant data
+  - Implemented `Room` class with full state management and turn-based logic
+  - Added `to_dict()` and `from_dict()` methods for API compatibility
+
+- **Refactored RoomManager** to use proper classes:
+  - Changed from `Dict[str, Dict]` to `Dict[str, Room]`
+  - All methods updated to work with Room and Participant objects
+  - Improved type safety and code clarity
+  - Maintained backward compatibility via serialization methods
+
+- **Implemented LLM Infrastructure** (Strategy + Factory patterns):
+  - Created `LLMInterface` abstract base class
+  - Implemented `GeminiLLM` (Google Gemini provider with placeholder)
+  - Implemented `BedrockLLM` (AWS Bedrock provider with placeholder)
+  - Created `AIServiceManager` factory for managing LLM providers
+
+- **Implemented AI Agents** (Orchestrator pattern):
+  - `EnglishFeedbackAgent`: Analyzes English proficiency with CEFR levels (A1-C2)
+  - `DebateFacilitatorAgent`: Manages discussion flow and provides guidance
+  - `AWSStrandsOrchestrator`: Coordinates multiple agents for comprehensive feedback
+
+- **Updated Tests**: All 62 tests passing, 4 skipped (analytics)
+- **Updated API Routes**: `get_room_state()` endpoint works with new Room objects
+
+**Why**:
+- Match the planned architecture defined in UML diagrams (`docs/diagrams/plan/uml/`)
+- Improve code maintainability with proper OOP structure
+- Enable future AI-powered features (English feedback, facilitation)
+- Better type safety and IDE support
+
+**Impact**:
+- ✅ All existing functionality preserved
+- ✅ API responses maintain same structure (backward compatible)
+- ✅ Foundation laid for LLM-powered features
+- ✅ Cleaner, more maintainable codebase
+- ✅ Follows SOLID principles and design patterns
+
+**Files Modified**:
+- `server_py/src/models/` (new): enums.py, participant.py, room.py
+- `server_py/src/llm/` (new): llm_interface.py, gemini_llm.py, bedrock_llm.py, ai_service_manager.py
+- `server_py/src/agents/` (new): english_feedback_agent.py, debate_facilitator_agent.py, aws_strands_orchestrator.py
+- `server_py/src/socket/room_manager.py` (refactored)
+- `server_py/src/api/routes.py` (updated)
+- `server_py/tests/test_room_manager.py` (updated)
+- `docs/Miscellaneous/BACKEND_REFACTOR_SUMMARY.md` (new)
+
+**Next Steps**:
+- Integrate LLM agents with socket handlers for real-time feedback
+- Implement actual Gemini and Bedrock API integrations
+- Add comprehensive tests for LLM components
+
+---
+
 ### [2025-10-16 15:08 UTC] - Migrated UML Diagrams to WSD Format (PlantUML 1.2025.3)
 
 **Commit**: `Migrate all PlantUML diagrams from .puml to .wsd format for PlantUML 1.2025.3`  

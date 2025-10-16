@@ -190,17 +190,19 @@ async def get_room_state(room_id: str):
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
         
+        # Get current speaker
+        current_speaker = room.get_current_speaker()
+        
         # Serialize only safe discussion fields
-        discussion = room.get("discussion", {})
         safe_discussion = {
-            "active": discussion.get("active"),
-            "topic": discussion.get("topic"),
-            "currentSpeakerIndex": discussion.get("currentSpeakerIndex"),
-            "speakingTime": discussion.get("speakingTime"),
-            "timeRemaining": discussion.get("timeRemaining"),
-            "round": discussion.get("round"),
-            "startedAt": discussion.get("startedAt"),
-            "endedAt": discussion.get("endedAt")
+            "active": room.status.value == "in_progress",
+            "topic": room.topic,
+            "currentSpeakerIndex": room.current_speaker_index,
+            "speakingTime": room.speaking_time,
+            "timeRemaining": room.time_remaining,
+            "round": room.current_round,
+            "startedAt": room.started_at,
+            "endedAt": room.ended_at
         }
         
         # Get participants
