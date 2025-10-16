@@ -1,0 +1,215 @@
+@startuml GupShup Cafe - English Feedback Flow Sequence
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+
+title GupShup Cafe - English Feedback Modal Flow (Real-time Feedback)
+
+participant "User\n(Alice)" as Alice
+participant "React App" as React
+participant "AudioContext" as Audio
+participant "Socket.io" as Socket
+participant "Backend\n(FastAPI)" as Backend
+participant "AWS Strands\nOrchestrator" as Orchestrator
+participant "EnglishAgent" as Agent
+participant "Database" as DB
+
+== Speaking Turn Begins ==
+
+Alice -> React : Speaking turn starts
+React -> React : Timer begins (60s)
+React -> Audio : Enable speaking
+Audio --> Alice : Mic active indicator
+
+== Real-time Transcription ==
+
+Alice -> Audio : Speaks: "I thinks artificial\nintelligence is very good"
+Audio -> Audio : Capture audio stream
+
+note over React
+    Web Speech API
+    running in browser
+end note
+
+React -> React : SpeechRecognition.start()
+React -> React : Got interim transcript:\n"I thinks artificial..."
+
+React --> Alice : Show live transcript\nin SpeechToText panel
+
+React -> React : Got final transcript:\n"I thinks artificial\nintelligence is very good"
+
+React -> Socket : emit('speech-transcript', {\n  text: "I thinks...",\n  speaker: "Alice",\n  timestamp: Date.now()\n})
+
+Socket -> Backend : speech-transcript event
+
+== Backend Processing ==
+
+Backend -> DB : INSERT transcript
+DB --> Backend : transcript_id
+
+Backend -> Backend : Prepare for instant feedback
+Backend -> Backend : Get previous feedback\nfor context
+
+Backend -> DB : SELECT recent_feedback\nWHERE participant_id = Alice
+DB --> Backend : previous_feedback: [...]
+
+Backend -> Orchestrator : get_english_feedback({\n  statements: [{\n    speaker: "Alice",\n    text: "I thinks..."\n  }],\n  instant: true,\n  context: {\n    topic: "AI Technology",\n    previous_feedback: [...],\n    participant_name: "Alice"\n  }\n})
+
+== Instant Grammar Analysis ==
+
+note over Orchestrator
+    Instant mode: 2-3 second target
+end note
+
+Orchestrator -> Agent : analyze({\n  text: "I thinks artificial...",\n  mode: "instant"\n})
+
+Agent -> Agent : **Quick Grammar Check**\nIssue found:\n"I thinks" → subject-verb error
+
+Agent -> Agent : **Quick Vocabulary Check**\n"artificial intelligence" - good\n"very good" - basic adjective
+
+Agent -> Agent : **Quick Fluency Check**\nSentence structure: clear\nNo major pauses
+
+Agent -> Agent : **Calculate Scores**\n- Grammar: 6/10 (1 error)\n- Vocabulary: 7/10 (basic)\n- Fluency: 8/10 (smooth)\n- Overall: 7.0/10
+
+Agent -> Agent : **Determine CEFR**\nScore 7.0 → B1 level
+
+Agent --> Orchestrator : {\n  grammar_score: 6,\n  grammar_issues: [{\n    original: "I thinks",\n    corrected: "I think",\n    reason: "subject-verb agreement",\n    severity: "high"\n  }],\n  vocabulary_score: 7,\n  vocabulary_level: "intermediate",\n  fluency_score: 8,\n  cefr_level: "B1",\n  overall_score: 7.0\n}
+
+== Format Feedback for UI ==
+
+Orchestrator -> Orchestrator : _format_feedback_message(result)
+
+note over Orchestrator
+    Creates user-friendly message:
+    
+    📝 Grammar Feedback:
+    ⚠ "I thinks" → "I think"
+       (subject-verb agreement)
+    
+    ✓ Rest is clear!
+end note
+
+Orchestrator -> Orchestrator : _format_gentle_mention(Alice, result)
+
+note over Orchestrator
+    Creates agent mention:
+    
+    "Alice, great point!
+    Quick tip: 'I think'
+    instead of 'I thinks'"
+end note
+
+Orchestrator --> Backend : {\n  success: true,\n  speaker: "Alice",\n  feedback_type: "instant",\n  response_time: "2-3s",\n  grammar: {\n    score: 6,\n    issues: [...],\n    suggestions: [...]\n  },\n  vocabulary: {\n    score: 7,\n    level: "intermediate"\n  },\n  fluency: {\n    score: 8,\n    comments: "Smooth delivery"\n  },\n  cefr_level: "B1",\n  overall_score: 7.0,\n  display_message: "📝 Grammar...",\n  agent_mention: "Alice, great point!..."\n}
+
+== Store Feedback ==
+
+Backend -> DB : INSERT feedback ({\n  session_id: "...",\n  participant_id: "Alice",\n  feedback_type: "instant",\n  grammar_score: 6,\n  vocabulary_score: 7,\n  fluency_score: 8,\n  cefr_level: "B1",\n  display_message: "...",\n  created_at: now()\n})
+
+DB --> Backend : feedback_id
+
+== Send to User (Private) ==
+
+note over Backend
+    Emit only to Alice's socket
+    (private feedback)
+end note
+
+Backend -> Socket : emit('english-feedback',\n  feedback,\n  room=alice_socket_id\n)
+
+Socket -> React : 'english-feedback' event
+
+== Display Feedback Modal ==
+
+React -> React : EnglishFeedbackModal state update
+
+note over React
+    Modal appears bottom-right
+    with feedback data
+end note
+
+React --> Alice : **English Feedback Modal**\n\n**CEFR: B1** Score: 7.0/10\n\n📝 Grammar Feedback:\n⚠ "I thinks" → "I think"\n   (subject-verb agreement)\n✓ Rest is clear!\n\n**Vocabulary**: 7/10\n**Fluency**: 8/10
+
+Alice -> React : Reads feedback
+Alice -> React : Continues speaking
+
+note over Alice
+    Feedback shown privately,
+    other participants
+    don't see it
+end note
+
+== Optional: Agent Mention ==
+
+note over Backend
+    Optionally, agent can
+    mention feedback gently
+    in the discussion
+end note
+
+Backend -> Socket : emit('agent-message', {\n  text: "Alice, great point!\\n  Quick tip: 'I think'\\n  instead of 'I thinks'",\n  speaker: "Alice"\n})
+
+Socket -> React : 'agent-message' event
+React --> Alice : Display in chat area
+
+== Dismiss Modal ==
+
+Alice -> React : Click X or wait 10s
+React -> React : Auto-dismiss modal
+React --> Alice : Modal closes
+
+== End of Turn ==
+
+React -> React : Timer expires (60s)
+React -> Socket : emit('end-turn')
+Socket -> Backend : end-turn event
+
+Backend -> Backend : Move to next speaker
+Backend -> Socket : emit('turn-started', {\n  current_speaker_index: 1\n})
+
+Socket -> React : Update UI
+React --> Alice : Next speaker highlighted
+
+note as FeedbackUIDesign
+    **English Feedback Modal Design:**
+    
+    **Position**: Bottom-right, non-blocking
+    **Timing**: Appears 2-3 seconds after speaking
+    **Duration**: 10 seconds auto-dismiss, or manual close
+    **Privacy**: Only visible to the speaker
+    **Content**:
+    1. CEFR Level badge (colored)
+    2. Overall score (X/10)
+    3. Grammar issues with corrections
+    4. Vocabulary score + level
+    5. Fluency score + comments
+    6. Top suggestions (actionable)
+    
+    **Separate from SpeechToText Tab**:
+    - SpeechToText: Shows live transcript
+    - English Feedback Modal: Shows AI analysis
+    - Both can be open simultaneously
+    
+    **User Experience**:
+    - Non-intrusive (doesn't block discussion)
+    - Quick glance feedback
+    - Detailed enough to be actionable
+    - Encourages self-correction
+    
+    **Real-time Flow**:
+    1. User speaks (WebRTC audio to others)
+    2. Browser transcribes (Web Speech API)
+    3. Transcript sent to backend
+    4. LLM analyzes in 2-3 seconds
+    5. Private feedback shown in modal
+    6. User continues discussion
+    
+    **Comprehensive Feedback**:
+    After discussion ends, user gets:
+    - Full session analysis
+    - CEFR progress tracking
+    - Detailed recommendations
+    - Comparison across turns
+end note
+
+@enduml

@@ -25,6 +25,113 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 12:45 UTC] - Updated to AWS Fargate & Created MVP Plan UML Diagrams
+
+**Commit**: `Update EC2 to AWS Fargate and create comprehensive MVP plan UML diagrams`  
+**Author**: Copilot  
+**Type**: Architecture | Documentation
+
+**Changes**:
+- **Updated product_system_design.md**: Replaced all EC2 references with AWS Fargate
+  - Changed deployment architecture from EC2 instances to Fargate containers
+  - Updated from EBS (Elastic Block Storage) to EFS (Elastic File System) for persistent storage
+  - Removed SSH access requirement (no longer needed with containers)
+  - Updated security group configuration (ALB only access)
+  - Modified cost estimates: $25-35/month for MVP with Fargate
+  - Added Application Load Balancer (ALB) details for routing
+  - Updated CloudWatch monitoring for Fargate metrics
+  - Changed DNS routing to point to ALB instead of Elastic IP
+  
+- **Created 14 comprehensive PlantUML diagrams** in `docs/diagrams/plan/uml/`:
+  1. **Component Diagram**: System architecture with server_py and AWS Strands Multi-Agent System
+  2. **Deployment Diagram**: AWS Fargate/ECS, ALB, EFS, VPC, and cloud services
+  3. **Class Diagram - Backend**: FastAPI, RoomManager, LLM agents, database service
+  4. **Class Diagram - Frontend**: React components, contexts, hooks, and data models
+  5. **Sequence Diagram - User Join & Discussion**: Complete user flow from login to summary
+  6. **Sequence Diagram - WebRTC Audio**: P2P audio connection setup and management
+  7. **Sequence Diagram - LLM Agent Interaction**: AWS Strands orchestration and feedback
+  8. **Sequence Diagram - English Feedback Flow**: Real-time feedback modal (2-3s target)
+  9. **Activity Diagram - Discussion Lifecycle**: Full activity flow with rounds and turns
+  10. **State Diagram - Room Management**: Room state machine and transitions
+  11. **Use Case Diagram**: 60+ MVP use cases with actor interactions
+  12. **ER Diagram - Database Schema**: Complete SQLite schema with relationships
+  13. **Package Diagram - Frontend**: React code organization and dependencies
+  14. **Communication Diagram - Events**: Socket.io real-time event flow
+
+- **Created comprehensive README.md** for UML diagrams with:
+  - Detailed description of each diagram
+  - Usage instructions and viewing options
+  - PlantUML generation commands
+  - MVP focus areas and architecture highlights
+  - Diagram statistics and maintenance guidelines
+
+**Impact**:
+- **Infrastructure**: Migration path from EC2 to serverless Fargate containers
+  - Better scalability with auto-scaling based on CPU/memory
+  - Reduced operational overhead (no server management)
+  - Simplified deployment with ECS task definitions
+  - Shared storage via EFS for SQLite database
+  
+- **Architecture Documentation**: Complete visual documentation of MVP plan
+  - 14 detailed UML diagrams covering all architectural aspects
+  - Focus on server_py (Python FastAPI) as primary backend
+  - AWS Strands Multi-Agent System for LLM functionality
+  - Clear separation between MVP and post-MVP features
+  
+- **Developer Experience**:
+  - Visual reference for implementation
+  - Better understanding of system interactions
+  - PlantUML format allows version control of diagrams
+  - Easy to update and maintain
+
+**Files Modified**:
+- `docs/Architectural Conversations/product_system_design.md`
+- `docs/diagrams/plan/uml/01-component-diagram.puml`
+- `docs/diagrams/plan/uml/02-deployment-diagram.puml`
+- `docs/diagrams/plan/uml/03-class-diagram-backend.puml`
+- `docs/diagrams/plan/uml/04-class-diagram-frontend.puml`
+- `docs/diagrams/plan/uml/05-sequence-user-join-discussion.puml`
+- `docs/diagrams/plan/uml/06-sequence-webrtc-audio.puml`
+- `docs/diagrams/plan/uml/07-sequence-llm-agent-interaction.puml`
+- `docs/diagrams/plan/uml/08-sequence-english-feedback-flow.puml`
+- `docs/diagrams/plan/uml/09-activity-discussion-lifecycle.puml`
+- `docs/diagrams/plan/uml/10-state-room-management.puml`
+- `docs/diagrams/plan/uml/11-usecase-diagram.puml`
+- `docs/diagrams/plan/uml/12-er-diagram-database.puml`
+- `docs/diagrams/plan/uml/13-package-diagram-frontend.puml`
+- `docs/diagrams/plan/uml/14-communication-diagram-events.puml`
+- `docs/diagrams/plan/uml/README.md`
+- `docs/product_docs_and_updates.md` (this file)
+
+**Technical Details**:
+- **Fargate Configuration**:
+  - Task CPU: 0.5 vCPU (scalable)
+  - Task Memory: 1 GB
+  - Container Port: 3003
+  - Health Check: /health endpoint
+  - Auto-scaling: 1-4 tasks based on CPU
+
+- **EFS Configuration**:
+  - Mount path: /mnt/efs
+  - SQLite database location: /mnt/efs/data/roundtable.db
+  - Shared across all Fargate tasks
+  - Automatic backups enabled
+
+- **ALB Configuration**:
+  - Target Group pointing to Fargate tasks on port 3003
+  - HTTP (80) redirects to HTTPS (443)
+  - WebSocket (WSS) support for Socket.io
+  - SSL/TLS via ACM
+
+**Next Steps**:
+- Generate diagram images (PNG/SVG) for documentation
+- Implement Dockerfile for Fargate deployment
+- Create ECS task definition
+- Set up ALB with target groups
+- Configure EFS mount for Fargate tasks
+
+---
+
 ### [2025-10-15 19:06 UTC] - Added Data Models and Architecture Clarifications
 
 **Commit**: `docs: add comprehensive data models and clarify architecture connections`  

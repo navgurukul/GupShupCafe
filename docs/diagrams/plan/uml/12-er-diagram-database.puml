@@ -1,0 +1,335 @@
+@startuml GupShup Cafe - Database ER Diagram
+
+!define TABLE(name) entity name << (T,#FFAAAA) >>
+!define PRIMARY_KEY(x) <u>x</u>
+!define FOREIGN_KEY(x) <i>x</i>
+
+skinparam backgroundColor #FFFFFF
+skinparam classBackgroundColor LightYellow
+skinparam classBorderColor DarkBlue
+
+title GupShup Cafe - Database Schema (MVP - SQLite on EFS)
+
+' Users table
+entity "users" as users {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  email : TEXT (UNIQUE)
+  current_cefr_level : TEXT
+  topic_interests : TEXT (JSON array)
+  created_at : DATETIME
+  last_active : DATETIME
+  --
+  **NOT IN MVP:**
+  total_sessions : INTEGER
+  total_speaking_time : INTEGER
+  avg_grammar_score : REAL
+  avg_vocabulary_score : REAL
+  avg_fluency_score : REAL
+}
+
+' Sessions table
+entity "sessions" as sessions {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  room_code : TEXT (UNIQUE)
+  topic : TEXT
+  topic_category : TEXT
+  max_participants : INTEGER
+  speaking_time_per_turn : INTEGER
+  num_rounds : INTEGER
+  status : TEXT
+  current_round : INTEGER
+  current_speaker_index : INTEGER
+  FOREIGN_KEY(created_by) : TEXT
+  started_at : DATETIME
+  ended_at : DATETIME
+  duration_seconds : INTEGER
+  created_at : DATETIME
+}
+
+' Participants table
+entity "participants" as participants {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  FOREIGN_KEY(session_id) : TEXT
+  FOREIGN_KEY(user_id) : TEXT
+  anonymous_name : TEXT
+  avatar_color : TEXT
+  role : TEXT
+  is_ready : BOOLEAN
+  socket_id : TEXT
+  starting_cefr_level : TEXT
+  ending_cefr_level : TEXT
+  joined_at : DATETIME
+  left_at : DATETIME
+  --
+  **NOT IN MVP:**
+  total_speaking_time : INTEGER
+  total_words_spoken : INTEGER
+  number_of_turns : INTEGER
+}
+
+' Transcripts table
+entity "transcripts" as transcripts {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  FOREIGN_KEY(session_id) : TEXT
+  FOREIGN_KEY(participant_id) : TEXT
+  FOREIGN_KEY(user_id) : TEXT
+  text : TEXT
+  turn_number : INTEGER
+  round_number : INTEGER
+  timestamp : DATETIME
+  duration_seconds : INTEGER
+  word_count : INTEGER
+}
+
+' Feedback table
+entity "feedback" as feedback {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  FOREIGN_KEY(session_id) : TEXT
+  FOREIGN_KEY(participant_id) : TEXT
+  FOREIGN_KEY(user_id) : TEXT
+  FOREIGN_KEY(transcript_id) : TEXT
+  feedback_type : TEXT
+  grammar_issues : TEXT (JSON)
+  vocabulary_suggestions : TEXT (JSON)
+  fluency_comments : TEXT
+  suggestions : TEXT (JSON)
+  strengths : TEXT (JSON)
+  display_message : TEXT
+  agent_mention : TEXT
+  agent_model : TEXT
+  generation_time_ms : INTEGER
+  created_at : DATETIME
+  --
+  **NOT IN MVP:**
+  cefr_level : TEXT
+  grammar_score : REAL
+  vocabulary_score : REAL
+  fluency_score : REAL
+  overall_score : REAL
+}
+
+' Topics table (for AI generation tracking)
+entity "topics" as topics {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  topic_text : TEXT
+  category : TEXT
+  generated_by : TEXT
+  used_count : INTEGER
+  created_at : DATETIME
+  last_used_at : DATETIME
+}
+
+' Analytics table (optional, for aggregated stats)
+entity "analytics" as analytics {
+  PRIMARY_KEY(id) : TEXT (UUID)
+  --
+  metric_name : TEXT
+  metric_value : REAL
+  dimensions : TEXT (JSON)
+  timestamp : DATETIME
+  aggregation_period : TEXT
+}
+
+' Relationships
+users ||--o{ participants : "participates in"
+sessions ||--o{ participants : "contains"
+users ||--o{ sessions : "creates"
+sessions ||--o{ transcripts : "has"
+participants ||--o{ transcripts : "speaks"
+participants ||--o{ feedback : "receives"
+sessions ||--o{ feedback : "generates"
+transcripts ||--o| feedback : "analyzed in"
+sessions }o--|| topics : "uses"
+
+note right of users
+  **User Model:**
+  - Stores long-term progress
+  - CEFR level tracking
+  - Topic preferences
+  - OAuth identity (email)
+  
+  **MVP Simplification:**
+  - No complex statistics
+  - No avatar/profile pics
+  - Basic CEFR tracking only
+end note
+
+note right of sessions
+  **Session Model:**
+  - Represents a discussion room
+  - Tracks real-time state
+  - Links to participants
+  
+  **Status values:**
+  - "waiting" : Lobby phase
+  - "in_progress" : Discussion active
+  - "completed" : Finished normally
+  - "cancelled" : Ended early
+  
+  **Configuration:**
+  - Default: 3 participants
+  - Default: 60s speaking time
+  - Default: 3 rounds
+end note
+
+note right of participants
+  **Participant Model:**
+  - Per-session identity
+  - Anonymous names (privacy)
+  - Role-based permissions
+  
+  **Roles:**
+  - "host" : Created room
+  - "participant" : Regular speaker
+  - "listener" : Future feature
+  
+  **Real-time fields:**
+  - socket_id : Socket.io connection
+  - is_ready : Ready to start
+end note
+
+note right of transcripts
+  **Transcript Model:**
+  - Raw speech-to-text output
+  - Timestamped per turn
+  - Links to participant & session
+  
+  **Usage:**
+  - Real-time display
+  - LLM analysis input
+  - Post-session review
+  - Export functionality
+  
+  **Storage:**
+  - TEXT field (no length limit)
+  - Indexed by session_id
+  - Ordered by timestamp
+end note
+
+note right of feedback
+  **Feedback Model:**
+  - AI-generated analysis
+  - Two types: instant & comprehensive
+  
+  **Instant Feedback:**
+  - 2-3 second response
+  - Per transcript
+  - Real-time modal display
+  
+  **Comprehensive Feedback:**
+  - Post-discussion analysis
+  - All transcripts analyzed
+  - Progress tracking
+  - Recommendations
+  
+  **JSON fields:**
+  - grammar_issues: Array of corrections
+  - vocabulary_suggestions: Alternatives
+  - suggestions: Actionable tips
+  - strengths: Positive highlights
+end note
+
+note as DatabaseImplementation
+  **Database Implementation (MVP):**
+  
+  **Technology:**
+  - SQLite (lightweight, serverless)
+  - Stored on AWS EFS (shared across Fargate tasks)
+  - Path: /mnt/efs/data/roundtable.db
+  
+  **Async Access:**
+  - aiosqlite library for async operations
+  - Connection pooling for concurrency
+  - Transactions for consistency
+  
+  **Indexes:**
+  - sessions.room_code (UNIQUE)
+  - participants.session_id
+  - transcripts.session_id
+  - feedback.session_id
+  - feedback.participant_id
+  
+  **Constraints:**
+  - Foreign keys enforced
+  - NOT NULL on required fields
+  - UNIQUE on email, room_code
+  - CHECK on CEFR levels (A0-C2)
+  
+  **Migrations:**
+  - Manual SQL scripts for schema changes
+  - Version tracking in migrations table
+  
+  **Backup Strategy:**
+  - EFS automatic backups
+  - Daily SQLite .backup command
+  - Archived sessions after 30 days
+  
+  **Performance:**
+  - 1000s of concurrent sessions
+  - Sub-millisecond queries
+  - Adequate for MVP scale
+  
+  **Future Considerations:**
+  - Migrate to PostgreSQL for production scale
+  - Add full-text search (FTS5)
+  - Partitioning by date
+  - Separate read replicas
+end note
+
+note as QueryExamples
+  **Common Queries:**
+  
+  **Get User's Recent Sessions:**
+  ```sql
+  SELECT s.* FROM sessions s
+  JOIN participants p ON s.id = p.session_id
+  WHERE p.user_id = ? AND s.status = 'completed'
+  ORDER BY s.ended_at DESC LIMIT 10;
+  ```
+  
+  **Get Session with Participants:**
+  ```sql
+  SELECT s.*, p.anonymous_name, p.role
+  FROM sessions s
+  JOIN participants p ON s.id = p.session_id
+  WHERE s.room_code = ?;
+  ```
+  
+  **Get Transcripts for Session:**
+  ```sql
+  SELECT t.*, p.anonymous_name
+  FROM transcripts t
+  JOIN participants p ON t.participant_id = p.id
+  WHERE t.session_id = ?
+  ORDER BY t.timestamp ASC;
+  ```
+  
+  **Get User's CEFR Progress:**
+  ```sql
+  SELECT 
+    p.starting_cefr_level,
+    p.ending_cefr_level,
+    s.ended_at
+  FROM participants p
+  JOIN sessions s ON p.session_id = s.id
+  WHERE p.user_id = ?
+  ORDER BY s.ended_at ASC;
+  ```
+  
+  **Analytics - Topic Usage:**
+  ```sql
+  SELECT topic_category, COUNT(*) as count
+  FROM sessions
+  WHERE status = 'completed'
+  GROUP BY topic_category
+  ORDER BY count DESC;
+  ```
+end note
+
+@enduml
