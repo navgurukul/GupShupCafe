@@ -18,7 +18,7 @@
 - [x] Updated security group rules (no SSH needed)
 
 ### 2. UML Diagrams Created (14 Total)
-All diagrams created in PlantUML (.puml) format:
+All diagrams created in PlantUML (.wsd) format:
 
 **Structural Diagrams (3)**:
 - [x] 01: Component Diagram (5.2 KB)
@@ -55,7 +55,7 @@ All diagrams created in PlantUML (.puml) format:
 ## 📊 Statistics
 
 ### Diagrams
-- **Total Files**: 14 .puml files + 1 README
+- **Total Files**: 14 .wsd files + 1 README
 - **Total Size**: ~90 KB of PlantUML code
 - **Lines of Code**: ~2,000+ lines
 - **Diagram Types**: 7 different UML diagram types
@@ -114,20 +114,20 @@ All diagrams created in PlantUML (.puml) format:
 ### Created (15 files)
 ```
 docs/diagrams/plan/uml/
-├── 01-component-diagram.puml
-├── 02-deployment-diagram.puml
-├── 03-class-diagram-backend.puml
-├── 04-class-diagram-frontend.puml
-├── 05-sequence-user-join-discussion.puml
-├── 06-sequence-webrtc-audio.puml
-├── 07-sequence-llm-agent-interaction.puml
-├── 08-sequence-english-feedback-flow.puml
-├── 09-activity-discussion-lifecycle.puml
-├── 10-state-room-management.puml
-├── 11-usecase-diagram.puml
-├── 12-er-diagram-database.puml
-├── 13-package-diagram-frontend.puml
-├── 14-communication-diagram-events.puml
+├── 01-component-diagram.wsd
+├── 02-deployment-diagram.wsd
+├── 03-class-diagram-backend.wsd
+├── 04-class-diagram-frontend.wsd
+├── 05-sequence-user-join-discussion.wsd
+├── 06-sequence-webrtc-audio.wsd
+├── 07-sequence-llm-agent-interaction.wsd
+├── 08-sequence-english-feedback-flow.wsd
+├── 09-activity-discussion-lifecycle.wsd
+├── 10-state-room-management.wsd
+├── 11-usecase-diagram.wsd
+├── 12-er-diagram-database.wsd
+├── 13-package-diagram-frontend.wsd
+├── 14-communication-diagram-events.wsd
 └── README.md (14 KB, comprehensive guide)
 ```
 
@@ -172,10 +172,10 @@ docs/
 ```bash
 # Generate PNG images
 cd docs/diagrams/plan/uml
-plantuml *.puml
+plantuml *.wsd
 
 # Generate SVG images (vector, better quality)
-plantuml -tsvg *.puml
+plantuml -tsvg *.wsd
 ```
 
 ### 2. Fargate Deployment Setup
@@ -209,11 +209,11 @@ plantuml -tsvg *.puml
 
 **Option 1: PlantUML Online**
 - Visit: http://www.plantuml.com/plantuml/uml/
-- Copy/paste .puml file content
+- Copy/paste .wsd file content
 
 **Option 2: VS Code**
 - Install PlantUML extension (jebbs.plantuml)
-- Open .puml files
+- Open .wsd files
 - Preview with Alt+D
 
 **Option 3: Command Line**
@@ -223,7 +223,7 @@ brew install plantuml  # macOS
 apt-get install plantuml  # Ubuntu
 
 # Generate images
-plantuml diagram.puml
+plantuml diagram.wsd
 ```
 
 ### Key Documentation Links

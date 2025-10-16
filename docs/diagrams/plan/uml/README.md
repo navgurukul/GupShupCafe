@@ -2,7 +2,7 @@
 
 **Comprehensive UML Diagrams for MVP Architecture**
 
-This directory contains 14 detailed PlantUML diagrams documenting the complete architecture of GupShup Cafe's MVP (Minimum Viable Product) as planned for the AWS AI Agent Hackathon 2025.
+This directory contains 14 detailed PlantUML diagrams (`.wsd` format) documenting the complete architecture of GupShup Cafe's MVP (Minimum Viable Product) as planned for the AWS AI Agent Hackathon 2025. All diagrams use PlantUML version 1.2025.3.
 
 ---
 
@@ -15,13 +15,13 @@ These diagrams focus on the **planned MVP architecture** with:
 - **WebRTC** for peer-to-peer audio communication
 - **React 18 + Vite** frontend
 
-**PlantUML Version**: Latest (uses modern `!theme` directive, updated color schemes, and enhanced styling)
+**PlantUML Version**: 1.2025.3 (uses modern `!theme` directive, updated color schemes, and enhanced styling)
 
 ---
 
 ## 📁 Diagram Index
 
-### 1. **Component Diagram** (`01-component-diagram.puml`)
+### 1. **Component Diagram** (`01-component-diagram.wsd`)
 **Purpose**: Shows the high-level system architecture and component relationships
 
 **Key Components**:
@@ -36,7 +36,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 2. **Deployment Diagram** (`02-deployment-diagram.puml`)
+### 2. **Deployment Diagram** (`02-deployment-diagram.wsd`)
 **Purpose**: Illustrates AWS infrastructure and deployment architecture
 
 **Key Elements**:
@@ -52,7 +52,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 3. **Class Diagram - Backend** (`03-class-diagram-backend.puml`)
+### 3. **Class Diagram - Backend** (`03-class-diagram-backend.wsd`)
 **Purpose**: Details server_py backend classes and their relationships
 
 **Key Classes**:
@@ -70,7 +70,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 4. **Class Diagram - Frontend** (`04-class-diagram-frontend.puml`)
+### 4. **Class Diagram - Frontend** (`04-class-diagram-frontend.wsd`)
 **Purpose**: Documents React component architecture and relationships
 
 **Key Components**:
@@ -84,7 +84,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 5. **Sequence Diagram - User Join & Discussion** (`05-sequence-user-join-discussion.puml`)
+### 5. **Sequence Diagram - User Join & Discussion** (`05-sequence-user-join-discussion.wsd`)
 **Purpose**: Shows complete user flow from login to discussion completion
 
 **Flow**:
@@ -101,7 +101,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 6. **Sequence Diagram - WebRTC Audio** (`06-sequence-webrtc-audio.puml`)
+### 6. **Sequence Diagram - WebRTC Audio** (`06-sequence-webrtc-audio.wsd`)
 **Purpose**: Details WebRTC peer-to-peer audio connection setup
 
 **Flow**:
@@ -119,7 +119,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 7. **Sequence Diagram - LLM Agent Interaction** (`07-sequence-llm-agent-interaction.puml`)
+### 7. **Sequence Diagram - LLM Agent Interaction** (`07-sequence-llm-agent-interaction.wsd`)
 **Purpose**: Shows AWS Strands multi-agent system in action
 
 **Flow**:
@@ -136,7 +136,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 8. **Sequence Diagram - English Feedback Flow** (`08-sequence-english-feedback-flow.puml`)
+### 8. **Sequence Diagram - English Feedback Flow** (`08-sequence-english-feedback-flow.wsd`)
 **Purpose**: Detailed flow of real-time English feedback modal
 
 **Flow**:
@@ -152,7 +152,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 9. **Activity Diagram - Discussion Lifecycle** (`09-activity-discussion-lifecycle.puml`)
+### 9. **Activity Diagram - Discussion Lifecycle** (`09-activity-discussion-lifecycle.wsd`)
 **Purpose**: Complete activity flow from login to session summary
 
 **Activities**:
@@ -169,7 +169,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 10. **State Diagram - Room Management** (`10-state-room-management.puml`)
+### 10. **State Diagram - Room Management** (`10-state-room-management.wsd`)
 **Purpose**: Room state machine and transitions
 
 **States**:
@@ -187,7 +187,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 11. **Use Case Diagram** (`11-usecase-diagram.puml`)
+### 11. **Use Case Diagram** (`11-usecase-diagram.wsd`)
 **Purpose**: All MVP features and actor interactions
 
 **Actors**:
@@ -211,7 +211,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 12. **ER Diagram - Database Schema** (`12-er-diagram-database.puml`)
+### 12. **ER Diagram - Database Schema** (`12-er-diagram-database.wsd`)
 **Purpose**: Complete database schema for SQLite on EFS
 
 **Tables**:
@@ -236,7 +236,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 13. **Package Diagram - Frontend** (`13-package-diagram-frontend.puml`)
+### 13. **Package Diagram - Frontend** (`13-package-diagram-frontend.wsd`)
 **Purpose**: Frontend code organization and module structure
 
 **Packages**:
@@ -253,7 +253,7 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ---
 
-### 14. **Communication Diagram - Real-time Events** (`14-communication-diagram-events.puml`)
+### 14. **Communication Diagram - Real-time Events** (`14-communication-diagram-events.wsd`)
 **Purpose**: Socket.io event flow between clients and server
 
 **Event Categories**:
@@ -281,7 +281,7 @@ These diagrams focus on the **planned MVP architecture** with:
 ```
 http://www.plantuml.com/plantuml/uml/
 ```
-Copy and paste the content of any `.puml` file to view the diagram. The online server always uses the latest PlantUML version.
+Copy and paste the content of any `.wsd` file to view the diagram. The online server uses PlantUML version 1.2025.3 or later.
 
 **Option 2: VS Code Extension**
 Install the PlantUML extension:
@@ -291,20 +291,21 @@ Install the PlantUML extension:
 # Ensure you have the latest version for best rendering
 ```
 
-**Option 3: Command Line (Latest Version)**
+**Option 3: Command Line (PlantUML 1.2025.3)**
 ```bash
 # Install PlantUML (requires Java)
-brew install plantuml  # macOS (automatically gets latest)
-apt-get install plantuml  # Ubuntu (may need manual update)
+brew install plantuml  # macOS
+apt-get install plantuml  # Ubuntu
 
-# For latest version, download JAR directly:
-# wget https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
+# For PlantUML 1.2025.3, download JAR directly:
+# wget https://github.com/plantuml/plantuml/releases/download/v1.2025.3/plantuml-1.2025.3.jar
+# java -jar plantuml-1.2025.3.jar *.wsd
 
 # Generate PNG images
-plantuml docs/diagrams/plan/uml/*.puml
+plantuml docs/diagrams/plan/uml/*.wsd
 
 # Generate SVG images (vector, better for docs)
-plantuml -tsvg docs/diagrams/plan/uml/*.puml
+plantuml -tsvg docs/diagrams/plan/uml/*.wsd
 ```
 
 ### Modern PlantUML Features Used
@@ -332,13 +333,13 @@ To generate all diagrams as images:
 cd docs/diagrams/plan/uml
 
 # Generate PNG images
-plantuml *.puml
+plantuml *.wsd
 
 # Generate SVG images (vector, better for docs)
-plantuml -tsvg *.puml
+plantuml -tsvg *.wsd
 
 # Generate all with custom output directory
-plantuml -o ../svg *.puml
+plantuml -o ../svg *.wsd
 ```
 
 ---
@@ -431,10 +432,10 @@ These diagrams should be updated when:
 - LLM agent behavior changes
 
 **Update Process**:
-1. Edit the `.puml` file
-2. Regenerate images: `plantuml filename.puml`
+1. Edit the `.wsd` file
+2. Regenerate images: `plantuml filename.wsd`
 3. Verify diagram correctness
-4. Commit both `.puml` and generated images
+4. Commit both `.wsd` and generated images
 5. Update this README if diagram purpose changes
 
 ---
@@ -443,12 +444,12 @@ These diagrams should be updated when:
 
 ### Naming Convention
 ```
-<number>-<type>-<description>.puml
+<number>-<type>-<description>.wsd
 
 Examples:
-01-component-diagram.puml
-05-sequence-user-join-discussion.puml
-12-er-diagram-database.puml
+01-component-diagram.wsd
+05-sequence-user-join-discussion.wsd
+12-er-diagram-database.wsd
 ```
 
 ### Color Coding
