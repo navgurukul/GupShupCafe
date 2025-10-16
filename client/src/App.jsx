@@ -8,7 +8,7 @@ import LobbyPage from './pages/LobbyPage'
 import RoundtablePage from './pages/RoundtablePage'
 import AudioTestPage from './pages/AudioTestPage'
 import BroadcastTestPage from './pages/BroadcastTestPage'
-import ProtectedRoute from './components/ProtectedRoute'
+import ProtectedRoute from './components/common/ProtectedRoute'
 
 /**
  * Main App Component

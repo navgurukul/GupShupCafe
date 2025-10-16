@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '../test-utils'
-import SpeakerTimer from '../../components/SpeakerTimer'
+import SpeakerTimer from '../../components/ui/SpeakerTimer'
 
 describe('SpeakerTimer', () => {
   beforeEach(() => {

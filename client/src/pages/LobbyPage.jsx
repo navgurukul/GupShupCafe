@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSocket } from '../contexts/SocketContext'
-import { useAuth } from '../contexts/AuthContext'
-import { useAudio } from '../contexts/AudioContext'
+import { useSocket } from '../hooks/useSocket'
+import { useAuth } from '../hooks/useAuth'
+import { useAudio } from '../hooks/useAudio'
 import { Users, Clock, Mic, MicOff, LogOut, Settings } from 'lucide-react'
 
 // Global flag to prevent multiple late join checks (accessible across components)

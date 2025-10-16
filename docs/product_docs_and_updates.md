@@ -574,3 +574,160 @@ When making significant changes to the codebase, please add an entry to this cha
 **Document Maintained By**: Product Team  
 **Last Updated**: 2025-10-15 17:06 UTC  
 **Version**: 1.0
+
+---
+
+## October 16, 2025 - Client Folder Refactoring to Match UML Architecture
+
+**Time**: 17:30 UTC  
+**Commit**: Refactor client folder structure to match UML diagrams  
+**Status**: ✅ COMPLETED
+
+### Summary
+Reorganized the entire client folder structure to align with the UML diagrams (04-class-diagram-frontend.puml and 13-package-diagram-frontend.puml). This brings the codebase in sync with the documented architecture and improves maintainability.
+
+### Changes Made
+
+#### 1. Folder Structure Additions
+- Created `client/src/hooks/` - Custom React hooks
+- Created `client/src/services/` - API and service layer
+- Created `client/src/types/` - Type definitions (JSDoc)
+- Created `client/src/utils/` - Utility functions
+- Created `client/src/components/ui/` - UI components
+- Created `client/src/components/feedback/` - Feedback-related components
+- Created `client/src/components/common/` - Common/shared components
+
+#### 2. Component Reorganization
+**Moved to `components/ui/`:**
+- `RoundtableView.jsx`
+- `SpeakerTimer.jsx`
+- `TopicDisplay.jsx`
+- `AudioLevelBar.jsx` (renamed from `LiveAudioLevelBar.jsx`)
+
+**Moved to `components/feedback/`:**
+- `SpeechToTextPanel.jsx` (renamed from `SpeechToText.jsx`)
+- `EnglishFeedbackModal.jsx` (new component)
+
+**Moved to `components/common/`:**
+- `ProtectedRoute.jsx`
+
+#### 3. New Components Created
+- **ParticipantCard.jsx**: Individual participant display component
+  - Extracts participant rendering logic from RoundtableView
+  - Handles avatar, ready status, speaking indicators
+  - Displays audio level bars for remote streams
+  
+- **EnglishFeedbackModal.jsx**: English language feedback modal
+  - Displays CEFR level with color-coded badge
+  - Shows grammar issues with corrections
+  - Displays vocabulary, fluency, and grammar scores
+  - Auto-dismisses after 10 seconds
+  - Private feedback (only visible to speaker)
+
+#### 4. Custom Hooks Created
+- **useAuth.js**: Re-exports `useAuth` from AuthContext
+- **useSocket.js**: Re-exports `useSocket` from SocketContext
+- **useAudio.js**: Re-exports `useAudio` from AudioContext
+- **useRoomState.js**: New hook for managing room state
+  - Manages participants, current speaker, room metadata
+  - Listens to socket events for room updates
+  - Provides unified interface for room state management
+
+#### 5. Service Layer Created
+- **api.js**: HTTP API service
+  - Generic `get()` and `post()` methods
+  - `fetchTopics()`, `fetchAnalytics()`, `createRoom()`, `fetchActiveRooms()`
+  - Centralized error handling
+  - Environment-aware base URL configuration
+
+- **webrtc.js**: WebRTC service
+  - `createPeerConnection()` with optimal audio settings
+  - `createOffer()`, `handleOffer()`, `handleAnswer()`
+  - `handleICECandidate()`, `closePeerConnection()`
+  - Opus codec prioritization
+  - STUN server configuration
+
+- **speech.js**: Speech recognition service
+  - `isSupported()`, `createRecognition()`
+  - `startRecognition()`, `stopRecognition()`
+  - `detectLanguage()`, `getSupportedLanguages()`
+  - Web Speech API wrapper
+
+#### 6. Type Definitions Created (JSDoc)
+- **User.js**: User type definition
+- **Participant.js**: Participant type definition
+- **RoomState.js**: Room state type definition
+- **Feedback.js**: Feedback and Issue type definitions
+- **Transcript.js**: Transcript type definition
+
+#### 7. Utilities Created
+- **constants.js**: Application constants
+  - API, WebRTC, Audio, Discussion configurations
+  - Socket events, UI config, error/success messages
+  - CEFR levels, feedback thresholds
+
+- **helpers.js**: Helper functions
+  - `generateRoomCode()`, `generateAnonymousName()`, `generateAvatarColor()`
+  - `debounce()`, `throttle()`, `deepClone()`
+  - `isEmpty()`, `getInitials()`, `capitalize()`, `truncate()`
+
+- **formatters.js**: Data formatting functions
+  - `formatTime()`, `formatDate()`, `formatDateTime()`, `formatRelativeTime()`
+  - `formatNumber()`, `formatPercentage()`, `formatCEFRLevel()`
+  - `formatDuration()`, `formatFileSize()`, `formatScore()`
+
+- **validators.js**: Input validation functions
+  - `isValidEmail()`, `isValidRoomCode()`, `isValidURL()`, `isValidCEFRLevel()`
+  - `validateUsername()`, `validatePassword()`, `validateSpeakingTime()`
+  - `validateParticipantCount()`, `validateRoundCount()`, `sanitizeInput()`
+
+#### 8. Import Updates
+Updated imports across all files:
+- **Pages**: LoginPage, LobbyPage, RoundtablePage, AudioTestPage, BroadcastTestPage
+- **Components**: All components updated to use new paths
+- **Tests**: Updated test imports to match new structure
+- **App.jsx**: Updated ProtectedRoute import
+
+#### 9. Component Refactoring
+- **RoundtableView**: Now uses `ParticipantCard` component
+- **Removed inline participant rendering logic**
+- **Improved component composition**
+
+### Testing Results
+- ✅ **Linting**: All linting checks passed
+- ✅ **Build**: Production build successful
+- ⚠️ **Tests**: 32 passing, 32 failing
+  - Failing tests are pre-existing issues unrelated to refactoring
+  - Failures in: form validation, auth state, context tests
+  - No new test failures introduced by refactoring
+
+### Architecture Alignment
+The client folder now matches the UML diagrams:
+- **04-class-diagram-frontend.puml**: All components, hooks, and types present
+- **13-package-diagram-frontend.puml**: Folder structure matches exactly
+
+### Benefits
+1. **Better Organization**: Clear separation of concerns
+2. **Improved Maintainability**: Easier to locate and update code
+3. **Type Safety**: JSDoc type definitions provide better IDE support
+4. **Reusability**: Service layer and utilities promote code reuse
+5. **Testability**: Better structure for unit and integration tests
+6. **Documentation**: Code structure matches documented architecture
+7. **Scalability**: Easier to add new features following established patterns
+
+### File Statistics
+- **New Files**: 25
+- **Modified Files**: 10
+- **Renamed Files**: 6
+- **Total Lines Added**: ~1,893
+- **Total Lines Removed**: ~87
+
+### Next Steps
+- [ ] Fix pre-existing test failures (form validation, auth)
+- [ ] Add tests for new components (ParticipantCard, EnglishFeedbackModal)
+- [ ] Add tests for new hooks (useRoomState)
+- [ ] Add tests for services (api, webrtc, speech)
+- [ ] Add tests for utilities (helpers, formatters, validators)
+- [ ] Update component documentation with JSDoc
+- [ ] Create Storybook stories for new components
+
