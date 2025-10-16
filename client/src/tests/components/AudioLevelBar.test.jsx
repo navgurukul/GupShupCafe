@@ -49,24 +49,24 @@ describe('AudioLevelBar', () => {
 
   describe('Rendering', () => {
     it('should render without crashing', () => {
-      const { container } = renderWithProviders(<LiveAudioLevelBar stream={null} />)
+      const { container } = renderWithProviders(<AudioLevelBar stream={null} />)
       expect(container).toBeTruthy()
     })
 
     it('should render with label when showLabel is true', () => {
-      renderWithProviders(<LiveAudioLevelBar stream={null} showLabel={true} />)
+      renderWithProviders(<AudioLevelBar stream={null} showLabel={true} />)
       expect(screen.getByText(/Audio Level/i)).toBeInTheDocument()
     })
 
     it('should not render label when showLabel is false', () => {
-      renderWithProviders(<LiveAudioLevelBar stream={null} showLabel={false} />)
+      renderWithProviders(<AudioLevelBar stream={null} showLabel={false} />)
       expect(screen.queryByText(/Audio Level/i)).not.toBeInTheDocument()
     })
   })
 
   describe('Audio Stream Processing', () => {
     it('should initialize AudioContext when stream is provided', () => {
-      renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      renderWithProviders(<AudioLevelBar stream={mockStream} />)
 
       expect(global.AudioContext).toHaveBeenCalled()
       expect(mockAudioContext.createAnalyser).toHaveBeenCalled()
@@ -74,27 +74,27 @@ describe('AudioLevelBar', () => {
     })
 
     it('should connect audio nodes correctly', () => {
-      renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      renderWithProviders(<AudioLevelBar stream={mockStream} />)
 
       expect(mockMediaStreamSource.connect).toHaveBeenCalledWith(mockAnalyser)
     })
 
     it('should handle null stream gracefully', () => {
       expect(() => {
-        renderWithProviders(<LiveAudioLevelBar stream={null} />)
+        renderWithProviders(<AudioLevelBar stream={null} />)
       }).not.toThrow()
     })
   })
 
   describe('Visual Feedback', () => {
     it('should display audio level bar component', () => {
-      const { container } = renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      const { container } = renderWithProviders(<AudioLevelBar stream={mockStream} />)
       
       expect(container).toBeTruthy()
     })
 
     it('should render correctly with stream', async () => {
-      const { container } = renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      const { container } = renderWithProviders(<AudioLevelBar stream={mockStream} />)
       
       expect(container.firstChild).toBeTruthy()
     })
@@ -102,7 +102,7 @@ describe('AudioLevelBar', () => {
 
   describe('Cleanup', () => {
     it('should cleanup audio context on unmount', () => {
-      const { unmount } = renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      const { unmount } = renderWithProviders(<AudioLevelBar stream={mockStream} />)
 
       unmount()
 
@@ -111,14 +111,14 @@ describe('AudioLevelBar', () => {
     })
 
     it('should cleanup when stream changes', () => {
-      const { rerender } = renderWithProviders(<LiveAudioLevelBar stream={mockStream} />)
+      const { rerender } = renderWithProviders(<AudioLevelBar stream={mockStream} />)
 
       const newStream = {
         getTracks: vi.fn(() => [{ id: 'new-track', enabled: true }]),
         id: 'new-stream'
       }
 
-      rerender(<LiveAudioLevelBar stream={newStream} />)
+      rerender(<AudioLevelBar stream={newStream} />)
 
       // Old context should be cleaned up
       expect(mockMediaStreamSource.disconnect).toHaveBeenCalled()

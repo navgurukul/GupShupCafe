@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useSocket } from '../contexts/SocketContext'
+import { useSocket } from '../hooks/useSocket'
 
 /**
  * Simple Broadcast Test Page
