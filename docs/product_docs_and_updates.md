@@ -25,6 +25,44 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 19:20 UTC] - Critical Fix: Save auth data to session on connect
+
+**Commit**: `Save auth data to session on socket connect`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix (Critical)
+
+**Changes**:
+- **Fixed lobby page participants not showing** - The real root cause was that auth data from client connection was never saved to the session
+- Modified `connect` event handler in `socket_handlers.py` to save auth data using `sio.save_session()`
+- This ensures that when `join_room` is called, it can retrieve the user's authentication information
+
+**Root Cause Analysis**:
+1. Client sends auth data (`userId`, `name`, `campus`, `location`, `anonymousName`) during socket connection
+2. Server's `connect` handler received the auth data but never saved it to the session
+3. When `join_room` was called later, it tried to get the session with `await sio.get_session(sid)`
+4. Since auth data was never saved, the session was empty, causing the fallback logic to fail
+5. Result: User data was incomplete/invalid, preventing participant from being added to room
+
+**Fix**:
+```python
+@sio.event
+async def connect(sid, environ, auth):
+    """Handle client connection"""
+    print(f"[Backend] Socket connected: {sid}")
+    print(f"[Backend] Handshake auth: {auth}")
+    
+    # Save auth data to session so it can be retrieved in join_room
+    if auth:
+        await sio.save_session(sid, {'auth': auth})
+```
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Added session save in connect handler
+
+**Testing**:
+- All 67 tests pass (4 skipped)
+- Verified session data is now available in join_room handler
+
 ### [2025-10-16 18:35 UTC] - Bugfix: Lobby Page Connection Issue
 
 **Commit**: `Fix user-ready event handler to work without data parameter`  

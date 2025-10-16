@@ -30,6 +30,10 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         """Handle client connection"""
         print(f"[Backend] Socket connected: {sid}")
         print(f"[Backend] Handshake auth: {auth}")
+        
+        # Save auth data to session so it can be retrieved in join_room
+        if auth:
+            await sio.save_session(sid, {'auth': auth})
     
     @sio.event
     async def disconnect(sid):
