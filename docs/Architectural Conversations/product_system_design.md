@@ -23,6 +23,10 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 **Priority 1: Basic Room Operations**
 - ✅ User authentication (anonymous or simple login)
 - ✅ Create/join discussion room (max 4-6 participants for MVP)
+  - Room parameters:
+    1. Room ID
+    2. Room Name
+    3. Participants array [userID1, userID2, ...]
 - ✅ Lobby system with ready-check mechanism
 - ✅ Room state management (waiting, active, completed)
 
@@ -304,9 +308,7 @@ class User:
     User model tracking individual progress and preferences.
     """
     id: str  # UUID
-    username: str  # Optional, can be anonymous
     email: Optional[str]  # For registered users
-    is_anonymous: bool  # True for guest users
     
     # CEFR Progress Tracking (MVP Core Feature)
     current_cefr_level: str  # "A0", "A1", "A2", "B1", "B2", "C1", "C2"
@@ -614,11 +616,11 @@ class Progress:
 │    User     │
 │─────────────│
 │ id (PK)     │
-│ username    │
+│             │
 │ email       │◄───────────┐
 │ cefr_level  │            │
 │ topics[]    │            │
-│ stats       │            │
+│ stats (opt.)│            │
 └─────────────┘            │
        │                   │
        │ 1:N               │ 1:1
@@ -627,9 +629,9 @@ class Progress:
 │ Participant │            │
 │─────────────│            │
 │ id (PK)     │            │
-│ session_id  │────┐       │
-│ user_id (FK)│    │       │
-│ display_name│    │       │
+│ session_id (FK)│────┐       │
+│ user_id (FK)│      │       │
+│ anonymous_name│    │       │
 │ cefr_level  │    │       │
 └─────────────┘    │       │
        │           │       │
@@ -639,10 +641,10 @@ class Progress:
 │ Transcript  │ │   Session   │
 │─────────────│ │─────────────│
 │ id (PK)     │ │ id (PK)     │
-│ participant │ │ room_code   │
+│ participant │ │ room_name   │
 │ text        │ │ topic       │
-│ timestamp   │ │ status      │
-└─────────────┘ │ config      │
+│ timestamp   │ |             |
+└─────────────┘ │ cefr_level  │
        │        └─────────────┘
        │ 1:N
        ▼
