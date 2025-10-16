@@ -12,11 +12,11 @@ function LoginPage() {
   const { login, isAuthenticated } = useAuth()
   
   const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    campus: '',
-    location: '',
-    anonymousName: ''
+    id: 'd123', // Default for easier testing, remove in production
+    name: 'John Doe',
+    campus: 'Main Campus',
+    location: 'Building A',
+    anonymousName: 'CuriousUser'
   })
   
   const [errors, setErrors] = useState({})
