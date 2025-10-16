@@ -10,6 +10,7 @@ import uuid
 import os
 
 from .room_manager import room_manager
+from .timer_manager import timer_manager
 from ..ai.topic_generator import generate_discussion_topic
 from ..database.database import db
 
@@ -389,6 +390,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 print(f"[Backend] No room found for end-turn from {sid}")
                 return
             
+            # Cancel the current timer
+            await timer_manager.cancel_timer(room_id)
+            
             room = room_manager.get_room(room_id)
             
             # Get current speaker
@@ -444,6 +448,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 }, room=room_id)
                 
                 print(f"[Backend] Next speaker: {next_speaker.anonymous_name}")
+                
+                # Start timer for next turn
+                await start_turn_timer(sio, room_id, room.speaking_time, active_sessions)
             
         except Exception as e:
             print(f"Error handling end-turn: {str(e)}")
@@ -601,6 +608,9 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                     "timer": duration
                 }, room=room_id)
             
+            # Start timer for the turn
+            await start_turn_timer(sio, room_id, duration, active_sessions)
+            
             print(f"[Backend] Discussion started with topic: {topic['title']}")
         else:
             print(f"[Backend] Discussion not ready yet - need {min_participants} participants, {len(ready_participants)} ready")
@@ -608,3 +618,93 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
         print(f"Error checking discussion start: {str(e)}")
         import traceback
         traceback.print_exc()
+
+
+async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: int, active_sessions: Dict[str, str]):
+    """
+    Start a timer for the current turn
+    Args:
+        sio: Socket.io server instance
+        room_id: Room identifier
+        duration: Timer duration in seconds
+        active_sessions: Active sessions map
+    """
+    
+    async def on_warning(rid: str, time_remaining: int):
+        """Called when warning threshold is reached"""
+        await sio.emit("timer-warning", {
+            "remaining": time_remaining
+        }, room=rid)
+        print(f"[Backend] Timer warning sent for room {rid}: {time_remaining}s remaining")
+    
+    async def on_complete(rid: str):
+        """Called when timer completes"""
+        print(f"[Backend] Timer completed for room {rid}, advancing turn")
+        
+        # Find the socket ID of any participant to trigger end_turn
+        room = room_manager.get_room(rid)
+        if room.participants:
+            # Get current speaker
+            current_speaker = room.get_current_speaker()
+            if not current_speaker:
+                return
+            
+            # Emit turn-ended event
+            await sio.emit("turn-ended", {
+                "speaker": current_speaker.to_dict()
+            }, room=rid)
+            
+            # Advance to next speaker
+            next_speaker = room.advance_turn()
+            
+            # Check if discussion is complete
+            if room.status.value == "completed":
+                print(f"[Backend] Discussion completed in room {rid}")
+                
+                # Update session in database
+                session_id = active_sessions.get(rid)
+                if session_id:
+                    await db.update_session(session_id, {
+                        "endedAt": datetime.now().isoformat(),
+                        "roundsCompleted": room.current_round - 1
+                    })
+                    
+                    # Remove from active sessions
+                    del active_sessions[rid]
+                
+                # Emit discussion-ended event
+                await sio.emit("discussion-ended", {
+                    "sessionId": session_id,
+                    "roundsCompleted": room.current_round - 1
+                }, room=rid)
+                
+                return
+            
+            # Check if round is complete
+            if room.current_speaker_index == 0:
+                await sio.emit("round-complete", {
+                    "round": room.current_round - 1,
+                    "next": room.current_round
+                }, room=rid)
+            
+            # Emit turn-started for next speaker
+            if next_speaker:
+                await sio.emit("turn-started", {
+                    "speaker_index": room.current_speaker_index,
+                    "speaker": next_speaker.to_dict(),
+                    "timer": room.speaking_time
+                }, room=rid)
+                
+                print(f"[Backend] Next speaker: {next_speaker.anonymous_name}")
+                
+                # Start timer for next turn
+                await start_turn_timer(sio, rid, room.speaking_time, active_sessions)
+    
+    # Start the timer
+    await timer_manager.start_timer(
+        room_id=room_id,
+        duration=duration,
+        on_warning=on_warning,
+        on_complete=on_complete,
+        warning_threshold=10
+    )

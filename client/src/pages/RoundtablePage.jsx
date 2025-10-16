@@ -128,6 +128,17 @@ function RoundtablePage() {
       // The turn has ended, wait for next turn-started event
     };
 
+    const handleTimerWarning = (data) => {
+      console.log('[Roundtable] Timer warning:', data);
+      const { remaining } = data;
+      // Update time remaining and show warning
+      setTimeRemaining(remaining);
+      if (remaining <= 10) {
+        setSystemMessage(`${remaining} seconds remaining!`);
+        setTimeout(() => setSystemMessage(null), 2000);
+      }
+    };
+
     const handleRoundComplete = (data) => {
       console.log('[Roundtable] Round complete:', data);
       const { round, next } = data;
@@ -157,6 +168,7 @@ function RoundtablePage() {
     socket.on('discussion-started', handleDiscussionStarted);
     socket.on('turn-started', handleTurnStarted);
     socket.on('turn-ended', handleTurnEnded);
+    socket.on('timer-warning', handleTimerWarning);
     socket.on('round-complete', handleRoundComplete);
     socket.on('discussion-ended', handleDiscussionEnded);
     socket.on('participant-left', handleParticipantLeft);
@@ -168,6 +180,7 @@ function RoundtablePage() {
       socket.off('discussion-started', handleDiscussionStarted);
       socket.off('turn-started', handleTurnStarted);
       socket.off('turn-ended', handleTurnEnded);
+      socket.off('timer-warning', handleTimerWarning);
       socket.off('round-complete', handleRoundComplete);
       socket.off('discussion-ended', handleDiscussionEnded);
       socket.off('participant-left', handleParticipantLeft);
