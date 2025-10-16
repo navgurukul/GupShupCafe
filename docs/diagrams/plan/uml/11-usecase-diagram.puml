@@ -1,9 +1,23 @@
 @startuml GupShup Cafe - Use Case Diagram
 
-skinparam backgroundColor #FFFFFF
-skinparam actorBorderColor DarkBlue
-skinparam usecaseBorderColor DarkGreen
-skinparam packageBorderColor Orange
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam actor {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+skinparam usecase {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam package {
+    BackgroundColor #FFF9C4
+    BorderColor #F57C00
+}
 
 title GupShup Cafe - MVP Use Case Diagram
 

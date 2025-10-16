@@ -1,9 +1,28 @@
 @startuml GupShup Cafe - MVP Deployment Diagram (AWS Fargate)
 
-!define RECTANGLE class
-
+' Use latest PlantUML version features
+!theme plain
 skinparam componentStyle rectangle
-skinparam backgroundColor #FFFFFF
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam node {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+skinparam cloud {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam database {
+    BackgroundColor #FFF9C4
+    BorderColor #F57C00
+}
+skinparam artifact {
+    BackgroundColor #ECEFF1
+    BorderColor #546E7A
+}
 
 title GupShup Cafe - MVP Deployment Architecture (AWS Fargate + server_py)
 

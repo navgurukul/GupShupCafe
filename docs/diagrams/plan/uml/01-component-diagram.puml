@@ -1,14 +1,24 @@
 @startuml GupShup Cafe - MVP Component Diagram
 
-!define RECTANGLE class
-
+' Use latest PlantUML version features
+!theme plain
 skinparam componentStyle rectangle
-skinparam backgroundColor #FFFFFF
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+' Modern color scheme with stereotypes
 skinparam component {
-    BackgroundColor<<frontend>> LightBlue
-    BackgroundColor<<backend>> LightGreen
-    BackgroundColor<<ai>> LightYellow
-    BackgroundColor<<infrastructure>> LightGray
+    BackgroundColor<<frontend>> #E3F2FD
+    BorderColor<<frontend>> #1976D2
+    BackgroundColor<<backend>> #E8F5E9
+    BorderColor<<backend>> #388E3C
+    BackgroundColor<<ai>> #FFF9C4
+    BorderColor<<ai>> #F57C00
+    BackgroundColor<<infrastructure>> #ECEFF1
+    BorderColor<<infrastructure>> #546E7A
+    FontColor #263238
 }
 
 title GupShup Cafe - MVP Component Architecture

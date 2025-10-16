@@ -15,6 +15,8 @@ These diagrams focus on the **planned MVP architecture** with:
 - **WebRTC** for peer-to-peer audio communication
 - **React 18 + Vite** frontend
 
+**PlantUML Version**: Latest (uses modern `!theme` directive, updated color schemes, and enhanced styling)
+
 ---
 
 ## 📁 Diagram Index
@@ -275,31 +277,51 @@ These diagrams focus on the **planned MVP architecture** with:
 
 ### Viewing Diagrams
 
-**Option 1: PlantUML Online Server**
+**Option 1: PlantUML Online Server (Latest Version)**
 ```
 http://www.plantuml.com/plantuml/uml/
 ```
-Copy and paste the content of any `.puml` file to view the diagram.
+Copy and paste the content of any `.puml` file to view the diagram. The online server always uses the latest PlantUML version.
 
 **Option 2: VS Code Extension**
 Install the PlantUML extension:
 ```bash
 # Install PlantUML extension in VS Code
 # Extension ID: jebbs.plantuml
+# Ensure you have the latest version for best rendering
 ```
 
-**Option 3: Command Line**
+**Option 3: Command Line (Latest Version)**
 ```bash
 # Install PlantUML (requires Java)
-brew install plantuml  # macOS
-apt-get install plantuml  # Ubuntu
+brew install plantuml  # macOS (automatically gets latest)
+apt-get install plantuml  # Ubuntu (may need manual update)
+
+# For latest version, download JAR directly:
+# wget https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
 
 # Generate PNG images
 plantuml docs/diagrams/plan/uml/*.puml
 
-# Generate SVG images
+# Generate SVG images (vector, better for docs)
 plantuml -tsvg docs/diagrams/plan/uml/*.puml
 ```
+
+### Modern PlantUML Features Used
+
+All diagrams have been updated to use the latest PlantUML syntax:
+
+- **`!theme plain`**: Modern theming system for consistent styling
+- **Enhanced Color Schemes**: Material Design-inspired colors with better contrast
+  - Frontend: Blue tones (#E3F2FD, #1976D2)
+  - Backend: Green tones (#E8F5E9, #388E3C)
+  - AI/LLM: Yellow tones (#FFF9C4, #F57C00)
+  - Infrastructure: Grey tones (#ECEFF1, #546E7A)
+- **Shadowing Disabled**: Cleaner, modern look (`skinparam shadowing false`)
+- **Custom Fonts**: Arial for better readability (`skinparam defaultFontName Arial`)
+- **Improved Arrows**: Better visibility with color and thickness settings
+- **Stereotype-based Styling**: Clean component categorization using `<<frontend>>`, `<<backend>>`, etc.
+- **No Deprecated Syntax**: Removed `!define` macros in favor of modern alternatives
 
 ### Generating Images
 

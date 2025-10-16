@@ -1,7 +1,20 @@
 @startuml GupShup Cafe - Communication Diagram (Real-time Events)
 
-skinparam backgroundColor #FFFFFF
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
 skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam arrow {
+    Color #546E7A
+    Thickness 2
+}
 
 title GupShup Cafe - Real-time Communication Flow (Socket.io Events)
 

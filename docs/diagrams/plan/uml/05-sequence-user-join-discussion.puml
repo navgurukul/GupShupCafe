@@ -1,8 +1,21 @@
 @startuml GupShup Cafe - User Join and Discussion Sequence
 
-skinparam backgroundColor #FFFFFF
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
 skinparam sequenceArrowThickness 2
-skinparam roundcorner 20
+skinparam roundcorner 10
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam actor {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
 
 title GupShup Cafe - User Join and Discussion Flow (MVP)
 

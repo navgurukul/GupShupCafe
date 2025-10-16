@@ -1,10 +1,19 @@
 @startuml GupShup Cafe - Discussion Lifecycle Activity Diagram
 
-skinparam backgroundColor #FFFFFF
-skinparam activityBackgroundColor LightBlue
-skinparam activityBorderColor DarkBlue
-skinparam activityDiamondBackgroundColor LightYellow
-skinparam activityDiamondBorderColor Orange
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam activity {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    DiamondBackgroundColor #FFF9C4
+    DiamondBorderColor #F57C00
+    StartColor #388E3C
+    EndColor #D32F2F
+}
 
 title GupShup Cafe - Complete Discussion Lifecycle (MVP)
 

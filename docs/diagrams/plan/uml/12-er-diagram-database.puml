@@ -1,12 +1,23 @@
 @startuml GupShup Cafe - Database ER Diagram
 
-!define TABLE(name) entity name << (T,#FFAAAA) >>
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam entity {
+    BackgroundColor #FFF9C4
+    BorderColor #F57C00
+}
+skinparam class {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+
+' Define helper macros for readability
 !define PRIMARY_KEY(x) <u>x</u>
 !define FOREIGN_KEY(x) <i>x</i>
-
-skinparam backgroundColor #FFFFFF
-skinparam classBackgroundColor LightYellow
-skinparam classBorderColor DarkBlue
 
 title GupShup Cafe - Database Schema (MVP - SQLite on EFS)
 

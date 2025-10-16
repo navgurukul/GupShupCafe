@@ -1,7 +1,21 @@
 @startuml GupShup Cafe - Frontend Class Diagram (React)
 
+' Use latest PlantUML version features
+!theme plain
 skinparam classAttributeIconSize 0
-skinparam backgroundColor #FFFFFF
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam class {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    ArrowColor #546E7A
+}
+skinparam package {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
 
 title GupShup Cafe - Frontend Class Diagram (React Components)
 

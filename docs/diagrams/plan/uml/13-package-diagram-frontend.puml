@@ -1,11 +1,23 @@
 @startuml GupShup Cafe - Frontend Package Diagram
 
-!define PACKAGE_COLOR LightBlue
-!define SUB_PACKAGE_COLOR LightGreen
-
-skinparam backgroundColor #FFFFFF
-skinparam packageBackgroundColor PACKAGE_COLOR
-skinparam packageBorderColor DarkBlue
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam package {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam package<<sub>> {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+skinparam artifact {
+    BackgroundColor #ECEFF1
+    BorderColor #546E7A
+}
 
 title GupShup Cafe - Frontend Package Structure (React + Vite)
 
@@ -25,7 +37,7 @@ package "client/" {
       artifact "Router Setup" as router
     }
     
-    package "contexts/" <<SUB_PACKAGE_COLOR>> {
+    package "contexts/" <<sub>> {
       artifact "AuthContext.jsx" as authCtx {
         + user: User
         + isAuthenticated: bool
@@ -62,7 +74,7 @@ package "client/" {
       end note
     }
     
-    package "pages/" <<SUB_PACKAGE_COLOR>> {
+    package "pages/" <<sub>> {
       artifact "LoginPage.jsx" as loginPage {
         - Google OAuth
         - Create user profile
@@ -95,7 +107,7 @@ package "client/" {
       end note
     }
     
-    package "components/" <<SUB_PACKAGE_COLOR>> {
+    package "components/" <<sub>> {
       
       package "ui/" {
         artifact "RoundtableView.jsx" as roundtableView
@@ -150,7 +162,7 @@ package "client/" {
       end note
     }
     
-    package "hooks/" <<SUB_PACKAGE_COLOR>> {
+    package "hooks/" <<sub>> {
       artifact "useAuth.js" as useAuth {
         + user: User
         + login()
@@ -188,7 +200,7 @@ package "client/" {
       end note
     }
     
-    package "services/" <<SUB_PACKAGE_COLOR>> {
+    package "services/" <<sub>> {
       artifact "api.js" as apiService {
         + get()
         + post()
@@ -215,7 +227,7 @@ package "client/" {
       }
     }
     
-    package "types/" <<SUB_PACKAGE_COLOR>> {
+    package "types/" <<sub>> {
       artifact "User.ts" as userType
       artifact "Participant.ts" as participantType
       artifact "RoomState.ts" as roomStateType
@@ -231,14 +243,14 @@ package "client/" {
       end note
     }
     
-    package "utils/" <<SUB_PACKAGE_COLOR>> {
+    package "utils/" <<sub>> {
       artifact "constants.js" as constants
       artifact "helpers.js" as helpers
       artifact "formatters.js" as formatters
       artifact "validators.js" as validators
     }
     
-    package "styles/" <<SUB_PACKAGE_COLOR>> {
+    package "styles/" <<sub>> {
       artifact "index.css" as globalStyles
       artifact "tailwind.config.js" as tailwindConfig
       note right

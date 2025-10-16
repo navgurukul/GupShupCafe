@@ -1,8 +1,18 @@
 @startuml GupShup Cafe - Room State Management
 
-skinparam backgroundColor #FFFFFF
-skinparam stateBorderColor DarkBlue
-skinparam stateBackgroundColor LightBlue
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam state {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    StartColor #388E3C
+    EndColor #D32F2F
+    ArrowColor #546E7A
+}
 
 title GupShup Cafe - Room State Management (MVP)
 
