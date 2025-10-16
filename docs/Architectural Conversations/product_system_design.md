@@ -93,7 +93,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
             │                    │                    │
             ▼                    ▼                    ▼
 ┌───────────────────────────────────────────────────────────────────────┐
-│                           SERVER LAYER (AWS EC2)                      │
+│                        SERVER LAYER (AWS Fargate)                     │
 │  ┌──────────────────────────────────────────────────────────────┐     │
 │  │              FastAPI + python-socketio                       │     │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │     │
@@ -1449,19 +1449,18 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
 │  │  │               Public Subnet (10.0.1.0/24)                    │ │ │
 │  │  │                                                              │ │ │
 │  │  │  ┌──────────────────────────────────────────────────────┐  │ │ │
-│  │  │  │      AWS Fargate                                     │  │ │ │
+│  │  │  │      AWS Fargate Container                           │  │ │ │
 │  │  │  │                                                       │  │ │ │
-│  │  │  │  - Ubuntu 22.04 LTS                                  │  │ │ │
-│  │  │  │  - Python 3.11 + FastAPI                            │  │ │ │
+│  │  │  │  - Python 3.11 Docker container                     │  │ │ │
+│  │  │  │  - FastAPI application                              │  │ │ │
 │  │  │  │  - python-socketio                                   │  │ │ │
-│  │  │  │  - Nginx (reverse proxy)                            │  │ │ │
-│  │  │  │  - Systemd service management                        │  │ │ │
+│  │  │  │  - Application Load Balancer                        │  │ │ │
+│  │  │  │  - ECS Task Definition                              │  │ │ │
 │  │  │  │                                                       │  │ │ │
 │  │  │  │  Ports:                                              │  │ │ │
-│  │  │  │  - 22 (SSH - restricted to admin IP)                │  │ │ │
 │  │  │  │  - 80 (HTTP - redirects to 443)                     │  │ │ │
-│  │  │  │  - 443 (HTTPS/WSS - public)                         │  │ │ │
-│  │  │  │  - 3003 (Internal FastAPI - via Nginx)              │  │ │ │
+│  │  │  │  - 443 (HTTPS/WSS - via ALB)                        │  │ │ │
+│  │  │  │  - 3003 (Container port - internal)                 │  │ │ │
 │  │  │  └──────────────────────────────────────────────────────┘  │ │ │
 │  │  │                           │                                 │ │ │
 │  │  └───────────────────────────┼─────────────────────────────────┘ │ │
@@ -1472,18 +1471,18 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
 │  │                    Security Group (sg-gupshup-api)                │ │
 │  │                                                                   │ │
 │  │  Inbound Rules:                                                  │ │
-│  │  - SSH (22): Admin IP only                                       │ │
-│  │  - HTTP (80): 0.0.0.0/0 (redirect to HTTPS)                     │ │
-│  │  - HTTPS (443): 0.0.0.0/0                                        │ │
+│  │  - HTTP (80): 0.0.0.0/0 (ALB only)                              │ │
+│  │  - HTTPS (443): 0.0.0.0/0 (ALB only)                            │ │
 │  │                                                                   │ │
 │  │  Outbound Rules:                                                 │ │
 │  │  - All traffic: 0.0.0.0/0 (for API calls)                       │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 │                                 │                                     │
 │  ┌──────────────────────────────▼───────────────────────────────────┐ │
-│  │                    EBS Volume (Elastic Block Storage)             │ │
-│  │  - 20 GB gp3 (general purpose SSD)                               │ │
-│  │  - Stores: Application code, MongoDB/SQLite DB, Logs             │ │
+│  │                    EFS Volume (Elastic File System)               │ │
+│  │  - Shared persistent storage for Fargate tasks                   │ │
+│  │  - Stores: SQLite DB, Session data, Logs                         │ │
+│  │  - Auto-scaling, pay-per-use                                     │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
@@ -1510,14 +1509,14 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                  CloudWatch (Monitoring)                         │   │
-│  │  - EC2 metrics (CPU, memory, network)                           │   │
+│  │  - Fargate metrics (CPU, memory, network)                        │   │
 │  │  - Application logs                                              │   │
 │  │  - Alarms for high CPU/memory                                    │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                  Route 53 (DNS - Optional)                       │   │
-│  │  - api.gupshup-cafe.com → EC2 Elastic IP                        │   │
+│  │  - api.gupshup-cafe.com → ALB DNS                                │   │
 │  │  - gupshup-cafe.com → Amplify                                   │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
@@ -1552,8 +1551,8 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
          │
          ▼
 ┌─────────────────────┐
-│ AWS EC2 Instance    │
-│ (Nginx → FastAPI)   │
+│ AWS Fargate Task    │
+│ (ALB → FastAPI)     │
 │                     │
 │ • REST API          │
 │ • WebSocket Events  │
@@ -1579,21 +1578,21 @@ User B ◄──────────► User C
 | Service | Usage | Monthly Cost |
 |---------|-------|--------------|
 | **AWS Amplify** | Build minutes: 100 mins<br>Hosting: 5 GB storage, 15 GB data transfer | $5-10 |
-| **EC2 (t3.medium)** | 1 instance, 2 vCPU, 4 GB RAM<br>730 hours/month | $30 |
-| **EBS Storage** | 20 GB gp3 | $2 |
+| **AWS Fargate** | 0.5 vCPU, 1 GB RAM, 730 hours/month<br>Serverless container orchestration | $15-20 |
+| **Application Load Balancer** | ALB hours + LCU usage | $18-22 |
 | **Data Transfer** | 50 GB/month (free tier covers first 100 GB) | $0-5 |
 | **AWS Bedrock (Claude 3 Sonnet)** | ~10,000 requests/month<br>~1M input tokens, ~200K output tokens | $15-25 |
 | **Amazon Polly** | 1M characters TTS | $4 |
 | **AWS Transcribe** | 100 hours audio | $24 |
 | **CloudWatch** | Basic monitoring + logs | $3 |
 | **Route 53** (Optional) | Hosted zone + queries | $1 |
-| **Total (Estimated)** | | **$84-104/month** |
+| **Total (Estimated)** | | **$101-126/month** |
 
 **Note**: For MVP, reducing costs during development by:
 - Using Gemini API (free tier) instead of Bedrock
 - Using Web Speech API (browser STT/TTS) - **$0 cost**
-- Using t2.micro (free tier) for first year
-- **Estimated MVP cost with free services: $5-15/month**
+- Using minimal Fargate resources (0.25 vCPU, 0.5 GB RAM)
+- **Estimated MVP cost with free services: $25-35/month**
 
 
 ---
@@ -1604,7 +1603,7 @@ User B ◄──────────► User C
 DAY 1: Foundation
 ─────────────────────────────────────────────────────────────────
 ┌──────────────────┐
-│ DevOps: EC2      │──┐
+│ DevOps: Fargate  │──┐
 │ Setup            │  │
 └──────────────────┘  │
                       ▼
@@ -1753,7 +1752,8 @@ DAY 3: Production
 
 ### AWS Services
 - **AWS Amplify Console**: https://console.aws.amazon.com/amplify/
-- **EC2 Dashboard**: https://console.aws.amazon.com/ec2/
+- **ECS/Fargate Console**: https://console.aws.amazon.com/ecs/
+- **Application Load Balancer**: https://console.aws.amazon.com/ec2/v2/home#LoadBalancers:
 - **Bedrock Console**: https://console.aws.amazon.com/bedrock/
 
 ---

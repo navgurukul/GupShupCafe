@@ -1,0 +1,192 @@
+@startuml GupShup Cafe - User Join and Discussion Sequence
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 20
+
+title GupShup Cafe - User Join and Discussion Flow (MVP)
+
+actor "User (Alice)" as Alice
+participant "React App" as React
+participant "Socket.io\nClient" as SocketClient
+participant "AWS Fargate\n(FastAPI)" as Backend
+participant "Room Manager" as RoomMgr
+participant "Database\n(SQLite/EFS)" as DB
+
+== User Authentication ==
+
+Alice -> React : Open app
+React -> React : Check auth status
+React -> Alice : Show LoginPage
+
+Alice -> React : Click "Sign in with Google"
+React -> Backend : POST /api/auth/google
+Backend -> DB : Get/Create user record
+DB --> Backend : User data (id, CEFR level)
+Backend --> React : Auth token + user info
+React -> React : Store auth in AuthContext
+React --> Alice : Redirect to LobbyPage
+
+== Join Room ==
+
+Alice -> React : View online rooms
+React -> Backend : GET /api/rooms
+Backend -> RoomMgr : Get active rooms
+RoomMgr --> Backend : Room list
+Backend --> React : [Room1, Room2, Room3]
+React --> Alice : Display room cards
+
+Alice -> React : Click "Join Room: Tech Talk"
+React --> Alice : Prompt for anonymous name
+Alice -> React : Enter "Blue Panda"
+
+React -> SocketClient : emit('join-room', {roomCode, name})
+SocketClient -> Backend : join-room event
+
+Backend -> RoomMgr : join_room(roomCode, participant)
+RoomMgr -> RoomMgr : Create Participant object
+RoomMgr -> RoomMgr : Add to room.participants[]
+
+RoomMgr -> DB : INSERT participant
+DB --> RoomMgr : participant_id
+
+RoomMgr --> Backend : Success
+Backend -> Backend : Emit to all in room
+
+Backend --> SocketClient : 'participant-joined' event
+SocketClient -> React : Update participants list
+React --> Alice : Show "Blue Panda joined!"
+
+Backend --> SocketClient : 'participants-update' event
+SocketClient -> React : Update RoomState context
+React --> Alice : Refresh participant cards
+
+== Ready Check ==
+
+Alice -> React : Check mic & network
+Alice -> React : Click "I'm ready to start!"
+
+React -> SocketClient : emit('ready', {roomCode})
+SocketClient -> Backend : ready event
+
+Backend -> RoomMgr : set_participant_ready(sid)
+RoomMgr -> RoomMgr : participant.is_ready = true
+RoomMgr -> RoomMgr : Check if all_ready()
+
+alt All Participants Ready
+    RoomMgr --> Backend : all_ready = true
+    Backend --> SocketClient : 'all-ready' event
+    SocketClient -> React : Enable "Start Discussion" button
+    React --> Alice : Button turns green
+else Still Waiting
+    RoomMgr --> Backend : all_ready = false
+    Backend --> SocketClient : 'participant-ready' event
+    SocketClient -> React : Update UI
+    React --> Alice : Show "2/3 ready"
+end
+
+== Start Discussion ==
+
+note over Alice, DB
+    Host clicks "Start Discussion"
+end note
+
+React -> SocketClient : emit('start-discussion', {roomCode})
+SocketClient -> Backend : start-discussion event
+
+Backend -> RoomMgr : start_discussion(roomCode)
+RoomMgr -> RoomMgr : room.status = IN_PROGRESS
+RoomMgr -> RoomMgr : Set current_speaker_index = 0
+RoomMgr -> RoomMgr : Start timer (60 seconds)
+
+RoomMgr -> DB : UPDATE session status
+DB --> RoomMgr : Success
+
+RoomMgr --> Backend : Discussion started
+Backend --> SocketClient : 'discussion-started' event
+SocketClient -> React : Update RoomState
+
+React -> React : Navigate to RoundtablePage
+React --> Alice : Show circular table view
+
+Backend --> SocketClient : 'turn-started' event
+SocketClient -> React : currentSpeakerIndex = 0
+React --> Alice : Highlight current speaker
+React --> Alice : Start 60-second timer
+
+== Speaking Turn ==
+
+note over Alice
+    Alice's turn to speak
+end note
+
+Alice -> React : Unmute microphone
+React -> React : AudioContext.toggleMute()
+React --> Alice : Speaking indicator appears
+
+Alice -> Alice : Speaks into mic (WebRTC audio)
+
+note over React, Backend
+    Audio flows via WebRTC P2P
+    to other participants
+end note
+
+React -> React : Web Speech API transcribes
+React -> SocketClient : emit('speech-transcript', {text})
+SocketClient -> Backend : speech-transcript event
+
+Backend -> DB : INSERT transcript
+DB --> Backend : transcript_id
+
+Backend -> Backend : Queue for LLM analysis
+
+== Timer Expires ==
+
+React -> React : Timer reaches 0
+React -> SocketClient : emit('end-turn')
+SocketClient -> Backend : end-turn event
+
+Backend -> RoomMgr : next_speaker(roomCode)
+RoomMgr -> RoomMgr : Increment speaker_index
+RoomMgr -> RoomMgr : Check if round complete
+
+alt Round Complete
+    RoomMgr -> RoomMgr : Increment current_round
+    RoomMgr -> RoomMgr : Reset speaker_index = 0
+    Backend --> SocketClient : 'round-complete' event
+    SocketClient -> React : Show "Round 1 complete!"
+else Same Round
+    RoomMgr -> RoomMgr : Move to next speaker
+end
+
+Backend --> SocketClient : 'turn-started' event
+SocketClient -> React : Update currentSpeakerIndex
+React --> Alice : Highlight next speaker
+
+== End Discussion ==
+
+note over React, RoomMgr
+    After 3 rounds complete
+end note
+
+RoomMgr -> RoomMgr : Check if max_rounds reached
+RoomMgr --> Backend : Discussion complete
+
+Backend -> DB : UPDATE session (ended_at)
+DB --> Backend : Success
+
+Backend --> SocketClient : 'discussion-ended' event
+SocketClient -> React : Show summary screen
+
+React --> Alice : Display feedback & stats
+Alice -> React : Click "Leave Room"
+React -> SocketClient : emit('leave-room')
+SocketClient -> Backend : disconnect
+
+Backend -> RoomMgr : remove_participant(sid)
+RoomMgr -> RoomMgr : Remove from room
+RoomMgr --> Backend : Participant removed
+
+React --> Alice : Redirect to LobbyPage
+
+@enduml

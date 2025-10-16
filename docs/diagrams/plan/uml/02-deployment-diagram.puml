@@ -1,0 +1,205 @@
+@startuml GupShup Cafe - MVP Deployment Diagram (AWS Fargate)
+
+!define RECTANGLE class
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FFFFFF
+
+title GupShup Cafe - MVP Deployment Architecture (AWS Fargate + server_py)
+
+' Client Layer
+actor "End Users" as Users
+
+node "Client Devices" {
+    artifact "Web Browser" as Browser {
+        component "React App" as ReactApp
+        component "WebRTC Engine" as WebRTC
+        component "Socket.io Client" as SocketClient
+    }
+}
+
+' AWS Cloud
+cloud "AWS Cloud (ap-south-1)" {
+    
+    ' Frontend Hosting
+    node "AWS Amplify Hosting" as Amplify {
+        artifact "React Build\n(Static)" as ReactBuild
+        artifact "CloudFront CDN" as CloudFront
+        artifact "Auto-deploy\nfrom GitHub" as AutoDeploy
+        
+        ReactBuild -down-> CloudFront
+        AutoDeploy ..> ReactBuild : "builds"
+    }
+    
+    ' Backend Container Infrastructure
+    node "VPC (10.0.0.0/16)" {
+        
+        node "Public Subnet (10.0.1.0/24)" {
+            
+            ' Application Load Balancer
+            component "Application Load Balancer" as ALB {
+                artifact "Target Group\n(port 3003)" as TargetGroup
+                artifact "Listener Rules\n(HTTP/HTTPS)" as Listeners
+            }
+            
+            ' Fargate Service
+            node "AWS ECS Cluster" as ECSCluster {
+                
+                node "Fargate Task 1" as Task1 {
+                    artifact "Python 3.11\nContainer" as Container1 {
+                        component "FastAPI Server" as FastAPI1
+                        component "python-socketio" as Socket1
+                        component "Room Manager" as RoomMgr1
+                        
+                        FastAPI1 -down-> Socket1
+                        FastAPI1 -down-> RoomMgr1
+                    }
+                }
+                
+                node "Fargate Task 2\n(Auto-scaled)" as Task2 {
+                    artifact "Python 3.11\nContainer" as Container2 {
+                        component "FastAPI Server" as FastAPI2
+                        component "python-socketio" as Socket2
+                        component "Room Manager" as RoomMgr2
+                        
+                        FastAPI2 -down-> Socket2
+                        FastAPI2 -down-> RoomMgr2
+                    }
+                }
+                
+                note right of Task1
+                    Task Definition:
+                    - CPU: 0.5 vCPU
+                    - Memory: 1 GB
+                    - Container Port: 3003
+                    - Health Check: /health
+                    - Auto-scaling: 1-4 tasks
+                end note
+            }
+        }
+        
+        ' Security Group
+        artifact "Security Group\n(sg-gupshup-api)" as SecurityGroup {
+            note right
+                Inbound:
+                - HTTP (80) from ALB
+                - HTTPS (443) from ALB
+                
+                Outbound:
+                - All traffic (API calls)
+            end note
+        }
+    }
+    
+    ' Persistent Storage
+    database "EFS Volume" as EFS {
+        artifact "SQLite Database" as SQLiteDB
+        artifact "Session Data" as SessionData
+        artifact "Application Logs" as Logs
+    }
+    
+    ' AI Infrastructure
+    cloud "AWS Strands + AgentCore" as Strands {
+        component "Multi-Agent Orchestrator" as Orchestrator
+        component "EnglishFeedbackAgent" as EnglishAgent
+        component "DebateFacilitatorAgent" as FacilitatorAgent
+        
+        note bottom of Orchestrator
+            AgentCore Wrapper:
+            - Runtime environment
+            - IAM permissions
+            - Internet access
+            - Monitoring
+        end note
+    }
+    
+    cloud "AWS Bedrock" as Bedrock {
+        artifact "Claude 3 Sonnet" as Claude
+        artifact "Amazon Transcribe" as Transcribe
+        artifact "Amazon Polly" as Polly
+    }
+    
+    cloud "AWS Services" {
+        artifact "CloudWatch Logs" as CloudWatch
+        artifact "CloudWatch Metrics" as Metrics
+        artifact "Route 53 DNS" as Route53
+        artifact "ACM (SSL Cert)" as ACM
+    }
+}
+
+' External Services
+cloud "External Services" {
+    artifact "Gemini API\n(Development)" as Gemini
+    artifact "STUN/TURN Servers\n(WebRTC NAT)" as STUN
+}
+
+' User Connections
+Users -down-> Browser : "HTTPS"
+Browser -down-> CloudFront : "Static Assets"
+Browser -down-> ALB : "API + WebSocket"
+WebRTC ..> STUN : "NAT Traversal"
+
+' Frontend to Backend
+ReactApp --> CloudFront
+SocketClient --> ALB : "WSS (443)"
+
+' ALB to Fargate
+ALB -down-> Task1 : "HTTP (3003)"
+ALB -down-> Task2 : "HTTP (3003)"
+Listeners --> TargetGroup
+TargetGroup --> Task1
+TargetGroup --> Task2
+
+' Fargate to Storage
+Task1 --> EFS : "Mount /mnt/efs"
+Task2 --> EFS : "Mount /mnt/efs"
+FastAPI1 --> SQLiteDB
+FastAPI2 --> SQLiteDB
+
+' Fargate to AI
+FastAPI1 --> Orchestrator : "Feedback API"
+FastAPI2 --> Orchestrator : "Feedback API"
+
+' AI Orchestration
+Orchestrator --> EnglishAgent
+Orchestrator --> FacilitatorAgent
+EnglishAgent --> Bedrock : "Production"
+EnglishAgent --> Gemini : "Development"
+FacilitatorAgent --> Bedrock
+
+' Monitoring
+Task1 --> CloudWatch : "Logs"
+Task2 --> CloudWatch : "Logs"
+ECSCluster --> Metrics : "CPU/Memory"
+
+' DNS
+Route53 --> ALB : "api.gupshup-cafe.com"
+Route53 --> CloudFront : "gupshup-cafe.com"
+ALB --> ACM : "SSL Certificate"
+
+note as DeploymentNotes
+    **Deployment Strategy:**
+    
+    1. **Frontend (AWS Amplify)**
+       - Auto-deploy from GitHub main branch
+       - CloudFront global CDN
+       - SSL/TLS auto-provisioned
+    
+    2. **Backend (AWS Fargate)**
+       - Docker container from ECR
+       - Blue-green deployment
+       - Zero-downtime updates
+       - Auto-scaling based on CPU
+    
+    3. **Storage (EFS)**
+       - Shared across all Fargate tasks
+       - Automatic backups
+       - Pay-per-use pricing
+    
+    4. **Monitoring**
+       - CloudWatch Logs for debugging
+       - CloudWatch Metrics for scaling
+       - Alarms for high CPU/memory
+end note
+
+@enduml
