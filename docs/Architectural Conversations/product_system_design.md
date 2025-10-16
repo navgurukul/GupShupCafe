@@ -111,11 +111,11 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
          │               │
          │               ▼
          │    ┌─────────────────┐
-         │    │   MongoDB        │
+         │    │   SQLite         │
          │    │   - Users        │
          │    │   - Sessions     │
          │    │   - Participants │
-         │    │                  │
+         │    │   - Feedback     │
          │    │                  │
          │    │                  │
          │    └─────────────────┘
