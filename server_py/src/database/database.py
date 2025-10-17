@@ -15,7 +15,7 @@ class Database:
         self.db: Optional[aiosqlite.Connection] = None
         self.db_path: str = ""
 
-    async def initialize(self, db_path: str = "./data/roundtable.db"):
+    async def initialize(self, db_path: str = "./database/gupshup_database.db"):
         """Initialize the database connection and create tables"""
         self.db_path = db_path
         
@@ -36,42 +36,59 @@ class Database:
     async def _create_tables(self):
         """Create database tables if they don't exist"""
         async with self.db.execute("BEGIN"):
+            # Users table
+            await self.db.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    user_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    category TEXT, 
+                    crf_level INTEGER NOT NULL DEFAULT 0
+                    )
+            """)
+            
+        
+            
             # Sessions table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
-                    id TEXT PRIMARY KEY,
+                    session_id TEXT PRIMARY KEY,
                     room_id TEXT NOT NULL,
+                    room_name TEXT NOT NULL,
                     topic_title TEXT,
                     topic_category TEXT,
                     participant_count INTEGER,
-                    started_at DATETIME,
-                    ended_at DATETIME,
+                    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ended_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     duration_seconds INTEGER,
                     rounds_completed INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    crf_level INTEGER NOT NULL DEFAULT 0
                 )
             """)
             
             # Participants table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS participants (
-                    id TEXT PRIMARY KEY,
+                    user_id TEXT PRIMARY KEY,
                     session_id TEXT,
-                    user_id TEXT,
                     anonymous_name TEXT,
                     campus TEXT,
                     location TEXT,
                     joined_at DATETIME,
                     left_at DATETIME,
                     speaking_time_seconds INTEGER DEFAULT 0,
-                    FOREIGN KEY (session_id) REFERENCES sessions (id)
+                    FOREIGN KEY (session_id) REFERENCES sessions (session_id),
+                    FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
             
             # Topics table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS topics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    topic_id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT NOT NULL,
                     description TEXT,
                     category TEXT,
@@ -89,15 +106,15 @@ class Database:
         """Save a discussion session"""
         query = """
             INSERT INTO sessions (
-                id, room_id, topic_title, topic_category, participant_count,
-                started_at, ended_at, duration_seconds, rounds_completed
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                session_id, room_id, room_name, topic_title, topic_category, participant_count,started_at, ended_at, duration_seconds, rounds_completed, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         topic = session_data.get("topic", {})
         cursor = await self.db.execute(query, (
-            session_data.get("id"),
-            session_data.get("roomId"),
+            session_data.get("session_id"),
+            session_data.get("room_id"),
+            session_data.get("room_name"),
             topic.get("title") if topic else None,
             topic.get("category") if topic else None,
             session_data.get("participantCount"),
@@ -114,16 +131,15 @@ class Database:
         """Save participant data"""
         query = """
             INSERT INTO participants (
-                id, session_id, user_id, anonymous_name, campus, location,
+                user_id, session_id, anonymous_name, campus, location,
                 joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         cursor = await self.db.execute(query, (
-            participant_data.get("id"),
-            participant_data.get("sessionId"),
-            participant_data.get("userId"),
-            participant_data.get("anonymousName"),
+            participant_data.get("user_id"),
+            participant_data.get("session_id"),
+            participant_data.get("anonymous_name"),
             participant_data.get("campus"),
             participant_data.get("location"),
             participant_data.get("joinedAt"),
