@@ -1,0 +1,414 @@
+@startuml GupShup Cafe - Frontend Package Diagram
+
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam package {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam package<<sub>> {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+skinparam artifact {
+    BackgroundColor #ECEFF1
+    BorderColor #546E7A
+}
+
+title GupShup Cafe - Frontend Package Structure (React + Vite)
+
+package "client/" {
+  
+  package "public/" {
+    artifact "index.html" as html
+    artifact "favicon.ico" as favicon
+    artifact "assets/" as publicAssets
+  }
+  
+  package "src/" {
+    
+    package "main.jsx" {
+      artifact "Root Component" as root
+      artifact "Provider Wrappers" as providers
+      artifact "Router Setup" as router
+    }
+    
+    package "contexts/" <<sub>> {
+      artifact "AuthContext.jsx" as authCtx {
+        + user: User
+        + isAuthenticated: bool
+        + login()
+        + logout()
+      }
+      
+      artifact "SocketContext.jsx" as socketCtx {
+        + socket: Socket
+        + connected: bool
+        + roomState: RoomState
+        + emit()
+        + on()
+      }
+      
+      artifact "AudioContext.jsx" as audioCtx {
+        + localStream: MediaStream
+        + remoteStreams: Map
+        + peerConnections: Map
+        + isMuted: bool
+        + initializeAudio()
+        + createPeerConnection()
+        + toggleMute()
+      }
+      
+      note right of audioCtx
+        **WebRTC Management:**
+        - Handles getUserMedia()
+        - Creates RTCPeerConnection
+        - Manages ICE candidates
+        - Opus codec priority
+        - Echo cancellation
+        - STUN server config
+      end note
+    }
+    
+    package "pages/" <<sub>> {
+      artifact "LoginPage.jsx" as loginPage {
+        - Google OAuth
+        - Create user profile
+        - Redirect to lobby
+      }
+      
+      artifact "LobbyPage.jsx" as lobbyPage {
+        - View available rooms
+        - Create new room
+        - Join existing room
+        - Room configuration
+      }
+      
+      artifact "RoundtablePage.jsx" as roundtablePage {
+        - Main discussion UI
+        - Circular table view
+        - Timer management
+        - Audio controls
+        - Feedback display
+      }
+      
+      note right of roundtablePage
+        **Core Discussion Page:**
+        - RoundtableView component
+        - SpeakerTimer
+        - TopicDisplay
+        - EnglishFeedbackModal
+        - SpeechToTextPanel
+        - ParticipantCards
+      end note
+    }
+    
+    package "components/" <<sub>> {
+      
+      package "ui/" {
+        artifact "RoundtableView.jsx" as roundtableView
+        artifact "ParticipantCard.jsx" as participantCard
+        artifact "SpeakerTimer.jsx" as speakerTimer
+        artifact "TopicDisplay.jsx" as topicDisplay
+        artifact "AudioLevelBar.jsx" as audioLevelBar
+      }
+      
+      package "feedback/" {
+        artifact "EnglishFeedbackModal.jsx" as feedbackModal {
+          + feedback: Feedback
+          + isOpen: bool
+          - Display CEFR badge
+          - Show grammar issues
+          - Show scores
+          - Auto-dismiss (10s)
+        }
+        
+        artifact "SpeechToTextPanel.jsx" as sttPanel {
+          + transcript: string
+          + isListening: bool
+          - Live transcription
+          - Copy to clipboard
+        }
+        
+        note right of feedbackModal
+          **Private Feedback:**
+          - Only visible to speaker
+          - Real-time (2-3s delay)
+          - Non-blocking position
+          - Grammar corrections
+          - CEFR level display
+          - Vocabulary/Fluency scores
+        end note
+      }
+      
+      package "common/" {
+        artifact "ProtectedRoute.jsx" as protectedRoute
+        artifact "LoadingSpinner.jsx" as loadingSpinner
+        artifact "ErrorBoundary.jsx" as errorBoundary
+        artifact "Button.jsx" as button
+        artifact "Modal.jsx" as modal
+      }
+      
+      note right of common
+        **Reusable Components:**
+        - Authentication guards
+        - Loading states
+        - Error handling
+        - UI primitives
+      end note
+    }
+    
+    package "hooks/" <<sub>> {
+      artifact "useAuth.js" as useAuth {
+        + user: User
+        + login()
+        + logout()
+        + isAuthenticated
+      }
+      
+      artifact "useSocket.js" as useSocket {
+        + socket: Socket
+        + emit()
+        + on()
+        + connected
+      }
+      
+      artifact "useAudio.js" as useAudio {
+        + localStream
+        + remoteStreams
+        + toggleMute()
+        + initializeAudio()
+      }
+      
+      artifact "useRoomState.js" as useRoomState {
+        + roomState
+        + participants
+        + currentSpeaker
+        + updateRoomState()
+      }
+      
+      note right of hooks
+        **Custom Hooks:**
+        - Abstract context logic
+        - Reusable state management
+        - Side effect handling
+        - Simplify component code
+      end note
+    }
+    
+    package "services/" <<sub>> {
+      artifact "api.js" as apiService {
+        + get()
+        + post()
+        + fetchTopics()
+        + fetchAnalytics()
+        - Base URL config
+        - Error handling
+      }
+      
+      artifact "webrtc.js" as webrtcService {
+        + createPeerConnection()
+        + handleOffer()
+        + handleAnswer()
+        + handleICECandidate()
+        - STUN configuration
+        - Codec preferences
+      }
+      
+      artifact "speech.js" as speechService {
+        + startRecognition()
+        + stopRecognition()
+        - Web Speech API wrapper
+        - Language detection
+      }
+    }
+    
+    package "types/" <<sub>> {
+      artifact "User.ts" as userType
+      artifact "Participant.ts" as participantType
+      artifact "RoomState.ts" as roomStateType
+      artifact "Feedback.ts" as feedbackType
+      artifact "Transcript.ts" as transcriptType
+      
+      note right of types
+        **TypeScript Definitions:**
+        - Type safety
+        - Intellisense support
+        - Shared interfaces
+        - API contract validation
+      end note
+    }
+    
+    package "utils/" <<sub>> {
+      artifact "constants.js" as constants
+      artifact "helpers.js" as helpers
+      artifact "formatters.js" as formatters
+      artifact "validators.js" as validators
+    }
+    
+    package "styles/" <<sub>> {
+      artifact "index.css" as globalStyles
+      artifact "tailwind.config.js" as tailwindConfig
+      note right
+        Tailwind CSS for styling
+        Component-scoped styles
+      end note
+    }
+  }
+  
+  package "Configuration Files" {
+    artifact "vite.config.js" as viteConfig
+    artifact "package.json" as packageJson
+    artifact ".env" as envFile
+    artifact "tsconfig.json" as tsconfigJson
+  }
+  
+  package "Build Output (dist/)" {
+    artifact "Compiled Assets" as dist
+  }
+}
+
+' Dependencies
+root --> providers
+providers --> authCtx
+providers --> socketCtx
+providers --> audioCtx
+providers --> router
+
+router --> loginPage
+router --> lobbyPage
+router --> roundtablePage
+router --> protectedRoute
+
+loginPage --> useAuth
+lobbyPage --> useSocket
+lobbyPage --> apiService
+roundtablePage --> useSocket
+roundtablePage --> useAudio
+roundtablePage --> useRoomState
+
+roundtablePage --> roundtableView
+roundtablePage --> feedbackModal
+roundtablePage --> sttPanel
+roundtablePage --> speakerTimer
+roundtablePage --> topicDisplay
+
+roundtableView --> participantCard
+participantCard --> audioLevelBar
+
+feedbackModal --> modal
+feedbackModal --> button
+
+useAuth --> authCtx
+useSocket --> socketCtx
+useAudio --> audioCtx
+useRoomState --> socketCtx
+
+apiService --> constants
+webrtcService --> constants
+speechService --> constants
+
+feedbackModal --> feedbackType
+roundtableView --> participantType
+useRoomState --> roomStateType
+
+viteConfig --> dist
+html --> dist
+
+note as BuildProcess
+  **Build & Development:**
+  
+  **Development Mode:**
+  ```bash
+  npm run dev
+  # Vite dev server on port 5173
+  # Hot Module Replacement (HMR)
+  # Fast refresh for React
+  ```
+  
+  **Production Build:**
+  ```bash
+  npm run build
+  # Optimized bundle
+  # Code splitting
+  # Tree shaking
+  # Minification
+  # Output to dist/
+  ```
+  
+  **Deployment:**
+  - AWS Amplify auto-deploy
+  - CloudFront CDN distribution
+  - Environment variables from .env
+  - HTTPS/SSL auto-provisioned
+end note
+
+note as DependencyManagement
+  **Key Dependencies:**
+  
+  **React Ecosystem:**
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - react-router-dom: ^6.x
+  
+  **Real-time & Audio:**
+  - socket.io-client: ^4.x
+  - (WebRTC is native browser API)
+  
+  **Styling:**
+  - tailwindcss: ^3.x
+  - postcss: ^8.x
+  - autoprefixer: ^10.x
+  
+  **Build Tools:**
+  - vite: ^5.x
+  - @vitejs/plugin-react: ^4.x
+  
+  **TypeScript:**
+  - typescript: ^5.x
+  - @types/react: ^18.x
+  
+  **OAuth:**
+  - @react-oauth/google: ^0.x
+end note
+
+note as FrontendArchitecture
+  **Architecture Patterns:**
+  
+  1. **Context API Pattern:**
+     - Global state management
+     - Auth, Socket, Audio contexts
+     - Provider composition in main.jsx
+  
+  2. **Custom Hooks Pattern:**
+     - Business logic abstraction
+     - Reusable stateful logic
+     - Clean component code
+  
+  3. **Service Layer Pattern:**
+     - API calls abstraction
+     - WebRTC logic encapsulation
+     - Centralized error handling
+  
+  4. **Component Composition:**
+     - Atomic design principles
+     - Reusable UI components
+     - Props-based configuration
+  
+  5. **Protected Routes:**
+     - Authentication guards
+     - Conditional rendering
+     - Redirect unauthenticated users
+  
+  **Code Organization:**
+  - Feature-based structure
+  - Co-located related files
+  - Clear separation of concerns
+  - Easy to navigate and maintain
+end note
+
+@enduml

@@ -1,0 +1,343 @@
+@startuml GupShup Cafe - Frontend Class Diagram (React)
+
+' Use latest PlantUML version features
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam class {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    ArrowColor #546E7A
+}
+skinparam package {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+
+title GupShup Cafe - Frontend Class Diagram (React Components)
+
+package "Main Application (main.jsx)" {
+    class App {
+        + render()
+    }
+    
+    note right of App
+        Root component with:
+        - AuthProvider
+        - SocketProvider
+        - AudioProvider
+        - Router
+    end note
+}
+
+package "Context Providers (src/contexts/)" {
+    class AuthContext {
+        - user: User
+        - isAuthenticated: bool
+        - loading: bool
+        --
+        + login(credentials)
+        + logout()
+        + updateUserProfile(data)
+        + getUserCEFRLevel()
+    }
+    
+    class SocketContext {
+        - socket: Socket
+        - connected: bool
+        - roomState: RoomState
+        - participants: Participant[]
+        --
+        + connect()
+        + disconnect()
+        + emit(event, data)
+        + on(event, handler)
+        + off(event, handler)
+        + emitCreateRoom(config)
+        + emitJoinRoom(roomCode, name)
+        + emitReady()
+        + emitWebRTCSignal(signal)
+    }
+    
+    class AudioContext {
+        - localStream: MediaStream
+        - remoteStreams: Map<string, MediaStream>
+        - peerConnections: Map<string, RTCPeerConnection>
+        - isMuted: bool
+        - isReady: bool
+        --
+        + initializeAudio()
+        + createPeerConnection(peerId)
+        + createOffer(peerId)
+        + handleAnswer(peerId, answer)
+        + handleICECandidate(peerId, candidate)
+        + toggleMute()
+        + stopAudio()
+        + getAudioLevel()
+    }
+    
+    note right of AudioContext
+        WebRTC Management:
+        - Opus codec priority
+        - Echo cancellation
+        - Noise suppression
+        - STUN servers config
+    end note
+}
+
+package "Page Components (src/pages/)" {
+    class LoginPage {
+        + render()
+        --
+        - handleLogin()
+        - handleGoogleAuth()
+        - validateCredentials()
+    }
+    
+    class LobbyPage {
+        + render()
+        --
+        - handleCreateRoom()
+        - handleJoinRoom(roomCode)
+        - loadOnlineRooms()
+        - filterRoomsByTopic()
+    }
+    
+    class RoundtablePage {
+        + render()
+        --
+        - handleReady()
+        - handleStartDiscussion()
+        - handleEndTurn()
+        - handleLeaveRoom()
+        - updateRoomState()
+    }
+}
+
+package "UI Components (src/components/)" {
+    class RoundtableView {
+        + participants: Participant[]
+        + currentSpeakerIndex: int
+        + render()
+        --
+        - calculateParticipantPositions()
+        - renderParticipant(p, angle)
+        - highlightCurrentSpeaker()
+    }
+    
+    class SpeakerTimer {
+        + timeRemaining: int
+        + isActive: bool
+        + render()
+        --
+        - startTimer()
+        - stopTimer()
+        - onTimerEnd()
+        - formatTime(seconds)
+    }
+    
+    class TopicDisplay {
+        + topic: string
+        + category: string
+        + render()
+        --
+        - displayTopic()
+        - showTopicHint()
+    }
+    
+    class ParticipantCard {
+        + participant: Participant
+        + isCurrentSpeaker: bool
+        + render()
+        --
+        - displayAvatar()
+        - displayName()
+        - displayReadyStatus()
+        - displaySpeakingIndicator()
+    }
+    
+    class AudioLevelBar {
+        + audioLevel: number
+        + render()
+        --
+        - updateAudioLevel()
+        - displayBars()
+    }
+    
+    class EnglishFeedbackModal {
+        + feedback: Feedback
+        + isOpen: bool
+        + render()
+        --
+        - displayCEFRLevel()
+        - displayGrammarFeedback()
+        - displayVocabularyScore()
+        - displayFluencyScore()
+        - close()
+    }
+    
+    class SpeechToTextPanel {
+        + transcript: string
+        + isListening: bool
+        + render()
+        --
+        - startListening()
+        - stopListening()
+        - displayTranscript()
+        - copyTranscript()
+    }
+    
+    class ProtectedRoute {
+        + component: Component
+        + render()
+        --
+        - checkAuthentication()
+        - redirectToLogin()
+    }
+}
+
+package "Custom Hooks (src/hooks/)" {
+    class useAuth {
+        + user: User
+        + login(credentials)
+        + logout()
+        + isAuthenticated: bool
+    }
+    
+    class useSocket {
+        + socket: Socket
+        + emit(event, data)
+        + on(event, handler)
+        + connected: bool
+    }
+    
+    class useAudio {
+        + localStream: MediaStream
+        + remoteStreams: Map
+        + isMuted: bool
+        + toggleMute()
+        + initializeAudio()
+    }
+    
+    class useRoomState {
+        + roomState: RoomState
+        + participants: Participant[]
+        + currentSpeaker: Participant
+        + updateRoomState(data)
+    }
+}
+
+package "Data Models (types/)" {
+    class User {
+        + id: string
+        + email: string
+        + cefrLevel: string
+        + topicInterests: string[]
+        + createdAt: Date
+    }
+    
+    class Participant {
+        + id: string
+        + socketId: string
+        + anonymousName: string
+        + avatarColor: string
+        + role: string
+        + isReady: bool
+        + isSpeaking: bool
+        + isMuted: bool
+        + cefrLevel: string
+    }
+    
+    class RoomState {
+        + roomCode: string
+        + topic: string
+        + status: string
+        + participants: Participant[]
+        + currentSpeakerIndex: int
+        + currentRound: int
+        + maxRounds: int
+        + speakingTime: int
+    }
+    
+    class Feedback {
+        + feedbackType: string
+        + grammarScore: number
+        + vocabularyScore: number
+        + fluencyScore: number
+        + cefrLevel: string
+        + grammarIssues: Issue[]
+        + suggestions: string[]
+        + displayMessage: string
+    }
+    
+    class Issue {
+        + original: string
+        + corrected: string
+        + reason: string
+        + severity: string
+    }
+}
+
+' Relationships
+App --> AuthContext : "provides"
+App --> SocketContext : "provides"
+App --> AudioContext : "provides"
+
+LoginPage --> AuthContext : "uses"
+LobbyPage --> SocketContext : "uses"
+LobbyPage --> AuthContext : "uses"
+RoundtablePage --> SocketContext : "uses"
+RoundtablePage --> AudioContext : "uses"
+
+RoundtablePage --> RoundtableView : "renders"
+RoundtablePage --> SpeakerTimer : "renders"
+RoundtablePage --> TopicDisplay : "renders"
+RoundtablePage --> EnglishFeedbackModal : "renders"
+RoundtablePage --> SpeechToTextPanel : "renders"
+
+RoundtableView --> ParticipantCard : "renders"
+ParticipantCard --> AudioLevelBar : "contains"
+
+ProtectedRoute --> AuthContext : "validates"
+
+useAuth --> AuthContext : "accesses"
+useSocket --> SocketContext : "accesses"
+useAudio --> AudioContext : "accesses"
+useRoomState --> SocketContext : "accesses"
+
+LoginPage --> useAuth : "uses"
+LobbyPage --> useSocket : "uses"
+RoundtablePage --> useSocket : "uses"
+RoundtablePage --> useAudio : "uses"
+RoundtablePage --> useRoomState : "uses"
+
+AuthContext --> User : "manages"
+SocketContext --> RoomState : "manages"
+SocketContext --> Participant : "manages"
+EnglishFeedbackModal --> Feedback : "displays"
+Feedback --> Issue : "contains"
+
+note as FrontendArchitecture
+    **React Architecture:**
+    
+    1. **Context Pattern**: Global state via React Context
+    2. **Custom Hooks**: Reusable logic abstraction
+    3. **Component Composition**: Hierarchical UI structure
+    4. **Protected Routes**: Authentication guards
+    
+    **Real-time Features:**
+    - Socket.io for events
+    - WebRTC for audio
+    - Context API for state sync
+    
+    **Key Flows:**
+    1. Login → LobbyPage → RoundtablePage
+    2. Socket events update RoomState
+    3. WebRTC manages peer audio streams
+    4. English feedback shown in modal
+end note
+
+@enduml

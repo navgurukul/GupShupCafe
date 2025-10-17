@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSocket } from '../contexts/SocketContext'
-import { useAuth } from '../contexts/AuthContext'
-import { useAudio } from '../contexts/AudioContext'
-import RoundtableView from '../components/RoundtableView'
-import TopicDisplay from '../components/TopicDisplay'
-import SpeakerTimer from '../components/SpeakerTimer'
+import { useSocket } from '../hooks/useSocket'
+import { useAuth } from '../hooks/useAuth'
+import { useAudio } from '../hooks/useAudio'
+import RoundtableView from '../components/ui/RoundtableView'
+import TopicDisplay from '../components/ui/TopicDisplay'
+import SpeakerTimer from '../components/ui/SpeakerTimer'
 import ParticipantControls from '../components/ParticipantControls'
-import SpeechToText from '../components/SpeechToText'
+import SpeechToTextPanel from '../components/feedback/SpeechToTextPanel'
 import { LogOut, Users } from 'lucide-react'
-import LiveAudioLevelBar from '../components/LiveAudioLevelBar'
+import AudioLevelBar from '../components/ui/AudioLevelBar'
 
 /**
  * Roundtable Page Component
@@ -39,6 +39,7 @@ function RoundtablePage() {
   const [error, setError] = useState(null)
   const [showAudioEnablePrompt, setShowAudioEnablePrompt] = useState(false)
   const [topic, setTopic] = useState({ title: 'Welcome', description: 'Waiting for topic...' })
+  const [systemMessage, setSystemMessage] = useState(null)
 
   // Clear navigation state when roundtable page successfully mounts
   useEffect(() => {
@@ -104,18 +105,85 @@ function RoundtablePage() {
       }
     };
 
+    const handleTurnStarted = (data) => {
+      console.log('[Roundtable] Turn started:', data);
+      const { speaker_index, speaker, timer } = data;
+      
+      setCurrentSpeaker(speaker);
+      setSpeakingDuration(timer);
+      setTimeRemaining(timer);
+      
+      // Enable/disable speaking based on if current user is the speaker
+      if (speaker && speaker.id === user?.id) {
+        console.log('[Roundtable] Current user is now speaking');
+        enableSpeaking();
+      } else {
+        console.log('[Roundtable] Another participant is speaking');
+        disableSpeaking();
+      }
+    };
+
+    const handleTurnEnded = (data) => {
+      console.log('[Roundtable] Turn ended:', data);
+      // The turn has ended, wait for next turn-started event
+    };
+
+    const handleTimerWarning = (data) => {
+      console.log('[Roundtable] Timer warning:', data);
+      const { remaining } = data;
+      // Update time remaining and show warning
+      setTimeRemaining(remaining);
+      if (remaining <= 10) {
+        setSystemMessage(`${remaining} seconds remaining!`);
+        setTimeout(() => setSystemMessage(null), 2000);
+      }
+    };
+
+    const handleRoundComplete = (data) => {
+      console.log('[Roundtable] Round complete:', data);
+      const { round, next } = data;
+      setRound(next);
+      // Show notification that round is complete
+      setSystemMessage(`Round ${round} complete! Starting round ${next}...`);
+      setTimeout(() => setSystemMessage(null), 3000);
+    };
+
+    const handleDiscussionEnded = (data) => {
+      console.log('[Roundtable] Discussion ended:', data);
+      setDiscussionEnded(true);
+      setDiscussionStarted(false);
+      disableSpeaking();
+    };
+
+    const handleParticipantLeft = (data) => {
+      console.log('[Roundtable] Participant left:', data);
+      // participants-update will handle the state update
+    };
+
     // No longer need a 'discussion-started' listener here
 
     socket.on('participants-update', handleParticipantsUpdate);
     socket.on('speaker-changed', handleSpeakerChange);
     socket.on('topic-update', handleTopicUpdate);
     socket.on('discussion-started', handleDiscussionStarted);
+    socket.on('turn-started', handleTurnStarted);
+    socket.on('turn-ended', handleTurnEnded);
+    socket.on('timer-warning', handleTimerWarning);
+    socket.on('round-complete', handleRoundComplete);
+    socket.on('discussion-ended', handleDiscussionEnded);
+    socket.on('participant-left', handleParticipantLeft);
 
     return () => {
       socket.off('participants-update', handleParticipantsUpdate);
       socket.off('speaker-changed', handleSpeakerChange);
       socket.off('topic-update', handleTopicUpdate);
       socket.off('discussion-started', handleDiscussionStarted);
+      socket.off('turn-started', handleTurnStarted);
+      socket.off('turn-ended', handleTurnEnded);
+      socket.off('timer-warning', handleTimerWarning);
+      socket.off('round-complete', handleRoundComplete);
+      socket.off('discussion-ended', handleDiscussionEnded);
+      socket.off('participant-left', handleParticipantLeft);
     };
   }, [socket, user, enableSpeaking, disableSpeaking])
 
@@ -244,6 +312,28 @@ function RoundtablePage() {
         </div>
       )}
 
+      {/* System Message Notification */}
+      {systemMessage && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex">
+              <div className="text-blue-400 mr-3">ℹ️</div>
+              <div>
+                <p className="text-sm text-blue-800">
+                  {systemMessage}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSystemMessage(null)}
+              className="text-blue-800 hover:text-blue-900 text-sm px-2"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -259,7 +349,7 @@ function RoundtablePage() {
             </div>
             {/* Add the live audio level bar for your own mic */}
             <div className="ml-6">
-              <LiveAudioLevelBar />
+              <AudioLevelBar />
             </div>
           </div>
           
@@ -363,7 +453,7 @@ function RoundtablePage() {
           
           {/* Speech to Text - Show when current user is speaking */}
           {discussionStarted && isCurrentUserSpeaking() && (
-            <SpeechToText
+            <SpeechToTextPanel
               isActive={isCurrentUserSpeaking()}
               speakerName={user?.anonymousName || 'You'}
             />

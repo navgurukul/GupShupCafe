@@ -1,0 +1,301 @@
+@startuml Package Diagram - Frontend React Structure
+
+!define RECTANGLE class
+
+skinparam packageStyle rectangle
+skinparam backgroundColor #FFFFFF
+skinparam packageBackgroundColor #E8F4F8
+skinparam packageBorderColor #4A90E2
+
+title GupShup Cafe - Frontend Package Diagram (React)
+
+package "client/" {
+    
+    package "src/" {
+        
+        package "pages/" <<React Pages>> {
+            class LoginPage {
+                +handleLogin()
+                +validateForm()
+                +generateAnonymousName()
+            }
+            
+            class LobbyPage {
+                +displayParticipants()
+                +handleReady()
+                +requestAudioPermission()
+            }
+            
+            class RoundtablePage {
+                +displayDiscussion()
+                +manageTurns()
+                +showFeedback()
+            }
+            
+            class AudioTestPage {
+                +testMicrophone()
+                +testSpeakers()
+                +checkPermissions()
+            }
+            
+            class BroadcastTestPage {
+                +testBroadcast()
+                +testReceive()
+            }
+        }
+        
+        package "components/" <<UI Components>> {
+            package "layout/" {
+                class ProtectedRoute {
+                    +requireAuth()
+                    +redirect()
+                }
+                
+                class ErrorBoundary {
+                    +catchError()
+                    +displayFallback()
+                }
+            }
+            
+            package "roundtable/" {
+                class RoundtableView {
+                    +renderTable()
+                    +positionChairs()
+                    +highlightSpeaker()
+                }
+                
+                class ParticipantChair {
+                    +renderChair()
+                    +showStatus()
+                    +displayName()
+                }
+                
+                class TopicDisplay {
+                    +showTopic()
+                    +displayQuestions()
+                }
+                
+                class TimerDisplay {
+                    +showTimer()
+                    +updateCountdown()
+                    +handleExpiry()
+                }
+            }
+            
+            package "audio/" {
+                class AudioControls {
+                    +muteButton()
+                    +volumeControl()
+                    +statusIndicator()
+                }
+                
+                class AudioLevelMeter {
+                    +visualizeLevel()
+                    +detectSpeech()
+                }
+            }
+            
+            package "feedback/" {
+                class FeedbackDisplay {
+                    +showFeedback()
+                    +categorize()
+                    +highlight()
+                }
+                
+                class SummaryCard {
+                    +displaySummary()
+                    +showStats()
+                }
+            }
+        }
+        
+        package "contexts/" <<Context Providers>> {
+            class AuthContext {
+                +user: User
+                +isAuthenticated: boolean
+                --
+                +login()
+                +logout()
+                +updateUser()
+            }
+            
+            class SocketContext {
+                +socket: Socket
+                +isConnected: boolean
+                +room: Room
+                +participants: Participant[]
+                --
+                +connect()
+                +disconnect()
+                +emit()
+                +on()
+                +joinRoom()
+                +leaveRoom()
+            }
+            
+            class AudioContext {
+                +localStream: MediaStream
+                +remoteStreams: Map
+                +isMuted: boolean
+                +peerConnections: Map
+                --
+                +requestPermission()
+                +initializeWebRTC()
+                +createPeerConnection()
+                +toggleMute()
+                +cleanup()
+            }
+        }
+        
+        package "hooks/" <<Custom Hooks>> {
+            class useAudioPermission {
+                +requestPermission()
+                +checkPermission()
+                +getStream()
+            }
+            
+            class useWebRTC {
+                +createConnection()
+                +handleOffer()
+                +handleAnswer()
+                +addIceCandidate()
+            }
+            
+            class useTimer {
+                +start()
+                +pause()
+                +reset()
+                +subscribe()
+            }
+            
+            class useParticipants {
+                +getParticipants()
+                +getCurrentSpeaker()
+                +updateReady()
+            }
+        }
+        
+        package "utils/" <<Utilities>> {
+            class socketClient {
+                +createSocket()
+                +configureHandlers()
+            }
+            
+            class webrtcConfig {
+                +STUN_SERVERS
+                +TURN_SERVERS
+                +AUDIO_CONSTRAINTS
+            }
+            
+            class validation {
+                +validateUserData()
+                +sanitizeInput()
+            }
+            
+            class anonymousNames {
+                +generateName()
+                +getAdjective()
+                +getNoun()
+            }
+        }
+        
+        class App {
+            +routing
+            +providers
+        }
+        
+        class main {
+            +render()
+            +bootstrap()
+        }
+    }
+    
+    note "Configuration Files:\n- package.json\n- vite.config.js\n- tailwind.config.js\n- .env" as ConfigFiles
+    note "Public Assets:\n- index.html\n- favicon.ico\n- assets/" as PublicAssets
+}
+
+' Relationships
+App *-- AuthContext
+App *-- SocketContext
+App *-- AudioContext
+
+App --> LoginPage
+App --> LobbyPage
+App --> RoundtablePage
+App --> AudioTestPage
+App --> BroadcastTestPage
+
+LoginPage --> AuthContext : uses
+LobbyPage --> SocketContext : uses
+LobbyPage --> AudioContext : uses
+RoundtablePage --> SocketContext : uses
+RoundtablePage --> AudioContext : uses
+
+RoundtablePage *-- RoundtableView
+RoundtablePage *-- TopicDisplay
+RoundtablePage *-- AudioControls
+RoundtablePage *-- FeedbackDisplay
+
+RoundtableView *-- ParticipantChair
+RoundtableView *-- TimerDisplay
+
+AudioContext ..> webrtcConfig : uses
+SocketContext ..> socketClient : uses
+LoginPage ..> validation : uses
+LoginPage ..> anonymousNames : uses
+
+LobbyPage ..> useAudioPermission : uses
+RoundtablePage ..> useWebRTC : uses
+RoundtablePage ..> useTimer : uses
+RoundtablePage ..> useParticipants : uses
+
+main --> App : renders
+
+note right of contexts/
+    **Context API Pattern:**
+    
+    Provides global state
+    management for:
+    - Authentication
+    - Socket connections
+    - Audio/WebRTC state
+    
+    Wraps entire app
+    in main.jsx
+end note
+
+note right of hooks/
+    **Custom React Hooks:**
+    
+    Encapsulate reusable logic:
+    - Audio permissions
+    - WebRTC operations
+    - Timer management
+    - Participant tracking
+    
+    Follow React Hooks rules
+end note
+
+note bottom of components/
+    **Component Architecture:**
+    
+    - Organized by feature
+    - Reusable components
+    - Props interface
+    - Event handling
+    - Responsive design
+end note
+
+note left of utils/
+    **Utility Functions:**
+    
+    Pure functions for:
+    - Socket configuration
+    - WebRTC setup
+    - Input validation
+    - Name generation
+    
+    No side effects
+end note
+
+@enduml

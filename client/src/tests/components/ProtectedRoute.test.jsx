@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '../test-utils'
-import ProtectedRoute from '../../components/ProtectedRoute'
+import ProtectedRoute from '../../components/common/ProtectedRoute'
 
 // Mock useNavigate
 const mockNavigate = vi.fn()

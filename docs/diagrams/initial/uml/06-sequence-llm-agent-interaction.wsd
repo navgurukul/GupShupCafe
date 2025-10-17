@@ -1,0 +1,206 @@
+@startuml Sequence Diagram - LLM Agent Interaction
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam maxmessagesize 150
+
+title GupShup Cafe - LLM Agent Interaction Flow
+
+actor "Participant" as User
+participant "Browser\n(React)" as Browser
+participant "Socket\nContext" as Socket
+participant "FastAPI\nServer" as Server
+participant "Socket\nHandlers" as Handler
+participant "Debate Room\nFacilitator" as Facilitator
+participant "Gemini\nAgent" as Gemini
+participant "MCP\nClient" as MCP
+participant "MCP\nServer" as MCPServer
+participant "AI Services\n(Gemini/Bedrock)" as AI
+participant "Database" as DB
+
+== Setup Room & Initialize Agent ==
+Handler -> Facilitator : setup_room(participant_names)
+activate Facilitator
+Facilitator -> Facilitator : Initialize turn_order
+Facilitator -> Facilitator : Set current_round = 1
+Facilitator --> Handler : Room setup complete
+deactivate Facilitator
+
+Handler -> Facilitator : select_topic()
+activate Facilitator
+Facilitator -> Facilitator : Select from available topics
+Facilitator --> Handler : topic
+deactivate Facilitator
+
+Handler -> Facilitator : initialize_agent()
+activate Facilitator
+Facilitator -> MCP : MCPClient(transport_factory)
+activate MCP
+MCP -> MCPServer : Connect via Streamable HTTP
+activate MCPServer
+MCPServer --> MCP : Connection established
+MCP -> MCPServer : list_tools()
+MCPServer --> MCP : [DebateTools]
+deactivate MCPServer
+MCP --> Facilitator : tools list
+deactivate MCP
+
+Facilitator -> Gemini : GeminiAgent(system_prompt, tools)
+activate Gemini
+Gemini -> Gemini : Initialize with CEFR feedback prompt
+Gemini --> Facilitator : Agent ready
+deactivate Gemini
+Facilitator --> Handler : Agent initialized
+deactivate Facilitator
+
+== Discussion - Participant Statement ==
+User -> Browser : Speaks during turn
+note right of User
+    Speech captured via
+    WebRTC audio stream
+    (Future: STT integration)
+end note
+
+Browser -> Socket : emit('participant-statement', {speaker, content})
+Socket -> Server : participant-statement event
+activate Server
+Server -> Handler : Handle statement
+Handler -> Facilitator : process_statement(speaker, content)
+activate Facilitator
+
+Facilitator -> Facilitator : Add to conversation_history
+Facilitator -> Facilitator : Store statement with timestamp
+
+alt Use MCP Tools
+    Facilitator -> MCP : call_tool('analyze_statement', args)
+    activate MCP
+    MCP -> MCPServer : HTTP Request to MCP server
+    activate MCPServer
+    MCPServer -> MCPServer : Execute tool function
+    MCPServer --> MCP : Tool result
+    deactivate MCPServer
+    MCP --> Facilitator : Analysis result
+    deactivate MCP
+end
+
+Facilitator --> Handler : Statement processed
+deactivate Facilitator
+Handler --> Server : Acknowledge
+Server --> Socket : statement-acknowledged
+deactivate Server
+Socket --> Browser : Update UI
+Browser --> User : Statement recorded
+
+== Agent Turn - Provide Feedback ==
+Handler -> Facilitator : advance_turn()
+activate Facilitator
+Facilitator -> Facilitator : Increment turn index
+Facilitator -> Facilitator : Check if agent's turn
+alt Agent's Turn
+    Facilitator -> Facilitator : get_agent_feedback()
+    activate Facilitator
+    
+    Facilitator -> Facilitator : Prepare prompt with recent statements
+    Facilitator -> Gemini : agent(prompt)
+    activate Gemini
+    
+    Gemini -> AI : Call Gemini/Bedrock API
+    activate AI
+    note right of AI
+        System Prompt includes:
+        - CEFR standard guidelines
+        - English feedback focus
+        - Grammar corrections
+        - Vocabulary suggestions
+    end note
+    AI -> AI : Generate feedback
+    AI --> Gemini : LLM response
+    deactivate AI
+    
+    Gemini --> Facilitator : Feedback text
+    deactivate Gemini
+    
+    Facilitator -> Facilitator : _extract_and_store_english_feedback()
+    Facilitator -> Facilitator : Parse and categorize feedback
+    Facilitator --> Facilitator : Feedback ready
+    deactivate Facilitator
+    
+    Facilitator --> Handler : agent_feedback
+    deactivate Facilitator
+    
+    Handler -> Server : emit('agent-feedback', {feedback, timestamp})
+    activate Server
+    Server -> Socket : agent-feedback event
+    deactivate Server
+    
+    Socket -> Browser : Display agent feedback
+    Browser --> User : Show feedback in UI
+    
+    note right of Browser
+        Feedback includes:
+        - Grammar corrections
+        - Vocabulary improvements
+        - Sentence structure tips
+        - CEFR level assessment
+    end note
+end
+
+== Discussion End - Final Summary ==
+Handler -> Facilitator : get_final_english_summary()
+activate Facilitator
+
+Facilitator -> Facilitator : Compile all feedback
+Facilitator -> Gemini : agent(summary_prompt)
+activate Gemini
+
+Gemini -> AI : Call Gemini/Bedrock API
+activate AI
+AI -> AI : Generate comprehensive summary
+AI --> Gemini : Summary response
+deactivate AI
+
+Gemini --> Facilitator : Final summary
+deactivate Gemini
+
+Facilitator -> Facilitator : Format summary with:
+note right of Facilitator
+    Summary includes:
+    - Overall performance
+    - Key strengths
+    - Areas for improvement
+    - Specific examples
+    - Tips for growth
+end note
+
+Facilitator --> Handler : final_summary
+deactivate Facilitator
+
+Handler -> DB : save_participant_feedback(summary)
+activate DB
+DB -> DB : UPDATE participants SET feedback
+DB --> Handler : Saved
+deactivate DB
+
+Handler -> Server : emit('discussion-end', {summary, stats})
+activate Server
+Server -> Socket : discussion-end event
+deactivate Server
+
+Socket -> Browser : Display final summary
+Browser --> User : Show comprehensive feedback
+
+note over MCPServer
+    MCP Server provides tools via
+    Streamable HTTP at
+    http://localhost:8000/mcp/
+    
+    Tools include:
+    - analyze_statement
+    - provide_feedback
+    - summarize_discussion
+end note
+
+@enduml

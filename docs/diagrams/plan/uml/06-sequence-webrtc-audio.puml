@@ -1,0 +1,220 @@
+@startuml GupShup Cafe - WebRTC Audio Setup Sequence
+
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceArrowThickness 2
+skinparam roundcorner 10
+skinparam participant {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+
+title GupShup Cafe - WebRTC Audio Communication Setup (MVP)
+
+participant "User A\n(Alice)" as Alice
+participant "React App A\n(AudioContext)" as ReactA
+participant "Socket.io A" as SocketA
+participant "AWS Fargate\n(Backend)" as Backend
+participant "Socket.io B" as SocketB
+participant "React App B\n(AudioContext)" as ReactB
+participant "User B\n(Bob)" as Bob
+participant "STUN Server" as STUN
+
+== Initialize Audio ==
+
+Alice -> ReactA : Join room
+ReactA -> ReactA : AudioContext.initializeAudio()
+
+ReactA -> Alice : Request microphone permission
+Alice -> ReactA : Allow microphone
+
+ReactA -> ReactA : navigator.mediaDevices.getUserMedia()
+ReactA -> ReactA : Got localStream (audio only)
+ReactA -> ReactA : Apply constraints:\n- echoCancellation: true\n- noiseSuppression: true\n- autoGainControl: true
+
+ReactA -> SocketA : emit('ready-for-webrtc')
+SocketA -> Backend : ready-for-webrtc event
+Backend --> SocketA : 'webrtc-ready' confirmation
+
+note right of ReactA
+    AudioContext now ready
+    for peer connections
+end note
+
+Bob -> ReactB : Join same room
+ReactB -> ReactB : AudioContext.initializeAudio()
+ReactB -> Bob : Request microphone permission
+Bob -> ReactB : Allow microphone
+ReactB -> ReactB : Got localStream
+
+ReactB -> SocketB : emit('ready-for-webrtc')
+SocketB -> Backend : ready-for-webrtc event
+Backend --> SocketB : 'webrtc-ready' confirmation
+
+== WebRTC Signaling: Create Offer ==
+
+Backend -> Backend : Detect 2 ready participants
+Backend --> SocketA : 'create-webrtc-offer'\n{targetPeer: Bob}
+
+ReactA -> ReactA : createPeerConnection(Bob)
+
+note right of ReactA
+    RTCPeerConnection config:
+    - iceServers: [STUN servers]
+    - iceTransportPolicy: 'all'
+end note
+
+ReactA -> ReactA : pc = new RTCPeerConnection(config)
+ReactA -> ReactA : pc.addTrack(localStream.audio)
+
+ReactA -> ReactA : Setup event handlers:\n- onicecandidate\n- ontrack\n- onconnectionstatechange
+
+ReactA -> ReactA : pc.createOffer()
+ReactA -> ReactA : pc.setLocalDescription(offer)
+
+ReactA -> STUN : Gather ICE candidates
+STUN --> ReactA : ICE candidates
+
+ReactA -> SocketA : emit('webrtc-offer', {target: Bob, offer})
+SocketA -> Backend : webrtc-offer event
+
+Backend -> Backend : Route to target peer
+Backend --> SocketB : 'webrtc-offer' {from: Alice, offer}
+
+== WebRTC Signaling: Create Answer ==
+
+ReactB -> ReactB : Got offer from Alice
+ReactB -> ReactB : createPeerConnection(Alice)
+ReactB -> ReactB : pc = new RTCPeerConnection(config)
+ReactB -> ReactB : pc.addTrack(localStream.audio)
+
+ReactB -> ReactB : pc.setRemoteDescription(offer)
+ReactB -> ReactB : pc.createAnswer()
+ReactB -> ReactB : pc.setLocalDescription(answer)
+
+ReactB -> STUN : Gather ICE candidates
+STUN --> ReactB : ICE candidates
+
+ReactB -> SocketB : emit('webrtc-answer', {target: Alice, answer})
+SocketB -> Backend : webrtc-answer event
+Backend --> SocketA : 'webrtc-answer' {from: Bob, answer}
+
+ReactA -> ReactA : pc.setRemoteDescription(answer)
+
+== ICE Candidate Exchange ==
+
+ReactA -> ReactA : onicecandidate triggered
+ReactA -> SocketA : emit('webrtc-ice-candidate', {target: Bob, candidate})
+SocketA -> Backend : webrtc-ice-candidate event
+Backend --> SocketB : 'webrtc-ice-candidate' {from: Alice, candidate}
+ReactB -> ReactB : pc.addIceCandidate(candidate)
+
+ReactB -> ReactB : onicecandidate triggered
+ReactB -> SocketB : emit('webrtc-ice-candidate', {target: Alice, candidate})
+SocketB -> Backend : webrtc-ice-candidate event
+Backend --> SocketA : 'webrtc-ice-candidate' {from: Bob, candidate}
+ReactA -> ReactA : pc.addIceCandidate(candidate)
+
+note over ReactA, ReactB
+    ICE negotiation continues
+    until connection established
+end note
+
+== Connection Established ==
+
+ReactA -> ReactA : onconnectionstatechange: 'connected'
+ReactA -> ReactA : ontrack: remoteStream received
+ReactA -> ReactA : Store remoteStream in Map<peerId, stream>
+ReactA -> ReactA : Create <audio> element
+ReactA -> ReactA : audio.srcObject = remoteStream
+ReactA -> ReactA : audio.play()
+
+ReactA --> Alice : Bob's audio playing
+
+ReactB -> ReactB : onconnectionstatechange: 'connected'
+ReactB -> ReactB : ontrack: remoteStream received
+ReactB -> ReactB : Store remoteStream in Map<peerId, stream>
+ReactB -> ReactB : Create <audio> element
+ReactB -> ReactB : audio.srcObject = remoteStream
+ReactB -> ReactB : audio.play()
+
+ReactB --> Bob : Alice's audio playing
+
+note over Alice, Bob
+    P2P Audio connection established!
+    Audio flows directly between peers,
+    not through backend.
+end note
+
+== Audio Level Monitoring ==
+
+loop Every 100ms
+    ReactA -> ReactA : Analyze audio level
+    ReactA -> ReactA : AudioContext.getAudioLevel()
+    ReactA --> Alice : Display audio bars
+end
+
+loop Every 100ms
+    ReactB -> ReactB : Analyze audio level
+    ReactB -> ReactB : AudioContext.getAudioLevel()
+    ReactB --> Bob : Display audio bars
+end
+
+== Mute/Unmute ==
+
+Alice -> ReactA : Click mute button
+ReactA -> ReactA : AudioContext.toggleMute()
+ReactA -> ReactA : localStream.getAudioTracks()[0].enabled = false
+ReactA -> SocketA : emit('participant-muted')
+SocketA -> Backend : participant-muted event
+Backend --> SocketB : 'participant-muted' {peerId: Alice}
+ReactB --> Bob : Show Alice as muted
+
+Alice -> ReactA : Click unmute button
+ReactA -> ReactA : AudioContext.toggleMute()
+ReactA -> ReactA : localStream.getAudioTracks()[0].enabled = true
+ReactA -> SocketA : emit('participant-unmuted')
+SocketA -> Backend : participant-unmuted event
+Backend --> SocketB : 'participant-unmuted' {peerId: Alice}
+ReactB --> Bob : Show Alice as unmuted
+
+== Cleanup ==
+
+Alice -> ReactA : Leave room
+ReactA -> ReactA : AudioContext.stopAudio()
+ReactA -> ReactA : pc.close() for all peers
+ReactA -> ReactA : Stop all tracks in localStream
+ReactA -> ReactA : Clear remoteStreams Map
+ReactA -> SocketA : emit('leave-room')
+SocketA -> Backend : leave-room event
+Backend --> SocketB : 'participant-left' {peerId: Alice}
+ReactB -> ReactB : pc.close() for Alice
+ReactB -> ReactB : Remove Alice's audio element
+ReactB --> Bob : Alice left the room
+
+note as WebRTCNotes
+    **WebRTC Audio Configuration (MVP):**
+    
+    1. **Codec Priority**: Opus (best for voice)
+    2. **STUN Servers**: Google public STUN
+    3. **Audio Constraints**:
+       - Echo cancellation: ON
+       - Noise suppression: ON
+       - Auto gain control: ON
+    4. **Fallback**: No TURN server in MVP
+       (works on most networks)
+    
+    **Connection Flow**:
+    1. Alice & Bob request mic permissions
+    2. Backend coordinates signaling
+    3. Peers exchange SDP offers/answers
+    4. ICE candidates gathered via STUN
+    5. P2P audio connection established
+    6. Audio flows directly (not via server)
+end note
+
+@enduml

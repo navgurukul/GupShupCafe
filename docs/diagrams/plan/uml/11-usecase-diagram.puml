@@ -1,0 +1,269 @@
+@startuml GupShup Cafe - Use Case Diagram
+
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam actor {
+    BackgroundColor #E8F5E9
+    BorderColor #388E3C
+}
+skinparam usecase {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+}
+skinparam package {
+    BackgroundColor #FFF9C4
+    BorderColor #F57C00
+}
+
+title GupShup Cafe - MVP Use Case Diagram
+
+left to right direction
+
+actor "Guest User" as Guest
+actor "Authenticated User" as User
+actor "Room Host" as Host
+actor "Room Participant" as Participant
+actor "AI Agent System" as AI
+
+' Actor inheritance
+User <|-- Host
+User <|-- Participant
+
+package "Authentication System" {
+  usecase "Sign in with Google" as UC1
+  usecase "Create User Profile" as UC2
+  usecase "Store CEFR Level" as UC3
+  usecase "Logout" as UC4
+  
+  Guest --> UC1
+  UC1 ..> UC2 : <<include>>
+  UC2 ..> UC3 : <<include>>
+  User --> UC4
+}
+
+package "Lobby System" {
+  usecase "View Available Rooms" as UC5
+  usecase "Filter Rooms by Topic" as UC6
+  usecase "Create New Room" as UC7
+  usecase "Select Topic/Category" as UC8
+  usecase "Generate AI Topic" as UC9
+  usecase "Set Room Configuration" as UC10
+  usecase "Join Existing Room" as UC11
+  usecase "Enter Anonymous Name" as UC12
+  
+  User --> UC5
+  UC5 ..> UC6 : <<extend>>
+  User --> UC7
+  UC7 ..> UC8 : <<include>>
+  UC8 ..> UC9 : <<extend>>
+  UC7 ..> UC10 : <<include>>
+  User --> UC11
+  UC11 ..> UC12 : <<include>>
+}
+
+package "Room Preparation" {
+  usecase "Request Microphone Permission" as UC13
+  usecase "Initialize Audio (WebRTC)" as UC14
+  usecase "Test Audio Levels" as UC15
+  usecase "Set Ready Status" as UC16
+  usecase "Wait for All Ready" as UC17
+  usecase "Start Discussion" as UC18
+  
+  Participant --> UC13
+  UC13 ..> UC14 : <<include>>
+  Participant --> UC15
+  Participant --> UC16
+  UC16 ..> UC17 : <<include>>
+  Host --> UC18
+  UC18 ..> UC17 : <<require>>
+}
+
+package "Discussion Management" {
+  usecase "Display Circular Table View" as UC19
+  usecase "Manage Speaking Turns" as UC20
+  usecase "Display Turn Timer (60s)" as UC21
+  usecase "Highlight Current Speaker" as UC22
+  usecase "Stream Audio via WebRTC" as UC23
+  usecase "Control Microphone (Mute)" as UC24
+  usecase "Monitor Audio Levels" as UC25
+  usecase "Advance to Next Speaker" as UC26
+  usecase "Track Round Progress" as UC27
+  usecase "End Discussion" as UC28
+  
+  Participant --> UC19
+  UC18 ..> UC20 : <<trigger>>
+  UC20 ..> UC21 : <<include>>
+  UC20 ..> UC22 : <<include>>
+  Participant --> UC23
+  Participant --> UC24
+  Participant --> UC25
+  UC21 ..> UC26 : <<when expired>>
+  UC26 ..> UC27 : <<include>>
+  UC27 ..> UC28 : <<when complete>>
+}
+
+package "Speech & Transcription" {
+  usecase "Capture Speech Audio" as UC29
+  usecase "Transcribe Speech (Web API)" as UC30
+  usecase "Display Live Transcript" as UC31
+  usecase "Send Transcript to Backend" as UC32
+  usecase "Store Transcript in DB" as UC33
+  
+  Participant --> UC29
+  UC29 ..> UC30 : <<include>>
+  UC30 ..> UC31 : <<include>>
+  UC31 ..> UC32 : <<include>>
+  UC32 ..> UC33 : <<include>>
+}
+
+package "AI Feedback System (AWS Strands)" {
+  usecase "Request Instant Feedback" as UC34
+  usecase "Analyze Grammar" as UC35
+  usecase "Assess Vocabulary" as UC36
+  usecase "Evaluate Fluency" as UC37
+  usecase "Determine CEFR Level" as UC38
+  usecase "Generate Feedback Message" as UC39
+  usecase "Display English Feedback Modal" as UC40
+  usecase "Show Grammar Corrections" as UC41
+  usecase "Show Scores (0-10)" as UC42
+  usecase "Provide Gentle Agent Mention" as UC43
+  
+  UC32 ..> UC34 : <<trigger>>
+  AI --> UC34
+  UC34 ..> UC35 : <<include>>
+  UC34 ..> UC36 : <<include>>
+  UC34 ..> UC37 : <<include>>
+  UC35 ..> UC38 : <<include>>
+  UC34 ..> UC39 : <<include>>
+  UC39 ..> UC40 : <<display>>
+  Participant --> UC40
+  UC40 ..> UC41 : <<show>>
+  UC40 ..> UC42 : <<show>>
+  UC39 ..> UC43 : <<extend>>
+}
+
+package "Comprehensive Analysis" {
+  usecase "Collect All Transcripts" as UC44
+  usecase "Run Comprehensive LLM Analysis" as UC45
+  usecase "Track CEFR Progress" as UC46
+  usecase "Identify Improvement Areas" as UC47
+  usecase "Generate Recommendations" as UC48
+  usecase "Display Session Summary" as UC49
+  usecase "Show Individual Feedback Report" as UC50
+  usecase "Update User CEFR Level" as UC51
+  
+  UC28 ..> UC44 : <<trigger>>
+  AI --> UC45
+  UC44 ..> UC45 : <<input>>
+  UC45 ..> UC46 : <<include>>
+  UC45 ..> UC47 : <<include>>
+  UC45 ..> UC48 : <<include>>
+  UC45 ..> UC49 : <<display>>
+  Participant --> UC49
+  UC49 ..> UC50 : <<include>>
+  UC50 ..> UC51 : <<trigger>>
+}
+
+package "Post-Discussion Actions" {
+  usecase "View Detailed Analysis" as UC52
+  usecase "Download Transcript" as UC53
+  usecase "Return to Lobby" as UC54
+  usecase "Join Another Room" as UC55
+  usecase "Leave Room" as UC56
+  
+  Participant --> UC52
+  Participant --> UC53
+  Participant --> UC54
+  UC54 ..> UC55 : <<option>>
+  Participant --> UC56
+}
+
+package "Analytics & Progress" {
+  usecase "Track Session Statistics" as UC57
+  usecase "Monitor CEFR Trajectory" as UC58
+  usecase "View Historical Progress" as UC59
+  usecase "Export Session Data" as UC60
+  
+  AI --> UC57
+  User --> UC58
+  User --> UC59
+  User --> UC60
+}
+
+package "System Administration" {
+  usecase "Monitor Server Health" as UC61
+  usecase "View Real-time Metrics" as UC62
+  usecase "Handle Errors Gracefully" as UC63
+  usecase "Manage Database Backups" as UC64
+  
+  AI --> UC61
+  AI --> UC62
+  AI --> UC63
+  AI --> UC64
+}
+
+note right of AI
+  **AI Agent System includes:**
+  - AWS Strands Orchestrator
+  - EnglishFeedbackAgent
+  - DebateFacilitatorAgent
+  - AWS Bedrock (Claude 3)
+  - Gemini API (Development)
+  - AWS AgentCore Wrapper
+end note
+
+note bottom of UC34
+  **Instant Feedback (2-3s)**
+  - Private to speaker
+  - Grammar, Vocab, Fluency
+  - CEFR level
+  - Actionable suggestions
+end note
+
+note bottom of UC45
+  **Comprehensive Analysis**
+  - All statements analyzed
+  - Progress tracking
+  - Detailed recommendations
+  - Post-discussion summary
+end note
+
+note as MVPScope
+  **MVP Feature Priorities:**
+  
+  **Must-Have (Core Loop):**
+  ✓ Google OAuth login
+  ✓ Create/Join rooms
+  ✓ WebRTC audio streaming
+  ✓ Turn-based speaking (60s)
+  ✓ Speech-to-text transcription
+  ✓ Instant AI feedback (2-3s)
+  ✓ CEFR leveling
+  ✓ English Feedback Modal
+  ✓ Session summary
+  ✓ Basic persistence (SQLite)
+  
+  **Nice-to-Have (Post-MVP):**
+  ○ Room filtering by CEFR/topic
+  ○ Pronunciation scoring
+  ○ Video support
+  ○ Mobile app
+  ○ Advanced analytics dashboard
+  ○ Teacher/classroom mode
+  ○ Gamification (badges)
+  ○ Multi-language support
+  
+  **Technical Constraints:**
+  - Max 6 participants per room (MVP: 3)
+  - 60 seconds per speaking turn
+  - 3 rounds per session
+  - ~12 minutes total session time
+  - Instant feedback: 2-3 second target
+  - Private feedback (only speaker sees)
+end note
+
+@enduml
