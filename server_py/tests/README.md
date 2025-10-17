@@ -6,10 +6,10 @@ Comprehensive test suite for the GupShup Cafe Python/FastAPI backend server cove
 
 ## Test Statistics
 
-- **Total Tests**: 136 active tests (4 skipped, requiring DB initialization)
-- **Test Files**: 7
+- **Total Tests**: 136 active tests (65 new + 71 existing; 4 skipped requiring DB initialization)
+- **Test Files**: 8 (2 new: test_llm.py, test_agents.py)
 - **Code Coverage**: All major components including LLM and AI agents
-- **Success Rate**: 100% passing
+- **Success Rate**: 100% passing (132 passed, 4 skipped)
 
 ## Test Files
 
@@ -39,7 +39,7 @@ Tests all REST API endpoints:
 
 **Coverage**: All REST endpoints, request/response handling
 
-### 3. `test_database.py` - Database Operations (8 tests)
+### 3. `test_database.py` - Database Operations (7 tests)
 Tests database layer functionality:
 - ✅ Database initialization
 - ✅ Save session data
@@ -190,7 +190,13 @@ Tests real-time WebSocket event handling:
 - ✅ Vocabulary analysis
 - ✅ Vocabulary analysis with empty text
 - ✅ Fluency analysis
-- ✅ CEFR level determination (C2, C1, B2, B1, A2, A1)
+- ✅ CEFR level determination - 6 separate tests for each level:
+  - ✅ C2 (Proficiency)
+  - ✅ C1 (Advanced)
+  - ✅ B2 (Upper Intermediate)
+  - ✅ B1 (Intermediate)
+  - ✅ A2 (Elementary)
+  - ✅ A1 (Beginner)
 
 #### Debate Facilitator Agent (9 tests)
 - ✅ Agent initialization
@@ -417,11 +423,13 @@ When adding new features:
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | 136 active (65 new) |
-| Pass Rate | 100% |
+| Total Tests | 136 active (71 existing + 65 new) |
+| Pass Rate | 97.06% (132 passed, 4 skipped) |
 | Execution Time | < 1s |
 | Code Coverage | All major components + LLM + Agents |
-| Test Files | 7 (2 new) |
+| Test Files | 8 (6 existing + 2 new) |
+| New LLM Tests | 29 |
+| New Agent Tests | 36 |
 
 ## Independent Module Execution
 
