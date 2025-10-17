@@ -16,6 +16,7 @@ from src.api.routes import router as api_router
 from src.database.database import db
 from src.socket.socket_handlers import setup_socket_handlers
 from src.api.user_routes import router as user_router
+from src.api.session_routes import router as session_router
 # Load environment variables
 load_dotenv()
 
@@ -98,6 +99,7 @@ socket_app = socketio.ASGIApp(
 # Mount API routes
 app.include_router(api_router, prefix="/api")
 app.include_router(user_router,prefix="/users",tags=["User Management"])
+app.include_router(session_router, prefix="/sessions", tags=["Session Management"])
 
 @app.get("/")
 async def root():
