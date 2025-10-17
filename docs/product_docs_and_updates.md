@@ -25,6 +25,100 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-17 14:30 UTC] - AWS ECR & Fargate Deployment Infrastructure
+
+**Commit**: `Add Docker multi-stage build and AWS Fargate deployment scripts`  
+**Author**: GitHub Copilot  
+**Type**: Architecture | Deployment | Documentation
+
+**Changes**:
+- **Created Multi-Stage Dockerfile** for production deployment combining React frontend and Python backend
+  - Stage 1: Builds React app with Vite (Node.js 18 Alpine)
+  - Stage 2: Prepares Python dependencies (Python 3.11 slim)
+  - Stage 3: Final production image with frontend static files served by backend
+  - Includes health checks, non-root user, and optimized layer caching
+  
+- **AWS ECR Deployment Script** (`deploy-aws.sh`)
+  - Authenticates Docker to AWS ECR
+  - Creates ECR repository if not exists
+  - Builds, tags, and pushes Docker images
+  - Updates ECS task definition with new image
+  - Triggers rolling deployment on Fargate service
+  - Waits for service stabilization
+  
+- **AWS Fargate Initial Setup Script** (`setup-fargate.sh`)
+  - Creates ECS cluster and CloudWatch log groups
+  - Sets up IAM roles for task execution
+  - Creates security groups with proper port configurations
+  - Registers ECS task definition with resource limits
+  - Creates Fargate service with network configuration
+  - Configures health checks and logging
+  
+- **Comprehensive Deployment Guide** (`docs/AWS_DEPLOYMENT.md`)
+  - Prerequisites and architecture overview
+  - Step-by-step setup and deployment instructions
+  - Environment variable configuration
+  - Load balancer setup (optional)
+  - Auto-scaling configuration
+  - Monitoring and troubleshooting guides
+  - Cost optimization tips
+  - CI/CD integration examples
+  
+- **Docker Optimization**
+  - Created `.dockerignore` to reduce build context size
+  - Multi-stage build reduces final image size
+  - Frontend assets bundled and served from backend
+  - Single container deployment simplifies infrastructure
+
+**Technical Details**:
+- **Container Resources**: 0.5 vCPU, 1GB RAM (configurable)
+- **Networking**: awsvpc mode with public IP assignment
+- **Port**: Exposes 3003 for HTTP traffic
+- **Health Check**: `/api/health` endpoint with 30s interval
+- **Logging**: CloudWatch Logs with `/ecs/gupshup-cafe-task` group
+- **Security**: Runs as non-root user (UID 1000)
+
+**Architecture**:
+```
+React Frontend (Vite) → Static Build → Docker Image
+Python Backend (FastAPI) → Dependencies → Docker Image
+                                       ↓
+                               AWS ECR (Registry)
+                                       ↓
+                        AWS Fargate (Serverless Container)
+                                       ↓
+                          Application Load Balancer (Optional)
+```
+
+**Files Created**:
+- `Dockerfile` - Multi-stage production build
+- `.dockerignore` - Build optimization
+- `deploy-aws.sh` - ECR push and Fargate deployment script
+- `setup-fargate.sh` - Initial AWS infrastructure setup script
+- `docs/AWS_DEPLOYMENT.md` - Comprehensive deployment guide
+
+**Scripts Made Executable**:
+- `deploy-aws.sh`
+- `setup-fargate.sh`
+
+**Impact**:
+- Enables production deployment to AWS Fargate
+- Provides automated CI/CD-ready deployment pipeline
+- Reduces operational overhead with serverless containers
+- Improves scalability with auto-scaling support
+- Ensures consistent deployments across environments
+
+**Usage**:
+```bash
+# Initial setup (first time)
+AWS_ACCOUNT_ID=123456789012 VPC_ID=vpc-xxx SUBNET_IDS=subnet-xxx,subnet-yyy ./setup-fargate.sh
+
+# Deploy updates
+AWS_ACCOUNT_ID=123456789012 ./deploy-aws.sh
+```
+
+---
+
 ### [2025-10-16 19:20 UTC] - Critical Fix: Save auth data to session on connect
 
 **Commit**: `Save auth data to session on socket connect`  
