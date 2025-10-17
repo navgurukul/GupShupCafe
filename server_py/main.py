@@ -15,7 +15,7 @@ import sys
 from src.api.routes import router as api_router
 from src.database.database import db
 from src.socket.socket_handlers import setup_socket_handlers
-
+from src.api.user_routes import router as user_router
 # Load environment variables
 load_dotenv()
 
@@ -97,7 +97,7 @@ socket_app = socketio.ASGIApp(
 
 # Mount API routes
 app.include_router(api_router, prefix="/api")
-
+app.include_router(user_router,prefix="/users",tags=["User Management"])
 
 @app.get("/")
 async def root():
@@ -132,7 +132,7 @@ async def startup_event():
     try:
         # Initialize database
         print("🗄️ Initializing database...")
-        db_path = os.getenv("DATABASE_URL", "./data/roundtable.db")
+        db_path = os.getenv("DATABASE_URL", "./database/gupshup_database.db")
         await db.initialize(db_path)
         
         # Setup Socket.io handlers
