@@ -25,6 +25,230 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-17 07:30 UTC] - LLM and Agents Module Testing & Independent Execution
+
+**Commit**: `Add comprehensive tests and __main__ entry points for llm and agents modules`  
+**Author**: GitHub Copilot  
+**Type**: Testing | Feature | Documentation
+
+**Changes**:
+- **Created comprehensive test suite for LLM module** (`tests/test_llm.py`)
+  - 29 test cases covering LLMInterface, GeminiLLM, BedrockLLM, and AIServiceManager
+  - Tests for initialization, configuration, provider switching, and singleton pattern
+  - Mock-based tests for fast execution without external API dependencies
+  - Integration tests for cross-provider functionality
+  
+- **Created comprehensive test suite for Agents module** (`tests/test_agents.py`)
+  - 36 test cases covering EnglishFeedbackAgent, DebateFacilitatorAgent, and AWSStrandsOrchestrator
+  - Tests for CEFR level determination (all 6 levels: A1-C2)
+  - Tests for English analysis (grammar, vocabulary, fluency)
+  - Tests for discussion facilitation and orchestration
+  - Error handling and integration tests
+  
+- **Added independent execution capability to LLM module** (`src/llm/__main__.py`)
+  - Supports 5 modes: default, manager, gemini, bedrock, interactive
+  - Interactive mode allows real-time testing of LLM providers
+  - Commands for provider switching and English text analysis
+  - Comprehensive demonstrations of all LLM functionality
+  
+- **Added independent execution capability to Agents module** (`src/agents/__main__.py`)
+  - Supports 5 modes: default, english, facilitator, orchestrator, interactive
+  - Interactive mode for testing agents with natural commands
+  - Demonstrates English feedback, facilitation, and orchestration
+  - Real-time analysis and feedback generation
+  
+- **Created detailed documentation** (`docs/Miscellaneous/llm_and_agents_testing_guide.md`)
+  - Complete guide for running tests and using independent execution
+  - Environment variable configuration
+  - Interactive mode usage examples
+  - Architecture overview and test design patterns
+  - Integration with CI/CD guidelines
+
+**Files Modified**:
+- `server_py/tests/test_llm.py` (new, 11,923 chars)
+- `server_py/tests/test_agents.py` (new, 18,883 chars)
+- `server_py/src/llm/__main__.py` (new, 8,199 chars)
+- `server_py/src/agents/__main__.py` (new, 13,932 chars)
+- `docs/Miscellaneous/llm_and_agents_testing_guide.md` (new, 9,410 chars)
+
+**Testing Impact**:
+- Total test count increased from 71 to 136 tests (65 new tests)
+- All tests passing (132 passed, 4 skipped)
+- Test execution time: ~0.76 seconds
+- No breaking changes to existing functionality
+
+**Usage Examples**:
+```bash
+# Run new tests
+python -m pytest tests/test_llm.py tests/test_agents.py -v
+
+# Test LLM independently
+python -m src.llm interactive
+
+# Test Agents independently
+python -m src.agents orchestrator
+```
+
+---
+
+### [2025-10-17 14:30 UTC] - AWS ECR & Fargate Deployment Infrastructure
+
+**Commit**: `Add Docker multi-stage build and AWS Fargate deployment scripts`  
+**Author**: GitHub Copilot  
+**Type**: Architecture | Deployment | Documentation
+
+**Changes**:
+- **Created Multi-Stage Dockerfile** for production deployment combining React frontend and Python backend
+  - Stage 1: Builds React app with Vite (Node.js 18 Alpine)
+  - Stage 2: Prepares Python dependencies (Python 3.11 slim)
+  - Stage 3: Final production image with frontend static files served by backend
+  - Includes health checks, non-root user, and optimized layer caching
+  
+- **AWS ECR Deployment Script** (`deploy-aws.sh`)
+  - Authenticates Docker to AWS ECR
+  - Creates ECR repository if not exists
+  - Builds, tags, and pushes Docker images
+  - Updates ECS task definition with new image
+  - Triggers rolling deployment on Fargate service
+  - Waits for service stabilization
+  
+- **AWS Fargate Initial Setup Script** (`setup-fargate.sh`)
+  - Creates ECS cluster and CloudWatch log groups
+  - Sets up IAM roles for task execution
+  - Creates security groups with proper port configurations
+  - Registers ECS task definition with resource limits
+  - Creates Fargate service with network configuration
+  - Configures health checks and logging
+  
+- **Comprehensive Deployment Guide** (`docs/AWS_DEPLOYMENT.md`)
+  - Prerequisites and architecture overview
+  - Step-by-step setup and deployment instructions
+  - Environment variable configuration
+  - Load balancer setup (optional)
+  - Auto-scaling configuration
+  - Monitoring and troubleshooting guides
+  - Cost optimization tips
+  - CI/CD integration examples
+  
+- **Docker Optimization**
+  - Created `.dockerignore` to reduce build context size
+  - Multi-stage build reduces final image size
+  - Frontend assets bundled and served from backend
+  - Single container deployment simplifies infrastructure
+
+**Technical Details**:
+- **Container Resources**: 0.5 vCPU, 1GB RAM (configurable)
+- **Networking**: awsvpc mode with public IP assignment
+- **Port**: Exposes 3003 for HTTP traffic
+- **Health Check**: `/api/health` endpoint with 30s interval
+- **Logging**: CloudWatch Logs with `/ecs/gupshup-cafe-task` group
+- **Security**: Runs as non-root user (UID 1000)
+
+**Architecture**:
+```
+React Frontend (Vite) → Static Build → Docker Image
+Python Backend (FastAPI) → Dependencies → Docker Image
+                                       ↓
+                               AWS ECR (Registry)
+                                       ↓
+                        AWS Fargate (Serverless Container)
+                                       ↓
+                          Application Load Balancer (Optional)
+```
+
+**Files Created**:
+- `Dockerfile` - Multi-stage production build
+- `.dockerignore` - Build optimization
+- `deploy-aws.sh` - ECR push and Fargate deployment script
+- `setup-fargate.sh` - Initial AWS infrastructure setup script
+- `docs/AWS_DEPLOYMENT.md` - Comprehensive deployment guide
+
+**Scripts Made Executable**:
+- `deploy-aws.sh`
+- `setup-fargate.sh`
+
+**Impact**:
+- Enables production deployment to AWS Fargate
+- Provides automated CI/CD-ready deployment pipeline
+- Reduces operational overhead with serverless containers
+- Improves scalability with auto-scaling support
+- Ensures consistent deployments across environments
+
+**Usage**:
+```bash
+# Initial setup (first time)
+AWS_ACCOUNT_ID=123456789012 VPC_ID=vpc-xxx SUBNET_IDS=subnet-xxx,subnet-yyy ./setup-fargate.sh
+
+# Deploy updates
+AWS_ACCOUNT_ID=123456789012 ./deploy-aws.sh
+```
+
+---
+
+### [2025-10-16 19:20 UTC] - Critical Fix: Save auth data to session on connect
+
+**Commit**: `Save auth data to session on socket connect`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix (Critical)
+
+**Changes**:
+- **Fixed lobby page participants not showing** - The real root cause was that auth data from client connection was never saved to the session
+- Modified `connect` event handler in `socket_handlers.py` to save auth data using `sio.save_session()`
+- This ensures that when `join_room` is called, it can retrieve the user's authentication information
+
+**Root Cause Analysis**:
+1. Client sends auth data (`userId`, `name`, `campus`, `location`, `anonymousName`) during socket connection
+2. Server's `connect` handler received the auth data but never saved it to the session
+3. When `join_room` was called later, it tried to get the session with `await sio.get_session(sid)`
+4. Since auth data was never saved, the session was empty, causing the fallback logic to fail
+5. Result: User data was incomplete/invalid, preventing participant from being added to room
+
+**Fix**:
+```python
+@sio.event
+async def connect(sid, environ, auth):
+    """Handle client connection"""
+    print(f"[Backend] Socket connected: {sid}")
+    print(f"[Backend] Handshake auth: {auth}")
+    
+    # Save auth data to session so it can be retrieved in join_room
+    if auth:
+        await sio.save_session(sid, {'auth': auth})
+```
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Added session save in connect handler
+
+**Testing**:
+- All 67 tests pass (4 skipped)
+- Verified session data is now available in join_room handler
+
+### [2025-10-16 18:35 UTC] - Bugfix: Lobby Page Connection Issue
+
+**Commit**: `Fix user-ready event handler to work without data parameter`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix
+
+**Changes**:
+- **Fixed lobby page connection issue** where the page was stuck at 'Waiting' status and 'Connecting to lobby' state
+- Modified `user_ready` event handler in `socket_handlers.py` to handle cases where client emits the event without data
+- The handler now extracts user information from the room using socket ID instead of requiring it in the data parameter
+- Maintains backward compatibility with clients that do send data
+- Added comprehensive test coverage for the user_ready event handler
+
+**Root Cause**:
+- Client's `SocketContext.jsx` emits `'user-ready'` event without any data (line 137)
+- Python backend's `user_ready` handler expected `data.get("userId")` which would fail when data is None
+- This prevented users from being marked as ready, blocking the lobby from proceeding
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Fixed user_ready handler to accept optional data parameter
+- `server_py/tests/test_socket_handlers.py` - Added 5 new test cases for user_ready event
+
+**Testing**:
+- All 67 tests pass (including 5 new tests for socket handlers)
+- Tested scenarios: no data, with data, setting ready to false, no room found, discussion start trigger
+
 ### [2025-10-16 17:40 UTC] - Frontend-Backend Integration: Socket Event Handlers & Timer Management
 
 **Commit**: `Add timer management system for turn-based discussions`  

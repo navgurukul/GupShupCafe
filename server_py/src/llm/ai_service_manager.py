@@ -37,7 +37,7 @@ class AIServiceManager:
         provider = provider.lower()
         
         if provider == "gemini":
-            api_key = self.config.get("gemini_api_key") or os.getenv("GOOGLE_API_KEY")
+            api_key = self.config.get("gemini_api_key") or os.getenv("GEMINI_API_KEY")
             self._llm = GeminiLLM(api_key=api_key)
             print(f"✅ Initialized Gemini LLM provider")
             

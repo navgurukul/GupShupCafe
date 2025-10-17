@@ -19,10 +19,17 @@
     "start:node": "cd server && npm start",
     "install:node:all": "npm install && cd client && npm install && cd ../server && npm install"
   },
-  "keywords": ["ai", "roundtable", "discussion", "education", "websocket", "webrtc"],
+  "keywords": [
+    "ai",
+    "roundtable",
+    "discussion",
+    "education",
+    "websocket",
+    "webrtc"
+  ],
   "author": "Educational Project",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
-  }
+    }
 }

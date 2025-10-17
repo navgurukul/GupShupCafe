@@ -1,0 +1,66 @@
+# Node modules
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment files (these should be injected at runtime)
+.env
+.env.*
+!.env.example
+client/.env
+server_py/.env
+
+# Git
+.git/
+.gitignore
+
+# Build outputs
+client/dist/
+client/build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test files
+**/*.test.js
+**/*.test.jsx
+**/*.test.ts
+**/*.test.tsx
+client/src/tests/
+server_py/tests/
+coverage/
+
+# Database files (should be in volumes)
+*.db
+*.sqlite
+*.sqlite3
+server_py/data/*.db
+
+# Misc
+setup.sh
+setup.bat
+audio-test.html

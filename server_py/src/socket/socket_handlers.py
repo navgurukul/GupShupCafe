@@ -30,6 +30,10 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         """Handle client connection"""
         print(f"[Backend] Socket connected: {sid}")
         print(f"[Backend] Handshake auth: {auth}")
+        
+        # Save auth data to session so it can be retrieved in join_room
+        if auth:
+            await sio.save_session(sid, {'auth': auth})
     
     @sio.event
     async def disconnect(sid):
@@ -162,12 +166,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             traceback.print_exc()
     
     @sio.event
-    async def user_ready(sid, data):
+    async def user_ready(sid, data=None):
         """Handle user ready status"""
         try:
-            user_id = data.get("userId")
-            is_ready = data.get("isReady", True)
-            
             # Find room for this socket
             rooms = sio.rooms(sid)
             room_id = None
@@ -177,10 +178,26 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     break
             
             if not room_id:
+                print(f"[Backend] No room found for user-ready from {sid}")
                 return
             
-            # Update user ready status
-            room_manager.update_user(room_id, user_id, {"isReady": is_ready})
+            # Get user from room by socket ID
+            room = room_manager.get_room(room_id)
+            user = room.get_participant_by_socket(sid)
+            
+            if not user:
+                print(f"[Backend] No user found for socket {sid} in room {room_id}")
+                return
+            
+            # Get ready status from data or default to True
+            is_ready = True
+            if data and isinstance(data, dict):
+                is_ready = data.get("isReady", True)
+            
+            # Update user ready status using the participant from room
+            room_manager.update_user(room_id, user.id, {"isReady": is_ready})
+            
+            print(f"[Backend] {user.anonymous_name} marked as ready in room {room_id}")
             
             # Get updated participants
             participants = room_manager.get_room_participants(room_id)
@@ -193,6 +210,8 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
         except Exception as e:
             print(f"Error in user-ready: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     @sio.event
     async def change_role(sid, data):

@@ -6,10 +6,10 @@ Comprehensive test suite for the GupShup Cafe Python/FastAPI backend server cove
 
 ## Test Statistics
 
-- **Total Tests**: 66 active tests (4 skipped, requiring DB initialization)
-- **Test Files**: 5
-- **Code Coverage**: All major components
-- **Success Rate**: 100% passing
+- **Total Tests**: 136 active tests (65 new + 71 existing; 4 skipped requiring DB initialization)
+- **Test Files**: 8 (2 new: test_llm.py, test_agents.py)
+- **Code Coverage**: All major components including LLM and AI agents
+- **Success Rate**: 100% passing (132 passed, 4 skipped)
 
 ## Test Files
 
@@ -39,7 +39,7 @@ Tests all REST API endpoints:
 
 **Coverage**: All REST endpoints, request/response handling
 
-### 3. `test_database.py` - Database Operations (8 tests)
+### 3. `test_database.py` - Database Operations (7 tests)
 Tests database layer functionality:
 - ✅ Database initialization
 - ✅ Save session data
@@ -125,6 +125,110 @@ Note: These tests require database initialization and are marked as skipped:
 
 **Coverage**: End-to-end workflows, edge cases, error handling
 
+### 6. `test_socket_handlers.py` - Socket.io Event Handlers (5 tests)
+Tests real-time WebSocket event handling:
+- ✅ User ready without data
+- ✅ User ready with data
+- ✅ User ready with false status
+- ✅ User ready when room not found
+- ✅ User ready triggers discussion start
+
+**Coverage**: Socket.io events, WebSocket communication
+
+### 7. `test_llm.py` - LLM Module (29 tests)
+**NEW**: Comprehensive tests for Language Model providers:
+
+#### LLM Interface (2 tests)
+- ✅ Cannot instantiate abstract class
+- ✅ Interface methods exist
+
+#### Gemini LLM (9 tests)
+- ✅ Initialization with API key
+- ✅ Initialization from environment
+- ✅ Initialization without API key
+- ✅ Basic chat functionality
+- ✅ Chat with custom parameters
+- ✅ English analysis
+- ✅ English analysis with context
+
+#### Bedrock LLM (7 tests)
+- ✅ Initialization with parameters
+- ✅ Initialization with defaults
+- ✅ Initialization from environment
+- ✅ Basic chat functionality
+- ✅ Chat with custom parameters
+- ✅ English analysis
+- ✅ English analysis with context
+
+#### AI Service Manager (10 tests)
+- ✅ Initialization with default provider
+- ✅ Initialization with custom config
+- ✅ Get LLM instance
+- ✅ Switch provider to Bedrock
+- ✅ Switch provider to Gemini
+- ✅ Unknown provider fallback
+- ✅ Multiple calls return same instance
+- ✅ Get current provider
+- ✅ Singleton pattern
+- ✅ Initialization with Gemini API key
+
+#### LLM Integration (3 tests)
+- ✅ Manager can use Gemini LLM
+- ✅ Manager can use Bedrock LLM
+- ✅ Analyze English across providers
+
+**Coverage**: LLM providers, factory pattern, provider switching, English analysis
+
+### 8. `test_agents.py` - AI Agents Module (36 tests)
+**NEW**: Comprehensive tests for AI agent functionality:
+
+#### English Feedback Agent (13 tests)
+- ✅ Agent initialization
+- ✅ Basic analysis
+- ✅ Analysis with context
+- ✅ Grammar analysis
+- ✅ Vocabulary analysis
+- ✅ Vocabulary analysis with empty text
+- ✅ Fluency analysis
+- ✅ CEFR level determination - 6 separate tests for each level:
+  - ✅ C2 (Proficiency)
+  - ✅ C1 (Advanced)
+  - ✅ B2 (Upper Intermediate)
+  - ✅ B1 (Intermediate)
+  - ✅ A2 (Elementary)
+  - ✅ A1 (Beginner)
+
+#### Debate Facilitator Agent (9 tests)
+- ✅ Agent initialization
+- ✅ Facilitate turn basic
+- ✅ Facilitate turn without speaker name
+- ✅ Facilitate turn with default topic
+- ✅ Suggest topic direction with empty statements
+- ✅ Suggest topic direction with statements
+- ✅ Moderate discussion
+- ✅ Generate speaking prompt
+- ✅ Generate speaking prompt with custom parameters
+
+#### AWS Strands Orchestrator (10 tests)
+- ✅ Orchestrator initialization
+- ✅ Get instant English feedback
+- ✅ Get comprehensive English feedback
+- ✅ Handle empty statements
+- ✅ Combine multiple statements
+- ✅ Include facilitation suggestion
+- ✅ Format feedback message
+- ✅ Format feedback message without suggestions
+- ✅ Format gentle mention
+- ✅ Use both agents
+
+#### Agents Integration (4 tests)
+- ✅ English agent with real LLM
+- ✅ Facilitator agent with real LLM
+- ✅ Orchestrator full workflow
+- ✅ Agent error handling
+
+**Coverage**: English feedback, CEFR analysis, debate facilitation, multi-agent orchestration
+
 ## Running Tests
 
 ### Run All Tests
@@ -136,6 +240,13 @@ pytest tests/ -v
 ### Run Specific Test File
 ```bash
 pytest tests/test_regression_core.py -v
+pytest tests/test_llm.py -v
+pytest tests/test_agents.py -v
+```
+
+### Run LLM and Agents Tests Only
+```bash
+pytest tests/test_llm.py tests/test_agents.py -v
 ```
 
 ### Run Specific Test Class
@@ -188,6 +299,20 @@ Tests are organized by functionality:
 - Topic generation with HuggingFace
 - Fallback topic system
 - Category-based selection
+
+✅ **LLM Providers**
+- Gemini LLM (Google)
+- Bedrock LLM (AWS)
+- AI Service Manager factory
+- Provider switching
+- English language analysis
+
+✅ **AI Agents**
+- English Feedback Agent
+- Debate Facilitator Agent
+- AWS Strands Orchestrator
+- CEFR level analysis (A1-C2)
+- Multi-agent orchestration
 
 ✅ **Database Operations**
 - Session tracking
@@ -298,17 +423,55 @@ When adding new features:
 
 | Metric | Value |
 |--------|-------|
-| Total Tests | 66 active |
-| Pass Rate | 100% |
+| Total Tests | 136 active (71 existing + 65 new) |
+| Pass Rate | 97.06% (132 passed, 4 skipped) |
 | Execution Time | < 1s |
-| Code Coverage | All major components |
-| Test Files | 5 |
+| Code Coverage | All major components + LLM + Agents |
+| Test Files | 8 (6 existing + 2 new) |
+| New LLM Tests | 29 |
+| New Agent Tests | 36 |
+
+## Independent Module Execution
+
+Both LLM and Agents modules can be run independently for testing and demonstration:
+
+### LLM Module
+```bash
+# Run all demos
+python -m src.llm
+
+# Interactive mode
+python -m src.llm interactive
+
+# Specific demos
+python -m src.llm manager
+python -m src.llm gemini
+python -m src.llm bedrock
+```
+
+### Agents Module
+```bash
+# Run all demos
+python -m src.agents
+
+# Interactive mode
+python -m src.agents interactive
+
+# Specific demos
+python -m src.agents english
+python -m src.agents facilitator
+python -m src.agents orchestrator
+```
+
+See [LLM and Agents Testing Guide](../../docs/Miscellaneous/llm_and_agents_testing_guide.md) for detailed documentation.
 
 ## Future Enhancements
 
-- [ ] Add WebSocket event tests
+- [x] Add LLM provider tests
+- [x] Add AI agent tests
 - [ ] Add performance/load tests
 - [ ] Add security tests
 - [ ] Increase code coverage to 90%+
 - [ ] Add mutation testing
 - [ ] Add contract tests for API
+- [ ] Add real API integration tests for LLM providers

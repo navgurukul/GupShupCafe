@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@vercel/speed-insights": "^1.2.0",
+    "@zoe-ng/stt": "^0.1.8",
+    "@zoe-ng/tts": "0.1.8",
     "clsx": "^2.0.0",
     "lucide-react": "^0.268.0",
     "react": "^18.2.0",
