@@ -1,32 +1,41 @@
 """
 AWS Strands Orchestrator
 Coordinates multiple AI agents for comprehensive feedback
+Integrates Strands Agent framework with multi-agent coordination
 """
 
 from typing import Dict, Any, List, Optional
 from .english_feedback_agent import EnglishFeedbackAgent
 from .debate_facilitator_agent import DebateFacilitatorAgent
-from ..llm.ai_service_manager import AIServiceManager
+from ..llm.strands_model_adapter import StrandsModelAdapter
 
 
 class AWSStrandsOrchestrator:
-    """Orchestrates multiple AI agents using AWS Strands pattern"""
+    """
+    Orchestrates multiple AI agents using Strands framework
+    Provides unified interface for agent coordination
+    """
     
-    def __init__(self, ai_service_manager: AIServiceManager):
+    def __init__(self, model_provider: Optional[str] = None):
         """
-        Initialize AWS Strands Orchestrator
+        Initialize AWS Strands Orchestrator with Strands Agent framework
         
         Args:
-            ai_service_manager: AI Service Manager instance
+            model_provider: LLM provider ('gemini' or 'bedrock'). 
+                          Defaults to env var LLM_PROVIDER or 'gemini'
         """
-        self.ai_service_manager = ai_service_manager
-        llm = ai_service_manager.get_llm()
+        # Create Strands model based on environment configuration
+        self.model = StrandsModelAdapter.create_model(provider=model_provider)
         
-        # Initialize agents
-        self.english_agent = EnglishFeedbackAgent(llm)
-        self.facilitator_agent = DebateFacilitatorAgent(llm)
+        # Initialize agents with the shared model
+        self.english_agent = EnglishFeedbackAgent(self.model)
+        self.facilitator_agent = DebateFacilitatorAgent(self.model)
         
-        print("✅ Initialized AWSStrandsOrchestrator with multiple agents")
+        self.model_provider = StrandsModelAdapter.get_current_provider()
+        
+        print(f"✅ Initialized AWSStrandsOrchestrator with {self.model_provider} model")
+        print(f"   ├─ EnglishFeedbackAgent ready")
+        print(f"   └─ DebateFacilitatorAgent ready")
     
     async def get_english_feedback(
         self,
@@ -82,12 +91,7 @@ class AWSStrandsOrchestrator:
         return {
             "type": "instant",
             "message": message,
-            "cefr_level": analysis.get("cefr_level", "B1"),
-            "scores": {
-                "grammar": analysis.get("grammar_score", 0.0),
-                "vocabulary": analysis.get("vocabulary_score", 0.0),
-                "fluency": analysis.get("fluency_score", 0.0)
-            }
+            "cefr_level": analysis.get("cefr_level", "")
         }
     
     async def _comprehensive_feedback(
@@ -135,7 +139,7 @@ class AWSStrandsOrchestrator:
         Returns:
             Formatted message
         """
-        cefr = result.get("cefr_level", "B1")
+        cefr = result.get("cefr_level", "")
         suggestions = result.get("suggestions", [])
         
         message_parts = [f"Your English level: {cefr}"]
@@ -158,5 +162,5 @@ class AWSStrandsOrchestrator:
         Returns:
             Gentle mention message
         """
-        cefr = result.get("cefr_level", "B1")
+        cefr = result.get("cefr_level", "")
         return f"Great contribution, {speaker}! Keep practicing at your {cefr} level."

@@ -28,7 +28,7 @@ class BedrockLLM(LLMInterface):
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: int = 1000
+        max_output_tokens: int = 500
     ) -> Dict[str, Any]:
         """
         Send chat messages to Bedrock
@@ -36,7 +36,7 @@ class BedrockLLM(LLMInterface):
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature
-            max_tokens: Maximum tokens in response
+            max_output_tokens: Maximum tokens in response
             
         Returns:
             Dict with response content

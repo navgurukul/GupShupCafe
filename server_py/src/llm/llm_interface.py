@@ -15,7 +15,7 @@ class LLMInterface(ABC):
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        max_tokens: int = 1000
+        max_output_tokens: int = 500
     ) -> Dict[str, Any]:
         """
         Send chat messages to LLM and get response
@@ -23,7 +23,7 @@ class LLMInterface(ABC):
         Args:
             messages: List of message dicts with 'role' and 'content'
             temperature: Sampling temperature (0.0 to 1.0)
-            max_tokens: Maximum tokens in response
+            max_output_tokens: Maximum tokens in response
             
         Returns:
             Dict with 'content' and other response metadata

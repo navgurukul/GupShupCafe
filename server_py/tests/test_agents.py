@@ -193,10 +193,11 @@ class TestDebateFacilitatorAgent:
     
     def test_initialization(self, mock_llm):
         """Test agent initialization"""
-        agent = DebateFacilitatorAgent(mock_llm)
+        facilitator_agent = DebateFacilitatorAgent(mock_llm)
         
-        assert agent.llm_provider is not None
-        assert agent.llm_provider == mock_llm
+        assert facilitator_agent.model is not None
+        assert facilitator_agent.model == mock_llm
+        assert facilitator_agent.agent is not None
     
     @pytest.mark.asyncio
     async def test_facilitate_turn_basic(self, mock_llm):

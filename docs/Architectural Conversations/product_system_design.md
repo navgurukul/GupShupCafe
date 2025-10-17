@@ -726,7 +726,7 @@ class LLMInterface(ABC):
         self, 
         messages: List[Dict[str, str]], 
         temperature: float = 0.7,
-        max_tokens: int = 500
+        max_output_tokens: int = 500
     ) -> dict:
         """
         Generate chat completion.
@@ -739,7 +739,7 @@ class LLMInterface(ABC):
                     {"role": "assistant", "content": "Hi there!"}
                 ]
             temperature: Sampling temperature (0.0-1.0)
-            max_tokens: Maximum tokens to generate
+            max_output_tokens: Maximum tokens to generate
             
         Returns:
             {
