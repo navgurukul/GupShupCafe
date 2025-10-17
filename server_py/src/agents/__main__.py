@@ -12,6 +12,7 @@ from typing import List, Dict
 from .english_feedback_agent import EnglishFeedbackAgent
 from .debate_facilitator_agent import DebateFacilitatorAgent
 from .aws_strands_orchestrator import AWSStrandsOrchestrator
+from .agentcore import AgentCore
 from ..llm.ai_service_manager import AIServiceManager
 
 
@@ -55,17 +56,14 @@ async def demonstrate_english_feedback_agent():
     
     print(f"\nText: {text}")
     print("\nGrammar Analysis:")
-    print(f"  Score: {grammar['score']}")
-    print(f"  Suggestions: {', '.join(grammar['suggestions'])}")
+    print(f"  {grammar}")
     
     print("\nVocabulary Analysis:")
-    print(f"  Score: {vocabulary['score']:.2f}")
-    print(f"  Word count: {vocabulary['word_count']}")
-    print(f"  Unique words: {vocabulary['unique_words']}")
+    print(f"  {vocabulary}")
+
     
     print("\nFluency Analysis:")
-    print(f"  Score: {fluency['score']}")
-    print(f"  Sentence count: {fluency['sentence_count']}")
+    print(f"  {fluency}")
     
     # Test CEFR level determination
     print("\n\n🔍 Test 3: CEFR level determination")
@@ -157,7 +155,7 @@ async def demonstrate_orchestrator():
     
     # Initialize
     manager = AIServiceManager()
-    orchestrator = AWSStrandsOrchestrator(manager)
+    orchestrator = AWSStrandsOrchestrator(manager.get_current_provider())
     
     # Test instant feedback
     print("\n🔍 Test 1: Instant English feedback")
@@ -228,6 +226,52 @@ async def demonstrate_orchestrator():
         message = orchestrator._format_feedback_message(result)
         print(f"\n  Level: {result['cefr_level']}")
         print(f"  Message: {message.replace(chr(10), chr(10) + '           ')}")
+
+
+async def demonstrate_agentcore():
+    """Demonstrate AgentCore functionality (production orchestrator)"""
+    print("\n" + "="*60)
+    print("🤖 Demonstrating AgentCore Orchestrator")
+    print("="*60)
+
+    # Initialize AgentCore with default provider 
+    agentcore = AgentCore()
+
+    # Test unified analysis and facilitation
+    statements = [
+        "Renewable energy is essential for a sustainable future.",
+        "Solar and wind power can reduce our dependence on fossil fuels.",
+        "Governments should invest more in green technologies."
+    ]
+    context = {"speaker": "student-3", "topic": "renewable energy"}
+    print("\n🔍 Test 1: Unified analysis and facilitation")
+    result = await agentcore.analyze_and_facilitate(
+        statements=statements,
+        context=context,
+        instant=False,
+        speaker="student-3"
+    )
+    print(f"\nStatements analyzed:")
+    for i, stmt in enumerate(statements, 1):
+        print(f"  {i}. {stmt}")
+    print(f"\nAnalysis: {result['analysis']}")
+    print(f"\nFacilitation Suggestion: {result['facilitation_suggestion']}")
+    print(f"\nFeedback Message: {result['feedback_message']}")
+    print(f"\nGentle Mention: {result['gentle_mention']}")
+    print(f"\nModel Provider: {result['model_provider']}")
+
+    # Test instant feedback
+    print("\n🔍 Test 2: Instant feedback mode")
+    instant_result = await agentcore.analyze_and_facilitate(
+        statements=["I want to improve my English skills."],
+        context={"speaker": "student-4", "topic": "language learning"},
+        instant=True,
+        speaker="student-4"
+    )
+    print(f"\nAnalysis: {instant_result['analysis']}")
+    print(f"\nFeedback Message: {instant_result['feedback_message']}")
+    print(f"\nGentle Mention: {instant_result['gentle_mention']}")
+    print(f"\nModel Provider: {instant_result['model_provider']}")
 
 
 async def interactive_mode():
@@ -342,6 +386,8 @@ async def main():
             await demonstrate_debate_facilitator_agent()
         elif mode == 'orchestrator':
             await demonstrate_orchestrator()
+        elif mode == 'agentcore':
+            await demonstrate_agentcore()
         elif mode == 'interactive':
             await interactive_mode()
         else:
@@ -350,6 +396,7 @@ async def main():
             print("  english      - Demonstrate English Feedback Agent")
             print("  facilitator  - Demonstrate Debate Facilitator Agent")
             print("  orchestrator - Demonstrate AWS Strands Orchestrator")
+            print("  agentcore    - Demonstrate AgentCore Orchestrator (production)")
             print("  interactive  - Interactive testing mode")
             print("\nUsage: python -m src.agents [mode]")
             sys.exit(1)
@@ -360,12 +407,13 @@ async def main():
         await demonstrate_english_feedback_agent()
         await demonstrate_debate_facilitator_agent()
         await demonstrate_orchestrator()
+        await demonstrate_agentcore()
         
         print("\n" + "="*60)
         print("✅ All demonstrations completed!")
         print("="*60)
         print("\nTip: Run 'python -m src.agents interactive' for interactive testing")
-        print("     or 'python -m src.agents [english|facilitator|orchestrator]' for specific demos")
+        print("     or 'python -m src.agents [english|facilitator|orchestrator|agentcore]' for specific demos")
 
 
 if __name__ == "__main__":

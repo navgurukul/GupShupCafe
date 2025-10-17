@@ -25,6 +25,91 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-17 18:45 UTC] - Strands Agent Framework Integration with Pluggable LLM Architecture
+
+**Commit**: `Integrate Strands SDK and Bedrock AgentCore for agent-based architecture with model flexibility`  
+**Author**: GitHub Copilot + Vinit Gore  
+**Type**: Architecture | Feature | Refactor
+
+**Changes**:
+- **Integrated Strands Agent Framework** as the core agent runtime
+  - Replaced custom LLM interface with Strands Agent framework
+  - Agents now use Strands' built-in tool system and conversation management
+  - Leverages Strands' multi-model support (Gemini, Bedrock, OpenAI, etc.)
+  
+- **Created StrandsModelAdapter layer** (`server_py/src/llm/strands_model_adapter.py`)
+  - Unified interface for creating Strands-compatible models
+  - Supports switching between Gemini and Bedrock via environment variable `LLM_PROVIDER`
+  - Centralized model configuration (temperature, max_tokens, etc.)
+  - Plug-and-play architecture: change provider by setting `LLM_PROVIDER=bedrock` or `LLM_PROVIDER=gemini`
+
+- **Refactored EnglishFeedbackAgent to use Strands** (`server_py/src/agents/english_feedback_agent.py`)
+  - Now extends Strands Agent with custom system prompt
+  - **CEFR assessment delegated entirely to LLM via prompts**
+  - Key principle: "Descriptiveness and depth of information increase from A1 to C2"
+  - Removed manual CEFR calculation logic - agent determines level based on content depth
+  - Parses JSON responses from LLM or falls back to text extraction
+  - Provides grammar, vocabulary, and fluency scores from LLM analysis
+
+- **Refactored DebateFacilitatorAgent to use Strands** (`server_py/src/agents/debate_facilitator_agent.py`)
+  - Built on Strands Agent framework for discussion facilitation
+  - Methods for turn facilitation, topic direction, moderation, and summarization
+  - Context-aware prompts that consider previous statements and discussion flow
+  - Encouragement and support messaging for participants
+
+- **Updated AWSStrandsOrchestrator** (`server_py/src/agents/aws_strands_orchestrator.py`)
+  - Simplified initialization using StrandsModelAdapter
+  - Creates single shared model instance for all agents
+  - Multi-agent coordination with unified interface
+  - No longer depends on custom AIServiceManager implementation
+
+- **Enhanced AIServiceManager for backward compatibility** (`server_py/src/llm/ai_service_manager.py`)
+  - Now uses StrandsModelAdapter internally
+  - Maintains backward compatibility with existing code
+  - Singleton pattern preserved
+  - Returns Strands Model instances instead of custom LLMInterface
+
+- **Added Strands and Bedrock AgentCore dependencies** (`server_py/requirements.txt`)
+  - `strands-agents>=0.1.0` - Core Strands agent framework
+  - `bedrock-agentcore[strands-agents]>=0.1.0` - AWS Bedrock AgentCore integration
+
+**Architecture Benefits**:
+- **Model Flexibility**: Switch between Gemini and Bedrock by changing one environment variable
+- **Professional Agent Framework**: Leverage Strands' production-ready agent runtime
+- **Better LLM Integration**: Direct use of Strands' multi-model support
+- **Simplified Code**: Removed custom LLM interface abstractions
+- **Future-Proof**: Easy to add new model providers supported by Strands (OpenAI, Anthropic, etc.)
+- **CEFR Assessment**: LLM now determines CEFR level based on content depth and descriptiveness
+
+**Environment Configuration**:
+```bash
+# Switch to Gemini (default)
+export LLM_PROVIDER=gemini
+export GEMINI_API_KEY=your_key_here
+
+# Switch to Bedrock
+export LLM_PROVIDER=bedrock
+export AWS_REGION=us-east-1
+export BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
+```
+
+**Files Modified**:
+- `server_py/requirements.txt` - Added Strands and Bedrock AgentCore dependencies
+- `server_py/src/llm/strands_model_adapter.py` - NEW: Model adapter layer
+- `server_py/src/agents/english_feedback_agent.py` - Refactored to use Strands Agent
+- `server_py/src/agents/debate_facilitator_agent.py` - Refactored to use Strands Agent  
+- `server_py/src/agents/aws_strands_orchestrator.py` - Simplified with Strands integration
+- `server_py/src/llm/ai_service_manager.py` - Updated for Strands compatibility
+- `docs/product_docs_and_updates.md` - This documentation
+
+**Migration Notes**:
+- Existing code using `AIServiceManager.get_llm()` will continue to work
+- Old `LLMInterface` methods (chat, analyze_english) are deprecated but functional
+- New code should use Strands Agent instances directly via `get_model()`
+- CEFR level determination now happens in agent prompts, not in code logic
+
+---
+
 ### [2025-10-17 07:30 UTC] - LLM and Agents Module Testing & Independent Execution
 
 **Commit**: `Add comprehensive tests and __main__ entry points for llm and agents modules`  
