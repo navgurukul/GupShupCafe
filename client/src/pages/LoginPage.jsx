@@ -1,24 +1,22 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, MessageSquare, Brain } from 'lucide-react'
+import { Mail, Lock, MessageSquare, Eye, EyeOff } from 'lucide-react'
 
 /**
  * Login Page Component
- * Handles user authentication with ID, basic details, and anonymous name selection
+ * Handles user authentication with email and password
  */
 function LoginPage() {
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
   
   const [formData, setFormData] = useState({
-    id: '',
-    name: '',
-    campus: '',
-    location: '',
-    anonymousName: ''
+    email: '',
+    password: ''
   })
   
+  const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -54,28 +52,16 @@ function LoginPage() {
   const validateForm = () => {
     const newErrors = {}
     
-    if (!formData.id.trim()) {
-      newErrors.id = 'User ID is required'
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
     }
     
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    }
-    
-    if (!formData.campus.trim()) {
-      newErrors.campus = 'Campus is required'
-    }
-    
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required'
-    }
-    
-    if (!formData.anonymousName.trim()) {
-      newErrors.anonymousName = 'Anonymous display name is required'
-    } else if (formData.anonymousName.length < 2) {
-      newErrors.anonymousName = 'Anonymous name must be at least 2 characters'
-    } else if (formData.anonymousName.length > 20) {
-      newErrors.anonymousName = 'Anonymous name must be less than 20 characters'
+    if (!formData.password.trim()) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
     }
     
     return newErrors
@@ -97,21 +83,18 @@ function LoginPage() {
     }
     
     try {
-      // Extract user data and anonymous name
-      const { anonymousName, ...userData } = formData
+      // Simulate API call - replace with actual authentication
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // Generate device-specific unique ID to prevent conflicts across devices
-      const deviceId = localStorage.getItem('device-id') || 
-        Math.random().toString(36).substring(2) + Date.now().toString(36)
-      localStorage.setItem('device-id', deviceId)
-      
-      const uniqueUserData = {
-        ...userData,
-        id: `${userData.id}-${deviceId}` // Make ID unique per device
+      // For demo purposes, accept any valid email/password combination
+      const userData = {
+        email: formData.email,
+        name: formData.email.split('@')[0], // Use email prefix as name
+        id: Date.now().toString()
       }
       
       // Login with the provided data
-      login(uniqueUserData, anonymousName)
+      login(userData)
       
       // Navigate to lobby
       navigate('/lobby')
@@ -123,166 +106,73 @@ function LoginPage() {
     }
   }
 
-  /**
-   * Generate random anonymous name suggestions
-   */
-  const getRandomSuggestions = () => {
-    const adjectives = ['Curious', 'Thoughtful', 'Wise', 'Creative', 'Insightful', 'Brilliant', 'Analytical', 'Innovative']
-    const nouns = ['Thinker', 'Explorer', 'Scholar', 'Philosopher', 'Researcher', 'Learner', 'Discussant', 'Mind']
-    
-    return Array.from({ length: 3 }, () => {
-      const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
-      const noun = nouns[Math.floor(Math.random() * nouns.length)]
-      return `${adj}${noun}`
-    })
-  }
-
-  const suggestions = React.useMemo(() => getRandomSuggestions(), [])
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-primary-600 rounded-full">
+            <div className="p-3 bg-blue-600 rounded-full">
               <MessageSquare className="w-8 h-8 text-white" />
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">AI Roundtable Discussion</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
           <p className="mt-2 text-gray-600">
-            Join intelligent conversations with AI-powered topics
+            Sign in to join discussions
           </p>
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-3 gap-4 text-center text-sm">
-          <div className="p-3 bg-white rounded-lg shadow-sm">
-            <Users className="w-6 h-6 text-primary-600 mx-auto mb-1" />
-            <span className="text-gray-700">Anonymous</span>
-          </div>
-          <div className="p-3 bg-white rounded-lg shadow-sm">
-            <Brain className="w-6 h-6 text-primary-600 mx-auto mb-1" />
-            <span className="text-gray-700">AI Topics</span>
-          </div>
-          <div className="p-3 bg-white rounded-lg shadow-sm">
-            <MessageSquare className="w-6 h-6 text-primary-600 mx-auto mb-1" />
-            <span className="text-gray-700">Real-time</span>
-          </div>
-        </div>
-
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-lg">
-          {/* User ID */}
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-lg">
+          {/* Email */}
           <div>
-            <label htmlFor="id" className="block text-sm font-medium text-gray-700">
-              User ID
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email Address
             </label>
-            <input
-              id="id"
-              name="id"
-              type="text"
-              required
-              value={formData.id}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                         focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your unique ID"
-            />
-            {errors.id && <p className="mt-1 text-sm text-red-600">{errors.id}</p>}
-          </div>
-
-          {/* Name */}
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              value={formData.name}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                         focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your full name"
-            />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-          </div>
-
-          {/* Campus */}
-          <div>
-            <label htmlFor="campus" className="block text-sm font-medium text-gray-700">
-              Campus
-            </label>
-            <input
-              id="campus"
-              name="campus"
-              type="text"
-              required
-              value={formData.campus}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                         focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your campus name"
-            />
-            {errors.campus && <p className="mt-1 text-sm text-red-600">{errors.campus}</p>}
-          </div>
-
-          {/* Location */}
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Location
-            </label>
-            <input
-              id="location"
-              name="location"
-              type="text"
-              required
-              value={formData.location}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                         focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Enter your location"
-            />
-            {errors.location && <p className="mt-1 text-sm text-red-600">{errors.location}</p>}
-          </div>
-
-          {/* Anonymous Name */}
-          <div>
-            <label htmlFor="anonymousName" className="block text-sm font-medium text-gray-700">
-              Anonymous Display Name
-            </label>
-            <input
-              id="anonymousName"
-              name="anonymousName"
-              type="text"
-              required
-              value={formData.anonymousName}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                         focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Choose your anonymous name"
-            />
-            {errors.anonymousName && <p className="mt-1 text-sm text-red-600">{errors.anonymousName}</p>}
-            
-            {/* Suggestions */}
-            <div className="mt-2">
-              <p className="text-xs text-gray-500 mb-1">Suggestions:</p>
-              <div className="flex flex-wrap gap-1">
-                {suggestions.map((suggestion, idx) => (
-                  <button
-                    key={suggestion + '-' + idx}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, anonymousName: suggestion }))}
-                    className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+            <div className="mt-1 relative">
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md shadow-sm 
+                           focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your email"
+              />
+              <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
             </div>
+            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+          </div>
+
+          {/* Password */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <div className="mt-1 relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="block w-full px-3 py-2 pl-10 pr-10 border border-gray-300 rounded-md shadow-sm 
+                           focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your password"
+              />
+              <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
           </div>
 
           {/* Submit Error */}
@@ -297,18 +187,26 @@ function LoginPage() {
             type="submit"
             disabled={isSubmitting}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md 
-                       shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 
-                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 
+                       shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 
+                       focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Joining...' : 'Join Discussion'}
+            {isSubmitting ? 'Signing in...' : 'Sign In'}
           </button>
-        </form>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-gray-500">
-          Your real identity remains private. Only your anonymous name is visible to others.
-        </p>
+          {/* Sign Up Link */}
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{' '}
+              <Link
+                to="/signup"
+                className="font-medium text-blue-600 hover:text-blue-500"
+              >
+                Sign up here
+              </Link>
+            </p>
+          </div>
+        </form>
       </div>
     </div>
   )

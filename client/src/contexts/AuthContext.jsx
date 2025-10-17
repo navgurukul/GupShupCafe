@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react'
 
 /**
  * Authentication Context for managing user login state
- * Handles user ID, name, campus, location, and anonymous display name
+ * Handles user email, name, password, and interest categories
  */
 
 const AuthContext = createContext()
@@ -17,8 +17,7 @@ const AUTH_ACTIONS = {
 // Initial authentication state
 const initialState = {
   isAuthenticated: false,
-  user: null,
-  anonymousName: null
+  user: null
 }
 
 // Authentication reducer
@@ -27,8 +26,7 @@ function authReducer(state, action) {
     case AUTH_ACTIONS.LOGIN:
       return {
         isAuthenticated: true,
-        user: action.payload.user,
-        anonymousName: action.payload.anonymousName
+        user: action.payload
       }
     case AUTH_ACTIONS.LOGOUT:
       return initialState
@@ -54,11 +52,11 @@ export function AuthProvider({ children }) {
     const savedAuth = localStorage.getItem('auth')
     if (savedAuth) {
       try {
-        const { user, anonymousName } = JSON.parse(savedAuth)
-        if (user && anonymousName) {
+        const user = JSON.parse(savedAuth)
+        if (user && user.email) {
           dispatch({
             type: AUTH_ACTIONS.LOGIN,
-            payload: { user, anonymousName }
+            payload: user
           })
         }
       } catch (error) {
@@ -71,27 +69,20 @@ export function AuthProvider({ children }) {
   // Save authentication state to localStorage
   useEffect(() => {
     if (state.isAuthenticated) {
-      localStorage.setItem('auth', JSON.stringify({
-        user: state.user,
-        anonymousName: state.anonymousName
-      }))
+      localStorage.setItem('auth', JSON.stringify(state.user))
     } else {
       localStorage.removeItem('auth')
     }
-  }, [state.isAuthenticated, state.user, state.anonymousName])
+  }, [state.isAuthenticated, state.user])
 
   /**
    * Login function
-   * @param {Object} userData - User data (id, name, campus, location)
-   * @param {string} anonymousName - Anonymous display name for the session
+   * @param {Object} userData - User data (email, name, interests, etc.)
    */
-  const login = (userData, anonymousName) => {
+  const login = (userData) => {
     dispatch({
       type: AUTH_ACTIONS.LOGIN,
-      payload: {
-        user: userData,
-        anonymousName
-      }
+      payload: userData
     })
   }
 
