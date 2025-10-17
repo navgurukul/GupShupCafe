@@ -1,0 +1,62 @@
+{
+  "currentAffairs": [
+    "What are your thoughts on the latest climate change initiatives?",
+    "How do you think artificial intelligence will impact future elections?",
+    "What's your opinion on the current state of global economy?",
+    "How should governments handle misinformation on social media?",
+    "What are the implications of recent space exploration missions?",
+    "How can countries better prepare for future pandemics?",
+    "What role should technology play in education reform?",
+    "How do you view the future of remote work post-pandemic?",
+    "What are your thoughts on cryptocurrency regulation?",
+    "How can we address the global water crisis?"
+  ],
+  "scienceAndTechnology": [
+    "What breakthrough in quantum computing excites you the most?",
+    "How will 5G technology change our daily lives?",
+    "What are the ethical implications of gene editing?",
+    "How can we make renewable energy more accessible?",
+    "What's the future of autonomous vehicles?",
+    "How will virtual reality transform education?",
+    "What are the potential risks and benefits of AI in healthcare?",
+    "How can we solve the problem of electronic waste?",
+    "What role will robotics play in future manufacturing?",
+    "How can technology help address mental health issues?"
+  ],
+  "literature": [
+    "How has digital media changed the way we read and write?",
+    "What makes a story timeless across different cultures?",
+    "How do you think AI will impact creative writing?",
+    "What role does literature play in social change?",
+    "How has the pandemic influenced contemporary writing?",
+    "What's the importance of diverse voices in literature?",
+    "How do you choose what to read next?",
+    "What makes a book adaptation successful?",
+    "How has poetry evolved in the digital age?",
+    "What impact do book clubs have on reading culture?"
+  ],
+  "education": [
+    "How can we make education more accessible globally?",
+    "What's the role of technology in modern classrooms?",
+    "How should education systems adapt to changing job markets?",
+    "What are the benefits and challenges of online learning?",
+    "How can we better support student mental health?",
+    "What makes an effective teacher in today's world?",
+    "How can we address educational inequality?",
+    "What life skills should be taught in schools?",
+    "How can we encourage lifelong learning?",
+    "What's the future of traditional university education?"
+  ],
+  "generativeAI": [
+    "How will generative AI change the creative industries?",
+    "What are the ethical considerations of AI-generated content?",
+    "How can we detect AI-generated text and images?",
+    "What impact will AI have on traditional journalism?",
+    "How should we regulate AI-generated content?",
+    "What are the implications of AI in academic research?",
+    "How can artists collaborate with AI tools?",
+    "What skills will humans need in an AI-dominated world?",
+    "How can we ensure AI benefits everyone, not just tech companies?",
+    "What are the environmental impacts of large AI models?"
+  ]
+}
