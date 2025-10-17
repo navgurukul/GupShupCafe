@@ -39,7 +39,7 @@ class TestGeminiLLM:
     
     def test_initialization_from_env(self):
         """Test Gemini LLM initialization from environment variable"""
-        with patch.dict(os.environ, {"GOOGLE_API_KEY": "env-api-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "env-api-key"}):
             llm = GeminiLLM()
             assert llm.api_key == "env-api-key"
     

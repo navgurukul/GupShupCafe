@@ -250,13 +250,13 @@ Command: facilitate Climate Change
 The modules respect the following environment variables:
 
 ### LLM Module
-- `GOOGLE_API_KEY` - API key for Gemini LLM
+- `GEMINI_API_KEY` - API key for Gemini LLM
 - `BEDROCK_MODEL_ID` - Model ID for AWS Bedrock (default: `anthropic.claude-v2`)
 - `AWS_REGION` - AWS region for Bedrock (default: `us-east-1`)
 
 ### Usage
 ```bash
-export GOOGLE_API_KEY="your-api-key"
+export GEMINI_API_KEY="your-api-key"
 export BEDROCK_MODEL_ID="anthropic.claude-v2"
 export AWS_REGION="us-east-1"
 

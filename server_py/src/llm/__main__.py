@@ -8,10 +8,13 @@ import asyncio
 import sys
 import os
 from typing import List, Dict
+from dotenv import load_dotenv
 
 from .ai_service_manager import AIServiceManager
 from .gemini_llm import GeminiLLM
 from .bedrock_llm import BedrockLLM
+
+load_dotenv(".env")  # Load environment variables from .env file
 
 
 async def demonstrate_gemini():
@@ -20,7 +23,7 @@ async def demonstrate_gemini():
     print("🤖 Demonstrating Gemini LLM")
     print("="*60)
     
-    llm = GeminiLLM(api_key=os.getenv("GOOGLE_API_KEY"))
+    llm = GeminiLLM(api_key=os.getenv("GEMINI_API_KEY"))
     
     # Test chat
     print("\n📝 Testing chat functionality...")
