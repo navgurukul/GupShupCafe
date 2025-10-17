@@ -25,6 +25,70 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-16 19:20 UTC] - Critical Fix: Save auth data to session on connect
+
+**Commit**: `Save auth data to session on socket connect`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix (Critical)
+
+**Changes**:
+- **Fixed lobby page participants not showing** - The real root cause was that auth data from client connection was never saved to the session
+- Modified `connect` event handler in `socket_handlers.py` to save auth data using `sio.save_session()`
+- This ensures that when `join_room` is called, it can retrieve the user's authentication information
+
+**Root Cause Analysis**:
+1. Client sends auth data (`userId`, `name`, `campus`, `location`, `anonymousName`) during socket connection
+2. Server's `connect` handler received the auth data but never saved it to the session
+3. When `join_room` was called later, it tried to get the session with `await sio.get_session(sid)`
+4. Since auth data was never saved, the session was empty, causing the fallback logic to fail
+5. Result: User data was incomplete/invalid, preventing participant from being added to room
+
+**Fix**:
+```python
+@sio.event
+async def connect(sid, environ, auth):
+    """Handle client connection"""
+    print(f"[Backend] Socket connected: {sid}")
+    print(f"[Backend] Handshake auth: {auth}")
+    
+    # Save auth data to session so it can be retrieved in join_room
+    if auth:
+        await sio.save_session(sid, {'auth': auth})
+```
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Added session save in connect handler
+
+**Testing**:
+- All 67 tests pass (4 skipped)
+- Verified session data is now available in join_room handler
+
+### [2025-10-16 18:35 UTC] - Bugfix: Lobby Page Connection Issue
+
+**Commit**: `Fix user-ready event handler to work without data parameter`  
+**Author**: GitHub Copilot  
+**Type**: Bugfix
+
+**Changes**:
+- **Fixed lobby page connection issue** where the page was stuck at 'Waiting' status and 'Connecting to lobby' state
+- Modified `user_ready` event handler in `socket_handlers.py` to handle cases where client emits the event without data
+- The handler now extracts user information from the room using socket ID instead of requiring it in the data parameter
+- Maintains backward compatibility with clients that do send data
+- Added comprehensive test coverage for the user_ready event handler
+
+**Root Cause**:
+- Client's `SocketContext.jsx` emits `'user-ready'` event without any data (line 137)
+- Python backend's `user_ready` handler expected `data.get("userId")` which would fail when data is None
+- This prevented users from being marked as ready, blocking the lobby from proceeding
+
+**Files Modified**:
+- `server_py/src/socket/socket_handlers.py` - Fixed user_ready handler to accept optional data parameter
+- `server_py/tests/test_socket_handlers.py` - Added 5 new test cases for user_ready event
+
+**Testing**:
+- All 67 tests pass (including 5 new tests for socket handlers)
+- Tested scenarios: no data, with data, setting ready to false, no room found, discussion start trigger
+
 ### [2025-10-16 17:40 UTC] - Frontend-Backend Integration: Socket Event Handlers & Timer Management
 
 **Commit**: `Add timer management system for turn-based discussions`  
