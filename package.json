@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server:py\"",
     "dev:client": "cd client && npm run dev",
-    "dev:server:py": "cd server_py && python main.py",
+    "dev:server:py": "cd server_py && powershell -Command \"$env:PYTHONIOENCODING='utf-8'; uvicorn main:app --reload --host 0.0.0.0 --port 3003\"",
     "build": "cd client && npm run build",
-    "start": "cd server_py && python main.py",
+    "start": "cd server_py && uvicorn main:app --host 0.0.0.0 --port 3003",
     "test:client": "cd client && vitest",
     "test:server:py": "cd server_py && pytest tests/ -v",
     "test:all": "cd client && vitest && cd ../server_py && pytest tests/ -v",
