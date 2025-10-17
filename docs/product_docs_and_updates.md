@@ -25,6 +25,72 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-17 07:30 UTC] - LLM and Agents Module Testing & Independent Execution
+
+**Commit**: `Add comprehensive tests and __main__ entry points for llm and agents modules`  
+**Author**: GitHub Copilot  
+**Type**: Testing | Feature | Documentation
+
+**Changes**:
+- **Created comprehensive test suite for LLM module** (`tests/test_llm.py`)
+  - 29 test cases covering LLMInterface, GeminiLLM, BedrockLLM, and AIServiceManager
+  - Tests for initialization, configuration, provider switching, and singleton pattern
+  - Mock-based tests for fast execution without external API dependencies
+  - Integration tests for cross-provider functionality
+  
+- **Created comprehensive test suite for Agents module** (`tests/test_agents.py`)
+  - 36 test cases covering EnglishFeedbackAgent, DebateFacilitatorAgent, and AWSStrandsOrchestrator
+  - Tests for CEFR level determination (all 6 levels: A1-C2)
+  - Tests for English analysis (grammar, vocabulary, fluency)
+  - Tests for discussion facilitation and orchestration
+  - Error handling and integration tests
+  
+- **Added independent execution capability to LLM module** (`src/llm/__main__.py`)
+  - Supports 5 modes: default, manager, gemini, bedrock, interactive
+  - Interactive mode allows real-time testing of LLM providers
+  - Commands for provider switching and English text analysis
+  - Comprehensive demonstrations of all LLM functionality
+  
+- **Added independent execution capability to Agents module** (`src/agents/__main__.py`)
+  - Supports 5 modes: default, english, facilitator, orchestrator, interactive
+  - Interactive mode for testing agents with natural commands
+  - Demonstrates English feedback, facilitation, and orchestration
+  - Real-time analysis and feedback generation
+  
+- **Created detailed documentation** (`docs/Miscellaneous/llm_and_agents_testing_guide.md`)
+  - Complete guide for running tests and using independent execution
+  - Environment variable configuration
+  - Interactive mode usage examples
+  - Architecture overview and test design patterns
+  - Integration with CI/CD guidelines
+
+**Files Modified**:
+- `server_py/tests/test_llm.py` (new, 11,923 chars)
+- `server_py/tests/test_agents.py` (new, 18,883 chars)
+- `server_py/src/llm/__main__.py` (new, 8,199 chars)
+- `server_py/src/agents/__main__.py` (new, 13,932 chars)
+- `docs/Miscellaneous/llm_and_agents_testing_guide.md` (new, 9,410 chars)
+
+**Testing Impact**:
+- Total test count increased from 71 to 136 tests (65 new tests)
+- All tests passing (132 passed, 4 skipped)
+- Test execution time: ~0.76 seconds
+- No breaking changes to existing functionality
+
+**Usage Examples**:
+```bash
+# Run new tests
+python -m pytest tests/test_llm.py tests/test_agents.py -v
+
+# Test LLM independently
+python -m src.llm interactive
+
+# Test Agents independently
+python -m src.agents orchestrator
+```
+
+---
+
 ### [2025-10-17 14:30 UTC] - AWS ECR & Fargate Deployment Infrastructure
 
 **Commit**: `Add Docker multi-stage build and AWS Fargate deployment scripts`  
