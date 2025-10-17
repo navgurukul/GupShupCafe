@@ -4,6 +4,7 @@ import { SocketProvider } from './contexts/SocketContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { AudioProvider } from './contexts/AudioContext'
 import LoginPage from './pages/LoginPage'
+import SignupPage from './pages/SignupPage'
 import LobbyPage from './pages/LobbyPage'
 import RoundtablePage from './pages/RoundtablePage'
 import AudioTestPage from './pages/AudioTestPage'
@@ -22,8 +23,9 @@ function App() {
           <AudioProvider>
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
               <Routes>
-                {/* Public Route - Login */}
+                {/* Public Routes */}
                 <Route path="/" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
                 
                 {/* Protected Routes - Require Authentication */}
                 <Route path="/lobby" element={
