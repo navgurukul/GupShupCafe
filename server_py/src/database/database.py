@@ -196,6 +196,7 @@ class Database:
             SELECT 
                 s.session_id,
                 s.room_id,
+                s.room_name,
                 s.topic_title,
                 s.topic_category,
                 s.participant_count,
