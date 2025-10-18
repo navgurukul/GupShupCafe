@@ -153,7 +153,7 @@ async def get_config():
     try:
         config = {
             "minParticipants": int(os.getenv("MIN_PARTICIPANTS", "1")),
-            "maxParticipants": int(os.getenv("MAX_PARTICIPANTS", "8")),
+            "maxParticipants": int(os.getenv("MAX_PARTICIPANTS", "6")),
             "defaultSpeakingTime": int(os.getenv("DEFAULT_SPEAKING_TIME", "60")),
             "features": {
                 "aiTopics": bool(
