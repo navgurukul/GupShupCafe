@@ -1735,7 +1735,322 @@ DAY 3: Production
 
 ---
 
-## 9. References & Resources
+## 9. Recommended UI Frameworks for Frontend Enhancement
+
+### 9.1 Current Frontend Stack Analysis
+
+The GupShup Café frontend is currently built with:
+- **React 18** - Component-based architecture
+- **Vite** - Fast build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework
+- **Lucide React** - Icon library
+- **Custom Components** - Hand-crafted UI components
+
+Based on the UML diagrams (Frontend Class Diagram, Component Diagram) and existing implementation, the platform requires:
+- **Complex UI Components**: Circular roundtable layout, participant cards, timers
+- **Real-time Updates**: Live participant status, speaking indicators, audio levels
+- **Responsive Design**: Mobile-first approach for accessibility
+- **Interactive Elements**: Modals, tooltips, animations, transitions
+- **Accessibility**: ARIA labels, keyboard navigation, screen reader support
+- **Gamification**: Visual effects, progress indicators, badges
+
+### 9.2 Recommended UI Framework Options
+
+#### Option 1: **shadcn/ui** (Highly Recommended) ⭐
+
+**What it is**: A collection of re-usable components built with Radix UI and Tailwind CSS that you can copy and paste into your apps.
+
+**Why it's ideal for GupShup Café**:
+- ✅ **Tailwind Native**: Already using Tailwind CSS - zero migration needed
+- ✅ **Customizable**: Copy-paste components, modify as needed
+- ✅ **Accessible**: Built on Radix UI primitives (WAI-ARIA compliant)
+- ✅ **No Runtime Overhead**: Components are copied into your codebase
+- ✅ **Modern Design**: Beautiful defaults with easy customization
+- ✅ **Minimal Bundle Size**: Only include components you actually use
+
+**Perfect for these GupShup components**:
+- `EnglishFeedbackModal` → shadcn Dialog/Modal
+- `ParticipantCard` → shadcn Card with Avatar
+- `SpeakerTimer` → shadcn Progress with custom styling
+- `TopicDisplay` → shadcn Badge/Alert
+- Toast notifications for feedback
+
+**Integration Steps**:
+```bash
+# Install shadcn/ui CLI
+npx shadcn@latest init
+
+# Add specific components as needed
+npx shadcn@latest add dialog
+npx shadcn@latest add card
+npx shadcn@latest add progress
+npx shadcn@latest add badge
+npx shadcn@latest add avatar
+npx shadcn@latest add toast
+npx shadcn@latest add tooltip
+```
+
+**Example Usage**:
+```jsx
+// EnglishFeedbackModal using shadcn Dialog
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+<Dialog open={isOpen} onOpenChange={setIsOpen}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>📝 English Feedback</DialogTitle>
+    </DialogHeader>
+    {/* Custom feedback content */}
+  </DialogContent>
+</Dialog>
+```
+
+**Resources**:
+- Docs: https://ui.shadcn.com/
+- GitHub: https://github.com/shadcn-ui/ui
+- Tailwind Integration: Native
+
+---
+
+#### Option 2: **Headless UI** (Alternative)
+
+**What it is**: Completely unstyled, fully accessible UI components from the makers of Tailwind CSS.
+
+**Why it fits GupShup Café**:
+- ✅ **Official Tailwind Companion**: Made by Tailwind Labs
+- ✅ **Zero Styles**: Complete design freedom
+- ✅ **Accessibility Built-in**: ARIA patterns, keyboard navigation
+- ✅ **React-focused**: Designed specifically for React
+- ✅ **Small Bundle**: Only ~50KB total
+
+**Perfect for these components**:
+- Modals/Dialogs (Feedback Modal)
+- Popovers (Participant tooltips)
+- Transitions (Speaking animations)
+- Tabs (SpeechToText panel)
+- Listbox (Room selection)
+
+**Integration Steps**:
+```bash
+npm install @headlessui/react
+```
+
+**Example Usage**:
+```jsx
+import { Dialog, Transition } from '@headlessui/react'
+
+<Transition show={isOpen}>
+  <Dialog onClose={() => setIsOpen(false)}>
+    <Transition.Child
+      enter="ease-out duration-300"
+      enterFrom="opacity-0 scale-95"
+      enterTo="opacity-100 scale-100"
+    >
+      <Dialog.Panel className="bg-white rounded-lg p-6">
+        <Dialog.Title>English Feedback</Dialog.Title>
+        {/* Content */}
+      </Dialog.Panel>
+    </Transition.Child>
+  </Dialog>
+</Transition>
+```
+
+**Resources**:
+- Docs: https://headlessui.com/
+- GitHub: https://github.com/tailwindlabs/headlessui
+- Tailwind Integration: Perfect match
+
+---
+
+#### Option 3: **Radix UI** (For Maximum Flexibility)
+
+**What it is**: Low-level UI primitives with accessibility, customization, and developer experience as priorities.
+
+**Why consider it**:
+- ✅ **Primitive Components**: Building blocks for custom designs
+- ✅ **Accessibility First**: WAI-ARIA compliant out of the box
+- ✅ **Unstyled**: Complete control over appearance
+- ✅ **Composable**: Mix and match primitives
+- ✅ **TypeScript Native**: Full type safety
+
+**Perfect for**:
+- Custom circular roundtable layout controls
+- Advanced tooltip positioning (participant info)
+- Accessible timer controls
+- Custom select/dropdown components
+
+**Integration Steps**:
+```bash
+npm install @radix-ui/react-dialog
+npm install @radix-ui/react-tooltip
+npm install @radix-ui/react-progress
+npm install @radix-ui/react-avatar
+```
+
+**Example Usage**:
+```jsx
+import * as Dialog from '@radix-ui/react-dialog'
+import * as Tooltip from '@radix-ui/react-tooltip'
+
+<Tooltip.Provider>
+  <Tooltip.Root>
+    <Tooltip.Trigger>Hover me</Tooltip.Trigger>
+    <Tooltip.Portal>
+      <Tooltip.Content className="bg-gray-800 text-white p-2 rounded">
+        Participant Info
+      </Tooltip.Content>
+    </Tooltip.Portal>
+  </Tooltip.Root>
+</Tooltip.Provider>
+```
+
+**Resources**:
+- Docs: https://www.radix-ui.com/
+- GitHub: https://github.com/radix-ui/primitives
+
+---
+
+#### Option 4: **Framer Motion** (For Animations - Complementary)
+
+**What it is**: Production-ready motion library for React with gesture support.
+
+**Why it enhances GupShup Café**:
+- ✅ **Speaking Animations**: Pulse effects for active speaker
+- ✅ **Transitions**: Smooth page transitions
+- ✅ **Gesture Controls**: Swipe actions for mobile
+- ✅ **Audio Level Animations**: Dynamic bar animations
+- ✅ **Gamification Effects**: Entry/exit animations, confetti
+
+**Perfect for**:
+- `AudioLevelBar` - Animated audio visualizations
+- `ParticipantCard` - Entrance/exit animations
+- `SpeakerTimer` - Countdown animations
+- Page transitions between Lobby → Roundtable
+- Success animations for feedback
+
+**Integration Steps**:
+```bash
+npm install framer-motion
+```
+
+**Example Usage**:
+```jsx
+import { motion } from 'framer-motion'
+
+// Animated participant card
+<motion.div
+  initial={{ scale: 0, opacity: 0 }}
+  animate={{ scale: 1, opacity: 1 }}
+  exit={{ scale: 0, opacity: 0 }}
+  whileHover={{ scale: 1.05 }}
+  className={isCurrentSpeaker ? 'ring-4 ring-green-500' : ''}
+>
+  <ParticipantCard {...props} />
+</motion.div>
+
+// Audio level bars
+<motion.div
+  animate={{ height: `${audioLevel}%` }}
+  transition={{ type: 'spring', stiffness: 300 }}
+  className="bg-green-500 w-2"
+/>
+```
+
+**Resources**:
+- Docs: https://www.framer.com/motion/
+- GitHub: https://github.com/framer/motion
+
+---
+
+### 9.3 Recommended Implementation Strategy
+
+**Phase 1: Core Components (Week 1)**
+1. Install **shadcn/ui** for primary UI components
+2. Implement Dialog for `EnglishFeedbackModal`
+3. Use Card/Avatar for `ParticipantCard`
+4. Add Toast for real-time notifications
+
+**Phase 2: Enhancements (Week 2)**
+1. Install **Framer Motion** for animations
+2. Add speaking pulse animations
+3. Implement page transitions
+4. Enhance audio level visualizations
+
+**Phase 3: Advanced (Week 3+)**
+1. Fine-tune accessibility with Radix primitives if needed
+2. Add gesture controls for mobile (Framer Motion)
+3. Implement progress animations for CEFR tracking
+4. Add gamification effects (badges, celebrations)
+
+**Minimal Changes Approach**:
+```bash
+# Install only what you need
+npx shadcn@latest init
+npx shadcn@latest add dialog card badge avatar toast
+npm install framer-motion
+
+# Update components incrementally
+# 1. Start with EnglishFeedbackModal (highest impact)
+# 2. Enhance ParticipantCard (visual improvement)
+# 3. Add animations to existing components (polish)
+```
+
+### 9.4 Why NOT to use Material-UI or Chakra UI
+
+While popular, these are **not recommended** for GupShup Café:
+
+❌ **Material-UI (MUI)**:
+- Requires theme migration (currently using Tailwind)
+- Heavier bundle size (~400KB)
+- Opinionated design system (Google Material)
+- Harder to customize
+
+❌ **Chakra UI**:
+- CSS-in-JS approach (conflicts with Tailwind)
+- Different styling paradigm
+- Migration effort from Tailwind would be significant
+
+**Stick with Tailwind-compatible solutions** (shadcn/ui, Headless UI, Radix) to minimize refactoring and maintain consistency.
+
+---
+
+### 9.5 Accessibility & Mobile Considerations
+
+All recommended frameworks prioritize:
+- ✅ **WAI-ARIA Compliance**: Screen reader support
+- ✅ **Keyboard Navigation**: Full keyboard accessibility
+- ✅ **Focus Management**: Proper focus trapping in modals
+- ✅ **Mobile Gestures**: Touch-friendly interactions
+- ✅ **Responsive Design**: Works seamlessly with Tailwind responsive utilities
+
+**Mobile-Specific Enhancements**:
+- Use `@headlessui/react` Menu for mobile dropdowns
+- Framer Motion `drag` for swipe gestures
+- shadcn/ui Sheet component for mobile drawers
+
+---
+
+### 9.6 Cost & Bundle Size Impact
+
+| Framework | Bundle Size (Gzipped) | Tree Shakeable | Migration Effort |
+|-----------|----------------------|----------------|------------------|
+| **shadcn/ui** | ~20KB (components used) | ✅ Yes | Minimal |
+| **Headless UI** | ~50KB | ✅ Yes | Low |
+| **Radix UI** | ~30-50KB | ✅ Yes | Medium |
+| **Framer Motion** | ~60KB | ✅ Yes | Minimal |
+| Material-UI | ~400KB+ | ⚠️ Partial | High |
+| Chakra UI | ~300KB+ | ⚠️ Partial | High |
+
+**Recommendation**: Start with **shadcn/ui + Framer Motion** for maximum impact with minimal overhead (~80KB total).
+
+---
+
+## 10. References & Resources
 
 ### Documentation Links
 - **Main Repo**: https://github.com/navgurukul/GupShupCafe
@@ -1750,6 +2065,13 @@ DAY 3: Production
 - **FastAPI Docs**: https://fastapi.tiangolo.com/
 - **Socket.io Docs**: https://socket.io/docs/
 
+### UI Framework Resources
+- **shadcn/ui**: https://ui.shadcn.com/
+- **Headless UI**: https://headlessui.com/
+- **Radix UI**: https://www.radix-ui.com/
+- **Framer Motion**: https://www.framer.com/motion/
+- **Tailwind CSS**: https://tailwindcss.com/
+
 ### AWS Services
 - **AWS Amplify Console**: https://console.aws.amazon.com/amplify/
 - **ECS/Fargate Console**: https://console.aws.amazon.com/ecs/
@@ -1758,7 +2080,7 @@ DAY 3: Production
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
 This MVP architecture prioritizes the **core feedback loop** that makes Gup-Shup Café unique: instant, AI-driven English speaking feedback in a gamified peer discussion. By using a pluggable AI service layer with OpenAI-compatible interfaces, we ensure flexibility to switch between Gemini (dev) and AWS Bedrock (production) seamlessly.
 
@@ -1770,6 +2092,7 @@ The 3-day plan balances ambition with realism, focusing on a working demo that s
 3. **Clear Task Distribution**: Each team member knows their role and dependencies
 4. **Risk-Aware Planning**: Contingencies for common hackathon pitfalls
 5. **Demo-Ready by Day 3**: Live demo is the ultimate success metric
+6. **UI Framework Strategy**: Use shadcn/ui + Framer Motion for modern, accessible, performant UI with minimal migration effort
 
    
 
@@ -1779,5 +2102,5 @@ The 3-day plan balances ambition with realism, focusing on a working demo that s
 
 **Document Status**: ✅ Ready for Implementation  
 **Last Updated**: October 2025  
-**Version**: 1.0  
+**Version**: 1.1 - Added UI Framework Recommendations (Section 9)
 **Authors**: Product Team - AWS AI Agent Hackathon 2025
