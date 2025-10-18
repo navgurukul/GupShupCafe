@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useAudio } from "../contexts/AudioContext";
@@ -115,6 +115,7 @@ const topicCategories = [
  */
 function LobbyPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { socket, connected, joinRoom, signalReady } = useSocket();
   const { user, anonymousName, logout } = useAuth();
   const {
@@ -149,6 +150,18 @@ function LobbyPage() {
     cefr_level: "",
   });
   const [hostAnonymousName, setHostAnonymousName] = useState("");
+
+  // Check if we're on room-lobby route
+  const isInRoomLobby = location.pathname === '/room-lobby';
+  
+  // Auto-set inRoom state based on route
+  useEffect(() => {
+    if (isInRoomLobby && !inRoom) {
+      setInRoom(true);
+    } else if (!isInRoomLobby && inRoom) {
+      setInRoom(false);
+    }
+  }, [isInRoomLobby, inRoom]);
 
   // Predefined rooms
   const predefinedRooms = [
@@ -219,6 +232,8 @@ function LobbyPage() {
       setCurrentRoom(roomData);
       setInRoom(true);
       setShowCreateRoom(false);
+      // Navigate to room-lobby
+      navigate('/room-lobby');
       // Reset form
       setRoomForm({
         room_name: "",
@@ -241,6 +256,8 @@ function LobbyPage() {
     joinRoom(room.id, selectedRole);
     setCurrentRoom(room);
     setInRoom(true);
+    // Navigate to room-lobby
+    navigate('/room-lobby');
   };
 
   const handleLeaveRoom = () => {
@@ -250,6 +267,8 @@ function LobbyPage() {
     setCurrentRoom(null);
     setInRoom(false);
     setParticipants([]);
+    // Navigate back to main lobby
+    navigate('/lobby');
   };
 
   // Timer for waiting time and late join check

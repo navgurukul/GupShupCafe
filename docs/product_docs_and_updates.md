@@ -22,6 +22,17 @@ timestamp and informative description.
 
 **Commit Message:** Cap max room participants at 6, remove options for 7-10 from UI and enforce server-side validation
 
+### [2025-10-18 17:00 UTC] - Add Route Navigation for Room Lobby
+**Changes:**
+- Added new `/room-lobby` route in `App.jsx` for room waiting area
+- Updated `LobbyPage.jsx` to navigate to `/room-lobby` when creating or joining rooms
+- Added navigation back to `/lobby` when leaving rooms
+- Implemented route detection to automatically show correct view based on URL
+- Added suggested anonymous names feature with 6 professional name options
+- Improved user experience with clear URL structure: `/lobby` → `/room-lobby` → `/roundtable`
+
+**Commit Message:** Implement room lobby routing and add suggested anonymous names feature
+
 ```
 
 **Commit**: <commit_hash_or_message> **Author**: <name_or_role> **Type**:
