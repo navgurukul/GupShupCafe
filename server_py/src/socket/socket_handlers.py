@@ -72,6 +72,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             # Robustly extract roomId and clientUserData
             room_id = "general"
             client_user_data = None
+            room_data = None  # Additional room metadata (e.g., room_name, topic_category, etc.)
             
             print(f"[Backend] join-room args: {args}")
             
@@ -79,6 +80,8 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 room_id = args[0]
             if len(args) > 1 and isinstance(args[1], dict):
                 client_user_data = args[1]
+            if len(args) > 2 and isinstance(args[2], dict):
+                room_data = args[2]
             
             # Get auth data from session
             session = await sio.get_session(sid)
@@ -130,6 +133,12 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
             # Add user to room manager
             room_manager.add_user_to_room(room_id, effective_user_data)
+            
+            # Store room metadata if provided
+            room = room_manager.get_room(room_id)
+            if room_data:
+                # Store room metadata for later use when creating session
+                room.metadata = room_data
             
             # Get updated participants
             participants = room_manager.get_room_participants(room_id)
@@ -583,17 +592,47 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             session_id = str(uuid.uuid4())
             active_sessions[room_id] = session_id
             
+            # Get room metadata (if available)
+            room_metadata = getattr(room, 'metadata', {})
+            room_name = room_metadata.get('name') or room_metadata.get('room_name') or room_id
+            topic_category = room_metadata.get('topic_category') or topic.get("category")
+            cefr_level = room_metadata.get('cefr_level', 0)
+            
+            # Convert CEFR level string to integer if needed
+            if isinstance(cefr_level, str):
+                cefr_map = {'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6}
+                cefr_level = cefr_map.get(cefr_level, 0)
+            
             # Save session to database
             await db.save_session({
-                "id": session_id,
-                "roomId": room_id,
+                "session_id": session_id,
+                "room_id": room_id,
+                "room_name": room_name,
                 "topic": topic,
                 "participantCount": len(ready_participants),
                 "startedAt": datetime.now().isoformat(),
                 "endedAt": None,
                 "durationSeconds": None,
-                "roundsCompleted": 0
+                "roundsCompleted": 0,
+                "status": "active",
+                "crf_level": cefr_level
             })
+            
+            # Save participants to database
+            for participant in ready_participants:
+                try:
+                    await db.save_participant({
+                        "user_id": participant.id,
+                        "session_id": session_id,
+                        "anonymousName": participant.anonymous_name,
+                        "campus": participant.campus if hasattr(participant, 'campus') else None,
+                        "location": participant.location if hasattr(participant, 'location') else None,
+                        "joinedAt": participant.joined_at if hasattr(participant, 'joined_at') else datetime.now().isoformat(),
+                        "leftAt": None,
+                        "speakingTimeSeconds": 0
+                    })
+                except Exception as e:
+                    print(f"[Backend] Error saving participant {participant.anonymous_name}: {str(e)}")
             
             # Record topic usage
             await db.record_topic_usage(topic)
