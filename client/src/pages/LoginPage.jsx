@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
-
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Mail, Lock, MessageSquare, Eye, EyeOff, Users, Brain } from 'lucide-react'
+import { Mail, Lock, MessageSquare, Eye, EyeOff } from 'lucide-react'
 
 /**
  * Login Page Component

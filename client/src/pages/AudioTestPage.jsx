@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AudioLevelBar from '../components/ui/AudioLevelBar';
+import LiveAudioLevelBar from '../components/LiveAudioLevelBar';
 
 export default function AudioTestPage() {
   const [audioStream, setAudioStream] = useState(null);
@@ -57,7 +57,7 @@ export default function AudioTestPage() {
           {isListening && (
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="font-semibold mb-2 text-gray-700">Live Audio Level:</h3>
-              <AudioLevelBar stream={audioStream} showLabel={true} />
+              <LiveAudioLevelBar stream={audioStream} showLabel={true} />
               <p className="text-sm text-gray-600 mt-2">
                 Speak into your microphone to see the level change!
               </p>

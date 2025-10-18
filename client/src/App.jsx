@@ -9,8 +9,7 @@ import LobbyPage from './pages/LobbyPage'
 import RoundtablePage from './pages/RoundtablePage'
 import AudioTestPage from './pages/AudioTestPage'
 import BroadcastTestPage from './pages/BroadcastTestPage'
-import SpeechRecognitionTest from './pages/SpeechRecognitionTest'
-import ProtectedRoute from './components/common/ProtectedRoute'
+import ProtectedRoute from './components/ProtectedRoute'
 
 /**
  * Main App Component
@@ -46,9 +45,6 @@ function App() {
                 
                 {/* Broadcast Test Route - Simple broadcast audio test */}
                 <Route path="/broadcast-test" element={<BroadcastTestPage />} />
-
-                 {/* Broadcast Test Route - Simple broadcast audio test */}
-                <Route path="/zoe" element={<SpeechRecognitionTest />} />
                 
                 {/* Fallback Route */}
                 <Route path="*" element={<LoginPage />} />

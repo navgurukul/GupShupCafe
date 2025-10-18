@@ -1,6 +1,6 @@
 import React, { useContext } from 'react'
-import ParticipantCard from './ParticipantCard'
-import { useAudio } from '../../hooks/useAudio'
+import LiveAudioLevelBar from './LiveAudioLevelBar'
+import { useAudio } from '../contexts/AudioContext'
 import { Brain } from 'lucide-react'
 
 /**
@@ -35,21 +35,77 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
   }
 
   /**
-   * Render participant chair using ParticipantCard component
+   * Get chair styling based on participant state
+   */
+  const getChairStyle = (participant) => {
+    const baseClasses = 'absolute w-14 h-14 rounded-full border-4 transition-all duration-300 ' +
+                       'flex items-center justify-center font-semibold text-white text-sm ' +
+                       'shadow-lg cursor-pointer chair-enter'
+    
+    if (currentSpeaker && currentSpeaker.id === participant.id) {
+      return `${baseClasses} border-green-500 bg-green-500 shadow-green-300 shadow-xl scale-110 ` +
+             'animate-pulse-active ring-4 ring-green-200'
+    }
+    
+    return `${baseClasses} border-primary-600 bg-primary-600 hover:scale-105`
+  }
+
+  /**
+   * Render participant chair
    */
   const renderChair = (participant, index) => {
     const position = getChairPosition(index, participants.length)
     const isCurrentSpeaker = currentSpeaker && currentSpeaker.id === participant.id
-    const remoteStream = remoteStreams[participant.socketId] || null
     
     return (
-      <ParticipantCard
+      <div
         key={participant.id}
-        participant={participant}
-        isCurrentSpeaker={isCurrentSpeaker}
-        position={position}
-        remoteStream={remoteStream}
-      />
+        className={getChairStyle(participant)}
+        style={position}
+        title={`${participant.anonymousName}${isCurrentSpeaker ? ' (Speaking)' : ''}`}
+      >
+        {/* Participant Initial */}
+        {participant.anonymousName.charAt(0).toUpperCase()}
+        
+        {/* Speaking Indicator */}
+        {isCurrentSpeaker && (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full 
+                          border-2 border-white flex items-center justify-center animate-bounce">
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+          </div>
+        )}
+        
+        {/* Role Indicator */}
+        <div className={`absolute -top-1 -left-1 w-4 h-4 rounded-full border-2 border-white text-xs flex items-center justify-center ${
+          participant.role === 'speaker' 
+            ? 'bg-blue-500 text-white' 
+            : 'bg-gray-400 text-white'
+        }`}>
+          {participant.role === 'speaker' ? '🎤' : '👂'}
+        </div>
+
+        {/* Incoming Audio Level Indicator (if remote stream available) */}
+        {remoteStreams[participant.socketId] && (
+          <div className="absolute left-1/2 -bottom-6 -translate-x-1/2 w-10">
+            <LiveAudioLevelBar stream={remoteStreams[participant.socketId]} showLabel={false} />
+          </div>
+        )}
+
+        {/* Name Label */}
+        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 
+                        bg-white px-2 py-1 rounded-md shadow-sm border text-xs font-medium 
+                        text-gray-700 whitespace-nowrap">
+          {participant.anonymousName}
+          <div className={`text-xs ${
+            participant.role === 'speaker' ? 'text-blue-600' : 'text-gray-500'
+          }`}>
+            {participant.role === 'speaker' ? '🎤 Speaker' : '👂 Listener'}
+          </div>
+          {isCurrentSpeaker && (
+            <div className="text-green-600 font-semibold">Currently Speaking</div>
+          )}
+        </div>
+      </div>
     )
   }
 
