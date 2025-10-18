@@ -31,7 +31,7 @@ class RoomResponseModel(BaseModel):
 class RoomModel(BaseModel):
     """Complete Room/Room model matching the schema"""
     id: str = Field(..., description="Room UUID")
-    room_code: Optional[str] = Field(None, description="Human-readable room code")
+    room_name: Optional[str] = Field(None, description="Human-readable room name")
     
     # Room Configuration
     topic: str = Field(..., description="Discussion topic")
@@ -46,7 +46,6 @@ class RoomModel(BaseModel):
     current_speaker_index: int = Field(default=0, description="Current speaker index")
     
     # Participants
-    participant_ids: List[str] = Field(default_factory=list, description="List of participant user IDs")
     participant_count: int = Field(default=0, description="Number of participants")
     
     # Timing

@@ -25,6 +25,40 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-19 06:15 UTC] - Implemented MVP Data Models: Feedback and Transcripts, aligned Participant/Room
+**Commit**: Align backend models, services, and routes with MVP data models
+**Author**: GitHub Copilot
+**Type**: Architecture | Feature
+
+**Changes**:
+- Added new Pydantic models: `TranscriptModel`, `CreateTranscriptModel` (`server_py/src/models/transcript_pydantic_models.py`).
+- Extended Feedback models to match MVP and added `room_id` + `display_message` (`server_py/src/models/feedback_pydantic_models.py`).
+- Updated Participant model to use `room_id` (replacing `session_id`), added `turn_order`, clarified CEFR fields (`server_py/src/models/participant_pydantic_models.py`).
+- Created services for new models:
+  - `TranscriptService` with create/list methods (`server_py/src/services/transcript_service.py`).
+  - `FeedbackService` with instant/comprehensive create and list-for-participant (`server_py/src/services/feedback_service.py`).
+- Added API routers and endpoints:
+  - `/transcripts/` POST, `/transcripts/room/{room_id}` GET (`server_py/src/api/transcript_routes.py`).
+  - `/feedback/instant` POST, `/feedback/comprehensive` POST, `/feedback/participant/{participant_id}` GET (`server_py/src/api/feedback_routes.py`).
+- Wired routers in `main.py` with tags and prefixes; ensured database uses the same SQLite path across async/sync layers.
+- Added SQLite tables for `transcripts` and `feedback` in async `Database` init (`server_py/src/database/database.py`).
+- Normalized user service `get_user()` to return `topic_categories` list and `current_cefr_level` string aligned with MVP.
+
+**Impact**:
+- Backend now supports storage and retrieval of transcripts and AI feedback required by the MVP loop.
+- Participant schema matches room-based flow; ready for turn-based features via `turn_order`.
+- Database schema created automatically on startup; services use the same DB file.
+
+**Files Modified/Added**:
+- Models: `participant_pydantic_models.py`, `feedback_pydantic_models.py`, `transcript_pydantic_models.py` (new)
+- Services: `feedback_service.py` (new), `transcript_service.py` (new), `user_services.py`
+- API: `feedback_routes.py` (new), `transcript_routes.py` (new), `main.py`
+- Database: `database.py`
+
+**Notes**:
+- Existing `/api/feedback` rating endpoint remains unchanged; new feedback APIs live under `/feedback/*`.
+- Pytest suite has a custom fixture scope error unrelated to these changes; limited tests were not executed.
+
 ### [2025-10-18 21:30 UTC] - Enhanced Pydantic Models to Match System Design Schema
 **Commit**: Add comprehensive fields to User, Room/Session, Participant, and Feedback models
 **Author**: GitHub Copilot

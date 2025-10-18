@@ -86,6 +86,46 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
+
+            # Transcripts table (MVP)
+            await self.db.execute("""
+                CREATE TABLE IF NOT EXISTS transcripts (
+                    transcript_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    user_id TEXT,
+                    text TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id)
+                )
+            """)
+
+            # Feedback table (MVP)
+            await self.db.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    feedback_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    user_id TEXT,
+                    feedback_type TEXT NOT NULL,
+                    display_message TEXT,
+                    cefr_level TEXT,
+                    grammar_score REAL,
+                    vocabulary_score REAL,
+                    fluency_score REAL,
+                    overall_score REAL,
+                    grammar_issues TEXT,
+                    vocabulary_suggestions TEXT,
+                    fluency_issues TEXT,
+                    suggestions TEXT,
+                    strengths TEXT,
+                    agent_id TEXT,
+                    agent_model TEXT,
+                    generation_time_ms INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id)
+                )
+            """)
             
             # Topics table
             await self.db.execute("""

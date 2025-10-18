@@ -8,14 +8,17 @@ class FeedbackModel(BaseModel):
     Matches the schema from product_system_design.md
     """
     id: str = Field(..., description="Feedback UUID")
-    session_id: str = Field(..., description="Session ID")
+    room_id: str = Field(..., description="Room ID")
     participant_id: str = Field(..., description="Participant ID")
     user_id: str = Field(..., description="User ID")
     
     # Feedback Type
     feedback_type: str = Field(..., description="Feedback type: 'instant' (2-3s) or 'comprehensive'")
     
-    # Grammar Feedback
+    # Display Message (for UI modal, MVP)
+    display_message: str | None = Field(default=None, description="Formatted feedback for modal")
+
+    # Grammar Feedback (optional, extended)
     grammar_issues: List[Dict] = Field(
         default_factory=list,
         description="List of grammar issues with original, corrected, reason, and severity"
@@ -43,6 +46,7 @@ class FeedbackModel(BaseModel):
 
 class InstantFeedbackModel(BaseModel):
     """Quick feedback during speaking (2-3 seconds response time)"""
+    room_id: str = Field(..., description="Room ID")
     participant_id: str = Field(..., description="Participant receiving feedback")
     transcript: str = Field(..., description="Recent speech transcript")
     feedback_message: str = Field(..., description="Instant feedback message")
@@ -51,8 +55,8 @@ class InstantFeedbackModel(BaseModel):
 
 class ComprehensiveFeedbackModel(BaseModel):
     """Detailed feedback at end of discussion"""
+    room_id: str = Field(..., description="Room ID")
     participant_id: str = Field(..., description="Participant receiving feedback")
-    session_id: str = Field(..., description="Session ID")
     
     # CEFR Assessment
     cefr_level: str = Field(..., description="Estimated CEFR level: A0, A1, A2, B1, B2, C1, C2")
