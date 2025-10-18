@@ -205,7 +205,7 @@ CREATE TABLE participants (
 ### Run All Tests
 ```bash
 cd server_py
-export PYTHONPATH=/path/to/GupShupCafe/server_py:$PYTHONPATH
+export PYTHONPATH=$(pwd):$PYTHONPATH
 pytest tests/test_database.py tests/test_integration.py -v
 ```
 
@@ -232,6 +232,7 @@ pytest tests/test_database.py tests/test_integration.py -v
 2. No user authentication validation on socket connections
 3. No data validation for room metadata
 4. Participant table uses user_id as PRIMARY KEY, preventing same user from joining multiple sessions (should be fixed to composite key)
+5. **Note:** Database uses `crf_level` column name instead of the more standard `cefr_level` (CEFR = Common European Framework of Reference). This is a legacy naming convention that should be corrected in a future migration.
 
 ## Future Enhancements
 
