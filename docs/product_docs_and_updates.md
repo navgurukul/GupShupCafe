@@ -1236,3 +1236,56 @@ The client folder now matches the UML diagrams:
 - [ ] Update component documentation with JSDoc
 - [ ] Create Storybook stories for new components
 
+
+---
+
+## WebRTC Audio Transmission Fix
+**Date**: 2025-10-18  
+**Commit**: Fix WebRTC event names and data structure for audio transmission
+
+### Problem
+Audio transmission between clients was not working because of a mismatch between client and server socket event names and data structures:
+
+1. **Event Name Mismatch**:
+   - Client was emitting: `webrtc-offer`, `webrtc-answer`, `webrtc-ice-candidate` (with hyphens)
+   - Server was listening for: `webrtc_offer`, `webrtc_answer`, `webrtc_ice_candidate` (with underscores)
+
+2. **Property Name Mismatch**:
+   - Client was sending: `{ to, sdp }` 
+   - Server was expecting: `{ to, offer }` or `{ to, answer }`
+
+### Solution
+Updated `server_py/src/socket/socket_handlers.py`:
+
+1. Changed event decorators from `@sio.event` to `@sio.on('webrtc-offer')` etc. to explicitly register handlers with hyphenated event names
+2. Updated property names from `offer`/`answer` to `sdp` to match what the client sends and expects
+
+### Changes
+```python
+# Before
+@sio.event
+async def webrtc_offer(sid, data):
+    offer = data.get("offer")
+    await sio.emit("webrtc-offer", {"from": sid, "offer": offer}, room=target_sid)
+
+# After  
+@sio.on('webrtc-offer')
+async def webrtc_offer(sid, data):
+    sdp = data.get("sdp")
+    await sio.emit("webrtc-offer", {"from": sid, "sdp": sdp}, room=target_sid)
+```
+
+### Impact
+- **webrtc-offer**: Now correctly relays SDP offers between peers
+- **webrtc-answer**: Now correctly relays SDP answers between peers  
+- **webrtc-ice-candidate**: Now correctly relays ICE candidates between peers
+- Audio transmission via WebRTC now functional
+
+### Testing
+- ✅ All existing socket handler tests pass
+- ✅ No regressions in user-ready, join-room, disconnect handlers
+- ✅ Event names and data structures now consistent between client and server
+
+### Files Modified
+- `server_py/src/socket/socket_handlers.py`: Updated 3 WebRTC event handlers
+
