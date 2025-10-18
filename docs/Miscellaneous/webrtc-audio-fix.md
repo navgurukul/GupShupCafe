@@ -200,9 +200,9 @@ With the fix, server logs should show:
 ## Files Modified
 
 1. **server_py/src/socket/socket_handlers.py**
-   - Updated `webrtc-offer` handler (lines ~288-308)
-   - Updated `webrtc-answer` handler (lines ~310-330)
-   - Updated `webrtc-ice-candidate` handler (lines ~332-352)
+   - Updated `webrtc-offer` handler
+   - Updated `webrtc-answer` handler
+   - Updated `webrtc-ice-candidate` handler
 
 ## Related Documentation
 
