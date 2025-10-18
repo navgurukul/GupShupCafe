@@ -25,7 +25,8 @@ class Room:
         created_at: Optional[str] = None,
         started_at: Optional[str] = None,
         ended_at: Optional[str] = None,
-        time_remaining: int = 0
+        time_remaining: int = 0,
+        metadata: Optional[dict] = None
     ):
         self.room_code = room_code
         self.topic = topic
@@ -40,6 +41,7 @@ class Room:
         self.ended_at = ended_at
         self.time_remaining = time_remaining
         self.timer = None  # For async timer management
+        self.metadata = metadata or {}  # Store additional room metadata
     
     def add_participant(self, participant: Participant) -> None:
         """Add a participant to the room"""
