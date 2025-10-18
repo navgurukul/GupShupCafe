@@ -25,7 +25,7 @@ All requirements have been successfully implemented with comprehensive testing a
 - **Implementation:**
   - Updated `SignupPage.jsx` to call backend `/users/signup` API
   - Backend `user_services.py` saves user data to `users` table
-  - User data includes: user_id, name, email, password, category, crf_level
+  - User data includes: user_id, name, email, password, category, cefr_level
   - AuthContext enhanced with anonymousName support
 - **Files Modified:**
   - `client/src/pages/SignupPage.jsx`
@@ -37,7 +37,7 @@ All requirements have been successfully implemented with comprehensive testing a
 - **Implementation:**
   - Room metadata (room_name, topic_category, cefr_level, max_participants) passed from frontend
   - Socket handler `check_and_start_discussion()` saves session data when discussion starts
-  - Session includes: session_id, room_id, room_name, topic_title, topic_category, participant_count, timestamps, status, crf_level
+  - Session includes: session_id, room_id, room_name, topic_title, topic_category, participant_count, timestamps, status, cefr_level
 - **Files Modified:**
   - `client/src/contexts/SocketContext.jsx`
   - `client/src/pages/LobbyPage.jsx`

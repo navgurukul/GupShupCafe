@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class AgentCore:
     """
     Production-ready orchestrator for multi-agent coordination
-    Handles session, memory, and unified feedback using Strands and Bedrock AgentCore patterns
+    Handles room, memory, and unified feedback using Strands and Bedrock AgentCore patterns
     Enhanced with MCP tools integration
     """
     

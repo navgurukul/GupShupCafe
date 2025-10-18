@@ -109,7 +109,7 @@ This document describes the integration of frontend and backend systems to captu
    - participant_count
    - timestamps
    - status
-   - crf_level (converted from A1-C2 to 1-6)
+   - cefr_level (converted from A1-C2 to 1-6)
 
 ### Participant Data Flow
 1. When discussion starts, all ready participants are saved
@@ -132,7 +132,7 @@ CREATE TABLE users (
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     category TEXT,
-    crf_level INTEGER NOT NULL DEFAULT 0
+    cefr_level INTEGER NOT NULL DEFAULT 0
 )
 ```
 
@@ -151,7 +151,7 @@ CREATE TABLE sessions (
     rounds_completed INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     status TEXT NOT NULL DEFAULT 'active',
-    crf_level INTEGER NOT NULL DEFAULT 0
+    cefr_level INTEGER NOT NULL DEFAULT 0
 )
 ```
 
@@ -232,7 +232,7 @@ pytest tests/test_database.py tests/test_integration.py -v
 2. No user authentication validation on socket connections
 3. No data validation for room metadata
 4. Participant table uses user_id as PRIMARY KEY, preventing same user from joining multiple sessions (should be fixed to composite key)
-5. **Note:** Database uses `crf_level` column name instead of the more standard `cefr_level` (CEFR = Common European Framework of Reference). This is a legacy naming convention that should be corrected in a future migration.
+5. **Note:** Database uses `cefr_level` column name instead of the more standard `cefr_level` (CEFR = Common European Framework of Reference). This is a legacy naming convention that should be corrected in a future migration.
 
 ## Future Enhancements
 

@@ -1,13 +1,14 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from datetime import datetime
 
 class LoginModel(BaseModel):
     email: EmailStr
     password: str
 
-class LoginResponseModel(BaseModel):
-    status: str = Field(..., description="Login status message")
-    data: str = Field(..., description="User ID for user session")
+class LoginSignUpResponseModel(BaseModel):
+    status: str = Field(..., description="Login/Signup status message")
+    data: str = Field(..., description="User ID for user room")
     message: Optional[str] = Field(None, description="Additional message")
     
 class SignUpModel(BaseModel):
@@ -16,14 +17,20 @@ class SignUpModel(BaseModel):
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., min_length=6, description="User's password")
     category: list[str] = Field(..., description="Categories of interest for the user")
-    # crf_level: Optional[int] = Field(default=0, description="CRF level for the user")
+    cefr_level: Optional[str] = Field(default="A0", description="cefr level for the user")
 
-class CreateRoomModel(BaseModel):
-    room_id: str = Field(..., description="Unique identifier for the room")
-    room_name: str = Field(..., min_length=3, description="Name of the room")
-    room_topic: str = Field(..., min_length=5, description="Topic of discussion for the room")
-    participants: int = Field(..., description="Number of participants expected in the room")
-
-class JoinRoomModel(BaseModel):
-    room_id: str = Field(..., description="ID of the room to join")
-    participant_number: int = Field(..., description="Participant number for joining the room")
+class UserModel(BaseModel):
+    """Complete User model matching the schema"""
+    id: str = Field(..., description="User UUID")
+    email: Optional[str] = Field(None, description="Email for registered users")
+    name: Optional[str] = Field(None, description="User's full name")
+    
+    # CEFR Progress Tracking (MVP Core Feature)
+    current_cefr_level: str = Field(default="A0", description="Current CEFR level: A0, A1, A2, B1, B2, C1, C2")
+    
+    # Topic Interests (For Future Lobby Matching)
+    topic_categories: list[str] = Field(default_factory=list, description="Topic categories of interest")
+    
+    # Metadata
+    created_at: datetime = Field(..., description="Account creation timestamp")
+    last_active: Optional[datetime] = Field(None, description="Last activity timestamp")

@@ -15,10 +15,10 @@ async def create_participant(participant: CreateParticipantModel):
     response = participant_service.create_participant(participant)
     return response
 
-@router.get("/participant/{user_id}/{session_id}", description="Get participant details")
-async def get_participant(user_id: str, session_id: str):
+@router.get("/participant/{user_id}/{room_id}", description="Get participant details")
+async def get_participant(user_id: str, room_id: str):
     """Get participant details endpoint"""
-    response = participant_service.get_participant(user_id, session_id)
+    response = participant_service.get_participant(user_id, room_id)
     if response["status"] == "failure":
         raise HTTPException(status_code=404, detail=response["message"])
     return response

@@ -7,11 +7,11 @@ from datetime import datetime
 
 
 @pytest.mark.asyncio
-async def test_session_creation_with_participants(test_db):
-    """Test creating a session with participants"""
-    # Create a session
-    session_data = {
-        "session_id": "test-session-integration",
+async def test_room_creation_with_participants(test_db):
+    """Test creating a room with participants"""
+    # Create a room
+    room_data = {
+        "room_id": "test-room-integration",
         "room_id": "test-room",
         "room_name": "Test Room",
         "topic": {
@@ -24,17 +24,17 @@ async def test_session_creation_with_participants(test_db):
         "durationSeconds": None,
         "roundsCompleted": 0,
         "status": "active",
-        "crf_level": 3
+        "cefr_level": 3
     }
     
-    session_id = await test_db.save_session(session_data)
-    assert session_id is not None
+    room_id = await test_db.save_room(room_data)
+    assert room_id is not None
     
-    # Add participants to the session
+    # Add participants to the room
     participants_data = [
         {
             "user_id": "user-1",
-            "session_id": "test-session-integration",
+            "room_id": "test-room-integration",
             "anonymousName": "Happy Tiger",
             "campus": "Campus A",
             "location": "Location A",
@@ -44,7 +44,7 @@ async def test_session_creation_with_participants(test_db):
         },
         {
             "user_id": "user-2",
-            "session_id": "test-session-integration",
+            "room_id": "test-room-integration",
             "anonymousName": "Clever Eagle",
             "campus": "Campus B",
             "location": "Location B",
@@ -58,15 +58,15 @@ async def test_session_creation_with_participants(test_db):
         result = await test_db.save_participant(participant)
         assert result is not None
     
-    # Verify session was saved correctly
-    sessions = await test_db.get_session_analytics(limit=10)
-    assert len(sessions) > 0
+    # Verify room was saved correctly
+    rooms = await test_db.get_room_analytics(limit=10)
+    assert len(rooms) > 0
     
-    # Find our session
-    our_session = next((s for s in sessions if s["session_id"] == "test-session-integration"), None)
-    assert our_session is not None
-    assert our_session["room_name"] == "Test Room"
-    assert our_session["recorded_participants"] == 2
+    # Find our room
+    our_room = next((s for s in rooms if s["room_id"] == "test-room-integration"), None)
+    assert our_room is not None
+    assert our_room["room_name"] == "Test Room"
+    assert our_room["recorded_participants"] == 2
 
 
 @pytest.mark.asyncio
@@ -82,8 +82,8 @@ async def test_cefr_level_mapping(test_db):
     }
     
     for cefr_str, cefr_int in cefr_levels.items():
-        session_data = {
-            "session_id": f"test-session-cefr-{cefr_str}",
+        room_data = {
+            "room_id": f"test-room-cefr-{cefr_str}",
             "room_id": f"test-room-{cefr_str}",
             "room_name": f"Test Room {cefr_str}",
             "topic": {
@@ -93,22 +93,22 @@ async def test_cefr_level_mapping(test_db):
             "participantCount": 1,
             "startedAt": datetime.now().isoformat(),
             "status": "active",
-            "crf_level": cefr_int
+            "cefr_level": cefr_int
         }
         
-        result = await test_db.save_session(session_data)
+        result = await test_db.save_room(room_data)
         assert result is not None
     
-    # Verify all sessions were saved
-    sessions = await test_db.get_session_analytics(limit=10)
-    assert len(sessions) >= 6
+    # Verify all rooms were saved
+    rooms = await test_db.get_room_analytics(limit=10)
+    assert len(rooms) >= 6
 
 
 @pytest.mark.asyncio
 async def test_room_metadata_handling(test_db):
-    """Test that room metadata is correctly stored in sessions"""
-    session_data = {
-        "session_id": "test-session-metadata",
+    """Test that room metadata is correctly stored in rooms"""
+    room_data = {
+        "room_id": "test-room-metadata",
         "room_id": "education-b1",
         "room_name": "Education Discussion",
         "topic": {
@@ -118,16 +118,16 @@ async def test_room_metadata_handling(test_db):
         "participantCount": 4,
         "startedAt": datetime.now().isoformat(),
         "status": "active",
-        "crf_level": 3  # B1
+        "cefr_level": 3  # B1
     }
     
-    result = await test_db.save_session(session_data)
+    result = await test_db.save_room(room_data)
     assert result is not None
     
     # Retrieve and verify
-    sessions = await test_db.get_session_analytics(limit=10)
-    our_session = next((s for s in sessions if s["session_id"] == "test-session-metadata"), None)
+    rooms = await test_db.get_room_analytics(limit=10)
+    our_room = next((s for s in rooms if s["room_id"] == "test-room-metadata"), None)
     
-    assert our_session is not None
-    assert our_session["room_name"] == "Education Discussion"
-    assert our_session["topic_category"] == "education"
+    assert our_room is not None
+    assert our_room["room_name"] == "Education Discussion"
+    assert our_room["topic_category"] == "education"

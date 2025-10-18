@@ -1,6 +1,6 @@
 """
 Database Management
-Simple SQLite database for storing session data and analytics
+Simple SQLite database for storing room data and analytics
 """
 
 import aiosqlite
@@ -47,16 +47,16 @@ class Database:
                     email TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
                     category TEXT, 
-                    crf_level INTEGER NOT NULL DEFAULT 0
+                    cefr_level INTEGER NOT NULL DEFAULT 0
                     )
             """)
             
         
             
-            # Sessions table
+            # Rooms table
             await self.db.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_id TEXT PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS rooms (
+                    room_id TEXT PRIMARY KEY,
                     room_name TEXT NOT NULL,
                     topic_title TEXT,
                     topic_category TEXT,
@@ -75,14 +75,14 @@ class Database:
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS participants (
                     user_id TEXT PRIMARY KEY,
-                    session_id TEXT,
+                    room_id TEXT,
                     anonymous_name TEXT,
                     campus TEXT,
                     location TEXT,
                     joined_at DATETIME,
                     left_at DATETIME,
                     speaking_time_seconds INTEGER DEFAULT 0,
-                    FOREIGN KEY (session_id) REFERENCES sessions (session_id),
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
@@ -104,31 +104,31 @@ class Database:
         
         print("✅ Database tables created/verified")
 
-    async def save_session(self, session_data: Dict[str, Any]) -> int:
-        """Save a discussion session"""
+    async def save_room(self, room_data: Dict[str, Any]) -> int:
+        """Save a discussion room"""
         query = """
-            INSERT INTO sessions (
-                session_id, room_id, room_name, topic_title, topic_category, participant_count,started_at, ended_at, duration_seconds, rounds_completed, status
+            INSERT INTO rooms (
+                room_id, room_id, room_name, topic_title, topic_category, participant_count,started_at, ended_at, duration_seconds, rounds_completed, status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
-        topic = session_data.get("topic", {})
+        topic = room_data.get("topic", {})
         # Get room_id and use it for room_name if not provided
-        room_id = session_data.get("room_id") or session_data.get("roomId")
-        room_name = session_data.get("room_name") or session_data.get("roomName") or room_id or "general"
+        room_id = room_data.get("room_id") or room_data.get("roomId")
+        room_name = room_data.get("room_name") or room_data.get("roomName") or room_id or "general"
         
         cursor = await self.db.execute(query, (
-            session_data.get("session_id") or session_data.get("id"),
+            room_data.get("room_id") or room_data.get("id"),
             room_id,
             room_name,
             topic.get("title") if topic else None,
             topic.get("category") if topic else None,
-            session_data.get("participantCount") or session_data.get("participant_count"),
-            session_data.get("startedAt") or session_data.get("started_at"),
-            session_data.get("endedAt") or session_data.get("ended_at"),
-            session_data.get("durationSeconds") or session_data.get("duration_seconds"),
-            session_data.get("roundsCompleted") or session_data.get("rounds_completed"),
-            session_data.get("status", "active")
+            room_data.get("participantCount") or room_data.get("participant_count"),
+            room_data.get("startedAt") or room_data.get("started_at"),
+            room_data.get("endedAt") or room_data.get("ended_at"),
+            room_data.get("durationSeconds") or room_data.get("duration_seconds"),
+            room_data.get("roundsCompleted") or room_data.get("rounds_completed"),
+            room_data.get("status", "active")
         ))
         
         await self.db.commit()
@@ -138,14 +138,14 @@ class Database:
         """Save participant data"""
         query = """
             INSERT INTO participants (
-                user_id, session_id, anonymous_name, campus, location,
+                user_id, room_id, anonymous_name, campus, location,
                 joined_at, left_at, speaking_time_seconds
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         cursor = await self.db.execute(query, (
             participant_data.get("user_id") or participant_data.get("userId"),
-            participant_data.get("session_id") or participant_data.get("sessionId"),
+            participant_data.get("room_id") or participant_data.get("roomId"),
             participant_data.get("anonymous_name") or participant_data.get("anonymousName"),
             participant_data.get("campus"),
             participant_data.get("location"),
@@ -189,11 +189,11 @@ class Database:
             
             await self.db.commit()
 
-    async def get_session_analytics(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get session analytics"""
+    async def get_room_analytics(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get room analytics"""
         query = """
             SELECT 
-                s.session_id,
+                s.room_id,
                 s.room_id,
                 s.room_name,
                 s.topic_title,
@@ -204,9 +204,9 @@ class Database:
                 s.duration_seconds,
                 s.rounds_completed,
                 COUNT(p.user_id) as recorded_participants
-            FROM sessions s
-            LEFT JOIN participants p ON s.session_id = p.session_id
-            GROUP BY s.session_id
+            FROM rooms s
+            LEFT JOIN participants p ON s.room_id = p.room_id
+            GROUP BY s.room_id
             ORDER BY s.started_at DESC
             LIMIT ?
         """
@@ -236,29 +236,29 @@ class Database:
         """Get server statistics"""
         stats = {}
         
-        # Total sessions
-        async with self.db.execute("SELECT COUNT(*) as count FROM sessions") as cursor:
+        # Total rooms
+        async with self.db.execute("SELECT COUNT(*) as count FROM rooms") as cursor:
             row = await cursor.fetchone()
-            stats["totalSessions"] = dict(row) if row else {"count": 0}
+            stats["totalRooms"] = dict(row) if row else {"count": 0}
         
         # Total participants
         async with self.db.execute("SELECT COUNT(DISTINCT user_id) as count FROM participants") as cursor:
             row = await cursor.fetchone()
             stats["totalParticipants"] = dict(row) if row else {"count": 0}
         
-        # Average session duration
+        # Average room duration
         async with self.db.execute(
-            "SELECT AVG(duration_seconds) as avg FROM sessions WHERE duration_seconds > 0"
+            "SELECT AVG(duration_seconds) as avg FROM rooms WHERE duration_seconds > 0"
         ) as cursor:
             row = await cursor.fetchone()
-            stats["avgSessionDuration"] = dict(row) if row else {"avg": 0}
+            stats["avgRoomDuration"] = dict(row) if row else {"avg": 0}
         
-        # Average participants per session
+        # Average participants per room
         async with self.db.execute(
-            "SELECT AVG(participant_count) as avg FROM sessions"
+            "SELECT AVG(participant_count) as avg FROM rooms"
         ) as cursor:
             row = await cursor.fetchone()
-            stats["avgParticipantsPerSession"] = dict(row) if row else {"avg": 0}
+            stats["avgParticipantsPerRoom"] = dict(row) if row else {"avg": 0}
         
         # Top categories
         query = """
@@ -275,20 +275,20 @@ class Database:
         
         return stats
 
-    async def update_session_end(self, session_data: Dict[str, Any]) -> int:
-        """Update session end metadata"""
+    async def update_room_end(self, room_data: Dict[str, Any]) -> int:
+        """Update room end metadata"""
         query = """
-            UPDATE sessions
+            UPDATE rooms
             SET ended_at = ?, duration_seconds = ?, rounds_completed = ?, participant_count = ?
-            WHERE session_id = ?
+            WHERE room_id = ?
         """
         
         cursor = await self.db.execute(query, (
-            session_data.get("endedAt") or session_data.get("ended_at"),
-            session_data.get("durationSeconds") or session_data.get("duration_seconds"),
-            session_data.get("roundsCompleted") or session_data.get("rounds_completed"),
-            session_data.get("participantCount") or session_data.get("participant_count"),
-            session_data.get("id") or session_data.get("session_id")
+            room_data.get("endedAt") or room_data.get("ended_at"),
+            room_data.get("durationSeconds") or room_data.get("duration_seconds"),
+            room_data.get("roundsCompleted") or room_data.get("rounds_completed"),
+            room_data.get("participantCount") or room_data.get("participant_count"),
+            room_data.get("id") or room_data.get("room_id")
         ))
         
         await self.db.commit()

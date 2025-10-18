@@ -5,7 +5,7 @@ import os
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import LoginModel, SignUpModel, CreateRoomModel, JoinRoomModel, LoginResponseModel
+from src.models.user_pydantic_models import LoginModel, SignUpModel, CreateRoomModel, JoinRoomModel, LoginSignUpResponseModel
 from src.database.db_connection import conn, cursor
 
 class User_services:
@@ -60,12 +60,12 @@ class User_services:
             category_str = ','.join(signup_model.category)  # Convert list to comma-separated string
             if signup_model.name and signup_model.email and signup_model.password and signup_model.category:
                 self.cursor.execute(
-                    "INSERT INTO users (user_id, name, email, password, category, crf_level) VALUES (?, ?, ?, ?, ?, ?)",
-                    (user_id, signup_model.name, signup_model.email, signup_model.password, category_str, 0)
+                    "INSERT INTO users (user_id, name, email, password, category, cefr_level) VALUES (?, ?, ?, ?, ?, ?)",
+                    (user_id, signup_model.name, signup_model.email, signup_model.password, category_str, "A0")
                 )
             else:
                 self.cursor.execute(
-                    "INSERT INTO users (user_id, name, email, password, category, crf_level) VALUES (?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO users (user_id, name, email, password, category, cefr_level) VALUES (?, ?, ?, ?, ?, ?)",
                     (user_id, signup_model.name, signup_model.email, signup_model.password, signup_model.category, 0)
                 )
             self.conn.commit()
@@ -88,7 +88,7 @@ class User_services:
         """Service to get user details"""
         try:
             self.cursor.execute(
-                "SELECT user_id, name, email, category, crf_level FROM users WHERE user_id=?",
+                "SELECT user_id, name, email, category, cefr_level FROM users WHERE user_id=?",
                 (user_id,)
             )
             user = self.cursor.fetchone()
@@ -101,7 +101,7 @@ class User_services:
                         "name": user[1],
                         "email": user[2],
                         "category": user[3],
-                        "crf_level": user[4]
+                        "cefr_level": user[4]
                     },
                     "message": "User found"
                 }

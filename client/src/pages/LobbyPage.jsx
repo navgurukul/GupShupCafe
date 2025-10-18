@@ -151,7 +151,7 @@ function LobbyPage() {
             ended_at: new Date().toISOString(),
             rounds_completed: 0,
             created_at: new Date().toISOString(),
-            crf_level: parseInt(roomData.cefr_level.charAt(0)) // Extract numeric value from CEFR level (A1->0, B1->1, C1->2)
+            cefr_level: parseInt(roomData.cefr_level.charAt(0)) // Extract numeric value from CEFR level (A1->0, B1->1, C1->2)
           }),
         })
         
@@ -231,7 +231,7 @@ function LobbyPage() {
           ended_at: new Date().toISOString(),
           rounds_completed: 0,
           created_at: new Date().toISOString(),
-          crf_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
+          cefr_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
         }),
       })
       

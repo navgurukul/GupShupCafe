@@ -13,9 +13,9 @@ os.environ["PYTHON_ENV"] = "testing"
 os.environ["DATABASE_URL"] = ":memory:"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="room")
 def event_loop():
-    """Create an instance of the default event loop for the test session."""
+    """Create an instance of the default event loop for the test room."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -57,10 +57,10 @@ def sample_topic():
 
 
 @pytest.fixture
-def sample_session():
-    """Sample session data for testing"""
+def sample_room():
+    """Sample room data for testing"""
     return {
-        "id": "test-session-123",
+        "id": "test-room-123",
         "roomId": "test-room",
         "topic": {
             "title": "Test Topic",
@@ -79,7 +79,7 @@ def sample_participant():
     """Sample participant data for testing"""
     return {
         "id": "participant-123",
-        "sessionId": "test-session-123",
+        "roomId": "test-room-123",
         "userId": "user-123",
         "anonymousName": "Friendly Fox",
         "campus": "Test Campus",

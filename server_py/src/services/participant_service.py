@@ -17,10 +17,10 @@ class Participant_service:
     def create_participant(self, participant_model: CreateParticipantModel) -> ParticipantResponseModel:
         """Service to handle participant creation"""
         try:
-            # Check if participant already exists in the session
+            # Check if participant already exists in the room
             self.cursor.execute(
-                "SELECT user_id FROM participants WHERE user_id=? AND session_id=?",
-                (participant_model.user_id, participant_model.session_id)
+                "SELECT user_id FROM participants WHERE user_id=? AND room_id=?",
+                (participant_model.user_id, participant_model.room_id)
             )
             existing_participant = self.cursor.fetchone()
             
@@ -28,17 +28,17 @@ class Participant_service:
                 return ParticipantResponseModel(
                     status="success",
                     data=participant_model.user_id,
-                    message="Participant already exists in this session"
+                    message="Participant already exists in this room"
                 )
             
             # Insert new participant
             self.cursor.execute(
                 """INSERT INTO participants 
-                (user_id, session_id, anonymous_name, campus, location, joined_at, speaking_time_seconds) 
+                (user_id, room_id, anonymous_name, campus, location, joined_at, speaking_time_seconds) 
                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (
                     participant_model.user_id,
-                    participant_model.session_id,
+                    participant_model.room_id,
                     participant_model.anonymous_name,
                     participant_model.campus,
                     participant_model.location,
@@ -62,14 +62,14 @@ class Participant_service:
                 message="Participant creation failed"
             )
     
-    def get_participant(self, user_id: str, session_id: str) -> dict:
+    def get_participant(self, user_id: str, room_id: str) -> dict:
         """Get participant details"""
         try:
             self.cursor.execute(
-                """SELECT user_id, session_id, anonymous_name, campus, location, 
+                """SELECT user_id, room_id, anonymous_name, campus, location, 
                 joined_at, left_at, speaking_time_seconds 
-                FROM participants WHERE user_id=? AND session_id=?""",
-                (user_id, session_id)
+                FROM participants WHERE user_id=? AND room_id=?""",
+                (user_id, room_id)
             )
             participant = self.cursor.fetchone()
             
@@ -78,7 +78,7 @@ class Participant_service:
                     "status": "success",
                     "data": {
                         "user_id": participant[0],
-                        "session_id": participant[1],
+                        "room_id": participant[1],
                         "anonymous_name": participant[2],
                         "campus": participant[3],
                         "location": participant[4],
@@ -102,12 +102,12 @@ class Participant_service:
                 "message": "Failed to retrieve participant"
             }
     
-    def update_participant_left_time(self, user_id: str, session_id: str, left_at: datetime) -> ParticipantResponseModel:
+    def update_participant_left_time(self, user_id: str, room_id: str, left_at: datetime) -> ParticipantResponseModel:
         """Update participant left time"""
         try:
             self.cursor.execute(
-                "UPDATE participants SET left_at=? WHERE user_id=? AND session_id=?",
-                (left_at, user_id, session_id)
+                "UPDATE participants SET left_at=? WHERE user_id=? AND room_id=?",
+                (left_at, user_id, room_id)
             )
             self.conn.commit()
             

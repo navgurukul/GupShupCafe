@@ -80,20 +80,20 @@ async def get_topic_by_cat(category: str):
         raise HTTPException(status_code=500, detail="Failed to retrieve topic")
 
 
-# @router.get("/analytics/sessions")
-# async def get_sessions(limit: int = Query(default=10, ge=1, le=100)):
-#     """Get session analytics"""
+# @router.get("/analytics/rooms")
+# async def get_rooms(limit: int = Query(default=10, ge=1, le=100)):
+#     """Get room analytics"""
 #     try:
-#         sessions = await db.get_session_analytics(limit)
+#         rooms = await db.get_room_analytics(limit)
         
 #         return {
 #             "success": True,
-#             "data": sessions,
-#             "count": len(sessions)
+#             "data": rooms,
+#             "count": len(rooms)
 #         }
 #     except Exception as e:
-#         print(f"Error getting session analytics: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to retrieve session analytics")
+#         print(f"Error getting room analytics: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Failed to retrieve room analytics")
 
 
 # @router.get("/analytics/topics")
@@ -133,10 +133,10 @@ async def submit_feedback(feedback_data: dict):
     try:
         rating = feedback_data.get("rating")
         comment = feedback_data.get("comment")
-        session_id = feedback_data.get("session_id")
+        room_id = feedback_data.get("room_id")
         
         # Log feedback (in production, save to database)
-        print(f"Feedback received: {{'rating': {rating}, 'comment': {comment[:100] if comment else None}, 'session_id': {session_id}, 'timestamp': {__import__('datetime').datetime.now()}}}")
+        print(f"Feedback received: {{'rating': {rating}, 'comment': {comment[:100] if comment else None}, 'room_id': {room_id}, 'timestamp': {__import__('datetime').datetime.now()}}}")
         
         return {
             "success": True,

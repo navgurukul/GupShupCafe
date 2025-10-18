@@ -6,29 +6,34 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-from ..models import Room, Participant, RoomStatus, ParticipantRole
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel
 
 
 class RoomManager:
     """Manages discussion rooms and participants"""
     
     def __init__(self):
-        self.rooms: Dict[str, Room] = {}
+        self.rooms: Dict[str, CreateRoomModel] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> Room:
+    def get_room(self, room_id: str) -> CreateRoomModel:
         """
         Get or create a room
         Args:
-            room_id: Room identifier
-        Returns: Room object
+            room_id: CreateRoomModel identifier
+        Returns: CreateRoomModel object
         """
         if room_id not in self.rooms:
-            self.rooms[room_id] = Room(
-                room_code=room_id,
+            self.rooms[room_id] = CreateRoomModel(
+                room_name="General",
+                room_topic="General Discussion",
+                topic_category="General",
+                started_at=datetime.now(),
+                ended_at=datetime.now() + timedelta(hours=1),
+                rounds_completed=0,
+                created_at=datetime.now(),
                 status=RoomStatus.WAITING,
-                speaking_time=60,
-                max_rounds=3
+                cefr_level="A0"
             )
         return self.rooms[room_id]
 

@@ -25,6 +25,73 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-18 21:30 UTC] - Enhanced Pydantic Models to Match System Design Schema
+**Commit**: Add comprehensive fields to User, Room/Session, Participant, and Feedback models
+**Author**: GitHub Copilot
+**Type**: Architecture | Refactor
+
+**Changes**:
+- **User Models Enhancement** (`user_pydantic_models.py`):
+  - Added new `UserModel` class with complete schema matching product_system_design.md
+  - Included `current_cefr_level` field for CEFR progress tracking (A0-C2)
+  - Added `topic_categories` list for future lobby matching functionality
+  - Added metadata fields: `created_at`, `last_active`
+  - Preserved all existing models: `LoginModel`, `SignUpModel`, `LoginSignUpResponseModel`
+
+- **Room/Session Models Enhancement** (`room_pydantic_models.py`):
+  - Added new `SessionModel` class with complete session/room schema
+  - Session configuration: `max_participants` (default 6), `speaking_time_per_turn` (default 60s), `num_rounds` (default 3)
+  - Session state tracking: `current_round`, `current_speaker_index`
+  - Participant tracking: `participant_ids` list, `participant_count`
+  - Timing fields: `started_at`, `ended_at`, `duration_seconds`
+  - AWS Strands integration: `facilitator_agent_id` for AI agent instance
+  - Metadata: `created_by` to track room creator
+  - Preserved all existing models: `CreateRoomModel`, `RoomResponseModel`, `RoomStatus` enum
+
+- **Participant Models Enhancement** (`participant_pydantic_models.py`):
+  - Added new `ParticipantModel` class with complete participant schema
+  - Identity fields: `anonymous_name`, `avatar_color`
+  - Session role: `role` (participant/host/listener), `is_ready` flag
+  - Real-time state: `is_speaking`, `is_muted`, `socket_id` for WebRTC/Socket.io
+  - CEFR progress tracking: `starting_cefr_level`, `ending_cefr_level`
+  - Connection tracking: `joined_at`, `left_at`
+  - Preserved existing fields: `campus`, `location` from original models
+  - Preserved all existing models: `CreateParticipantModel`, `JoinRoomAsParticipantModel`, `ParticipantResponseModel`
+
+- **New Feedback Models** (`feedback_pydantic_models.py` - NEW FILE):
+  - Created comprehensive `FeedbackModel` matching the schema
+  - Feedback categorization: `feedback_type` (instant vs comprehensive)
+  - Grammar feedback: `grammar_issues` with original/corrected/reason/severity
+  - Vocabulary feedback: `vocabulary_level`, `vocabulary_suggestions` with alternatives
+  - Fluency feedback: `fluency_issues`, `fluency_comments`
+  - Actionable content: `suggestions` list, `strengths` list
+  - Created `InstantFeedbackModel` for real-time 2-3 second feedback during speaking
+  - Created `ComprehensiveFeedbackModel` for detailed end-of-session analysis
+  - CEFR assessment: `cefr_level`, `cefr_confidence` score
+  - Detailed scoring: `grammar_score`, `vocabulary_score`, `fluency_score`, `overall_score` (0-10 scale)
+  - AI agent metadata: `agent_id`, `agent_model`, `generation_time_ms`
+
+**Why These Changes**:
+- Align Pydantic models with the comprehensive data schema defined in product_system_design.md
+- Enable proper CEFR progress tracking (MVP core feature)
+- Support AWS Strands multi-agent system integration
+- Provide foundation for real-time feedback and session management
+- Ensure data consistency between frontend, backend, and database layers
+- NO FIELDS WERE REMOVED - all existing functionality preserved
+
+**Impact on System**:
+- Models now fully support the MVP features outlined in system design
+- Ready for database schema implementation matching these models
+- Frontend can leverage complete data structure for UI components
+- AWS Strands agents can provide structured feedback using defined models
+- Enables future features like lobby matching by CEFR level and topics
+
+**Files Modified**:
+- `server_py/src/models/user_pydantic_models.py` - Added UserModel
+- `server_py/src/models/room_pydantic_models.py` - Added SessionModel
+- `server_py/src/models/participant_pydantic_models.py` - Added ParticipantModel
+- `server_py/src/models/feedback_pydantic_models.py` - NEW FILE with FeedbackModel, InstantFeedbackModel, ComprehensiveFeedbackModel
+
 ### [2025-10-18 14:30 UTC] - Complete API Integration for User Login, Session, and Participant Management
 **Commit**: Add API calls for login, room creation, and participant tracking
 **Author**: GitHub Copilot

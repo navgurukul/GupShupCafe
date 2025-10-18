@@ -49,7 +49,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 - ✅ **AWS AgentCore** wrapper for production deployment (runtime, identity, internet access)
 
 **Priority 4: Minimal Persistence**
-- ✅ Store session data (participants, transcripts, feedback)
+- ✅ Store room data (participants, transcripts, feedback)
 - ✅ Track basic CEFR progress per user
 - ✅ User authentication (simple login)
 - ✅ Save discussion history (last 24 hours for MVP)
@@ -103,7 +103,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 │  └───────┼─────────────┼─────────────┼──────────────────────────┘     │
 │          │             │             │                                │
 │  ┌───────▼─────┐  ┌────▼────┐  ┌────▼─────┐                           │
-│  │ Room Manager│  │ Session │  │ WebRTC   │                           │
+│  │ Room Manager│  │ Room │  │ WebRTC   │                           │
 │  │  Service    │  │ Manager │  │ Relay    │                           │
 │  └─────┬───────┘  └────┬────┘  └──────────┘                           │
 │        │               │                                              │
@@ -113,7 +113,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
          │    ┌─────────────────┐
          │    │   SQLite         │
          │    │   - Users        │
-         │    │   - Sessions     │
+         │    │   - Rooms     │
          │    │   - Participants │
          │    │   - Feedback     │
          │    │                  │
@@ -271,7 +271,7 @@ The rest of your statement is clear and well-structured. (Instant feedbacks are 
 
 ### 2.3.1 Core Data Entities
 
-The application uses the following data models to persist user progress, session information, and feedback:
+The application uses the following data models to persist user progress, room information, and feedback:
 
 #### User Model
 
@@ -297,7 +297,7 @@ class User:
 
 ================== NOT IN MVP ==============================
     # Statistics - not in MVP
-    total_sessions: int
+    total_rooms: int
     total_speaking_time: int  # seconds
     total_words_spoken: int
     
@@ -317,28 +317,28 @@ class User:
 ================== NOT IN MVP ==============================
 ```
 
-#### Session Model
+#### Room Model
 
 ```python
-# server_py/src/database/models/session.py
+# server_py/src/database/models/room.py
 from datetime import datetime
 from typing import List, Optional
 
-class Session:
+class Room:
     """
-    Discussion session model.
+    Discussion room model.
     """
     id: str  # UUID
     room_code: str  # Human-readable room code
     
-    # Session Configuration
+    # Room Configuration
     topic: str  # Discussion topic
     topic_category: str  # "Technology", "Current Events", etc.
     max_participants: int  # Default: 6
     speaking_time_per_turn: int  # seconds, default: 60
     num_rounds: int  # Default: 3
     
-    # Session State
+    # Room State
     status: str  # "waiting", "in_progress", "completed", "cancelled"
     current_round: int
     current_speaker_index: int
@@ -369,17 +369,17 @@ from typing import List, Optional
 
 class Participant:
     """
-    Individual participant in a session.
+    Individual participant in a room.
     """
     id: str  # UUID
-    session_id: str # Foreign key
+    room_id: str # Foreign key
     user_id: str # Foreign key
     
     # Identity
     anonymous_name: str  # Anonymous name like "Blue Panda", "Red Dragon"
     avatar_color: str  # Hex color code
     
-    # Session Role
+    # Room Role
     role: str  # "participant", "host", "listener"
     is_ready: bool  # Ready to start discussion
 
@@ -389,13 +389,13 @@ class Participant:
     socket_id: str  # Socket.io connection ID
 
     
-    # CEFR Level at Session Start (for progress tracking)
+    # CEFR Level at Room Start (for progress tracking)
     starting_cefr_level: str
-    ending_cefr_level: Optional[str]  # Updated at session end
+    ending_cefr_level: Optional[str]  # Updated at room end
 
 ================== NOT IN MVP ==============================
     # Speaking Data
-    total_speaking_time: int  # seconds in this session
+    total_speaking_time: int  # seconds in this room
     total_words_spoken: int
     number_of_turns: int
     
@@ -418,7 +418,7 @@ class Feedback:
     AI-generated English feedback for a transcript.
     """
     id: str  # UUID
-    session_id: str
+    room_id: str
     participant_id: str
     user_id: str
     
@@ -501,7 +501,7 @@ class Feedback:
 │ Participant │            │
 │─────────────│            │
 │ id (PK)     │            │
-│ session_id  │────┐       │
+│ room_id  │────┐       │
 │ user_id (FK)│    │       │
 │ display_name│    │       │
 │ cefr_level  │    │       │
@@ -510,7 +510,7 @@ class Feedback:
        │ 1:N       │ N:1   │
        |           ▼       │
        |         ┌─────────────┐
-       |         │   Session   │
+       |         │   Room   │
        |         │─────────────│
        |         │ id (PK)     │
        |         │ room_name   │
@@ -546,20 +546,20 @@ class Feedback:
    └─> User can create a new room by clicking the 'Create new room' button.
        └─> Create new room button clicked
        └─> Room creation form opened - User becomes the host for the room - Enter room_name, max_participants and select the topic_category for the room. Host's CEFR level is assigned to the room
-       └─> Host mentions his anonymous name for the session
+       └─> Host mentions his anonymous name for the room
        └─> Publish room for others to join
        └─> Other participants join and click 'I'm ready to start!' button.
-       └─> When all participants are ready to start, the session starts.
+       └─> When all participants are ready to start, the room starts.
    └─> User can join an online room published by another user by clicking the one of the available room cards on the screen.
-       └─> User mentions his anonymous name for the session
+       └─> User mentions his anonymous name for the room
        └─> User clicks 'I'm ready to start!' button when mic and network working fine and ready to start.
-       └─> When all participants are ready to start, the session starts. 
+       └─> When all participants are ready to start, the room starts. 
 ```
 
-### 2.3.4 Data Flow for Session
+### 2.3.4 Data Flow for Room
 
 ```
-1. User joins session
+1. User joins room
    └─> Create/Update Participant record
 
 2. User speaks during turn
@@ -571,17 +571,17 @@ class Feedback:
 3. Turn ends
    └─> Update Participant stats (speaking_time, word_count)
 
-4. Session ends
+4. Room ends
    └─> Trigger comprehensive feedback for all transcripts
    └─> Create Feedback records (comprehensive)
    └─> Update Participant ending_cefr_level
-   └─> Update Session status to "completed"
+   └─> Update Room status to "completed"
 
-5. Background job (post-session)
-   └─> Aggregate all session feedback
+5. Background job (post-room)
+   └─> Aggregate all room feedback
    └─> Update User current_cefr_level (if changed)
    └─> Update Progress record with trends and milestones
-   └─> Update User topic_interests based on session topics
+   └─> Update User topic_interests based on room topics
    
 6. Future: Lobby Matching (not MVP)
    └─> Query Users by cefr_level range (±1 level)
@@ -1168,7 +1168,7 @@ class AWSStrandsOrchestrator:
                 "improvement_areas": result.get("improvement_areas", []),
                 "strengths": result.get("strengths", [])
             },
-            "session_summary": result.get("summary", ""),
+            "room_summary": result.get("summary", ""),
             "recommendations": result.get("recommendations", [])
         }
     
@@ -1274,7 +1274,7 @@ async def get_comprehensive_feedback(request: ComprehensiveFeedbackRequest):
         statements=request.all_statements,
         instant=False,
         context={
-            "session_id": request.session_id,
+            "room_id": request.room_id,
             "topic": request.topic,
             "duration": request.duration
         }
@@ -1481,7 +1481,7 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
 │  ┌──────────────────────────────▼───────────────────────────────────┐ │
 │  │                    EFS Volume (Elastic File System)               │ │
 │  │  - Shared persistent storage for Fargate tasks                   │ │
-│  │  - Stores: SQLite DB, Session data, Logs                         │ │
+│  │  - Stores: SQLite DB, Room data, Logs                         │ │
 │  │  - Auto-scaling, pay-per-use                                     │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 │                                                                          │
@@ -1730,7 +1730,7 @@ DAY 3: Production
 ### Phase 4 (Month 3+)
 - Mobile app (React Native)
 - Video support
-- Recorded sessions playback
+- Recorded rooms playback
 - AI-generated practice exercises
 
 ---
