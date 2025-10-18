@@ -1,15 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-
 import { useSocket } from '../contexts/SocketContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useAudio } from '../contexts/AudioContext'
-import { Users, Clock, Mic, MicOff, LogOut, Settings, Plus, BookOpen, Atom, PenTool, Brain } from 'lucide-react'
+import { Users, Clock, Mic, MicOff, LogOut, Settings, Plus, BookOpen, Atom, PenTool, Brain, Star } from 'lucide-react'
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== 'undefined') {
   window.lateJoinCheckInProgress = window.lateJoinCheckInProgress || false
 }
+
+// CEFR Levels
+const cefrLevels = [
+  { id: 'A1', label: 'A1 - Beginner', color: 'bg-red-100 text-red-800', description: 'Can understand and use familiar everyday expressions' },
+  { id: 'A2', label: 'A2 - Elementary', color: 'bg-orange-100 text-orange-800', description: 'Can communicate in simple routine tasks' },
+  { id: 'B1', label: 'B1 - Intermediate', color: 'bg-yellow-100 text-yellow-800', description: 'Can deal with most situations while travelling' },
+  { id: 'B2', label: 'B2 - Upper Intermediate', color: 'bg-blue-100 text-blue-800', description: 'Can understand complex texts on concrete and abstract topics' },
+  { id: 'C1', label: 'C1 - Advanced', color: 'bg-green-100 text-green-800', description: 'Can express ideas fluently and spontaneously' },
+  { id: 'C2', label: 'C2 - Proficiency', color: 'bg-purple-100 text-purple-800', description: 'Can understand virtually everything heard or read' }
+]
+
+// Topic Categories  
+const topicCategories = [
+  { id: 'currentAffairs', label: 'Current Affairs', color: 'bg-red-100 text-red-800' },
+  { id: 'scienceAndTechnology', label: 'Science & Technology', color: 'bg-blue-100 text-blue-800' },
+  { id: 'literature', label: 'Literature', color: 'bg-purple-100 text-purple-800' },
+  { id: 'education', label: 'Education', color: 'bg-green-100 text-green-800' },
+  { id: 'politics', label: 'Politics', color: 'bg-yellow-100 text-yellow-800' },
+  { id: 'environment', label: 'Environment', color: 'bg-emerald-100 text-emerald-800' },
+  { id: 'healthcare', label: 'Healthcare', color: 'bg-pink-100 text-pink-800' },
+  { id: 'business', label: 'Business', color: 'bg-orange-100 text-orange-800' },
+  { id: 'sports', label: 'Sports', color: 'bg-indigo-100 text-indigo-800' },
+  { id: 'entertainment', label: 'Entertainment', color: 'bg-violet-100 text-violet-800' },
+  { id: 'philosophy', label: 'Philosophy', color: 'bg-gray-100 text-gray-800' },
+  { id: 'history', label: 'History', color: 'bg-amber-100 text-amber-800' }
+]
 
 /**
  * Lobby Page Component
@@ -42,53 +67,93 @@ function LobbyPage() {
   const [newRoomId, setNewRoomId] = useState('')
   const [currentRoom, setCurrentRoom] = useState(null)
   const [inRoom, setInRoom] = useState(false)
+  
+  // New room creation form state
+  const [roomForm, setRoomForm] = useState({
+    room_name: '',
+    max_participants: 6,
+    topic_category: '',
+    cefr_level: ''
+  })
+  const [hostAnonymousName, setHostAnonymousName] = useState('')
 
   // Predefined rooms
   const predefinedRooms = [
     {
-      id: 'education',
+      id: 'education-b1',
       name: 'Education',
       icon: BookOpen,
       color: 'bg-blue-500',
-      description: 'Discuss educational topics and learning methodologies'
+      description: 'Discuss educational topics and learning methodologies',
+      cefr_level: 'B1',
+      topic_category: 'education',
+      max_participants: 6
     },
     {
-      id: 'science-technology',
+      id: 'science-technology-b2',
       name: 'Science & Technology',
       icon: Atom,
       color: 'bg-green-500',
-      description: 'Explore the latest in science and tech innovations'
+      description: 'Explore the latest in science and tech innovations',
+      cefr_level: 'B2',
+      topic_category: 'scienceAndTechnology',
+      max_participants: 8
     },
     {
-      id: 'literature',
+      id: 'literature-c1',
       name: 'Literature',
       icon: PenTool,
       color: 'bg-purple-500',
-      description: 'Share thoughts on books, poetry, and creative writing'
+      description: 'Share thoughts on books, poetry, and creative writing',
+      cefr_level: 'C1',
+      topic_category: 'literature',
+      max_participants: 5
     },
     {
-      id: 'generative-ai',
+      id: 'generative-ai-c2',
       name: 'Generative AI',
       icon: Brain,
       color: 'bg-orange-500',
-      description: 'Discuss AI, machine learning, and future technology'
+      description: 'Discuss AI, machine learning, and future technology',
+      cefr_level: 'C2',
+      topic_category: 'scienceAndTechnology',
+      max_participants: 4
     }
   ]
 
   // Room management functions
   const handleCreateRoom = () => {
-    if (newRoomId.trim()) {
+    if (roomForm.room_name.trim() && roomForm.topic_category && roomForm.cefr_level && hostAnonymousName.trim()) {
       const roomData = {
-        id: newRoomId.trim(),
-        name: newRoomId.trim(),
-        isCustom: true
+        id: `${roomForm.room_name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        name: roomForm.room_name.trim(),
+        isCustom: true,
+        max_participants: roomForm.max_participants,
+        topic_category: roomForm.topic_category,
+        cefr_level: roomForm.cefr_level,
+        host_anonymous_name: hostAnonymousName.trim(),
+        host_id: user?.id
       }
       joinRoom(roomData.id, selectedRole)
       setCurrentRoom(roomData)
       setInRoom(true)
       setShowCreateRoom(false)
-      setNewRoomId('')
+      // Reset form
+      setRoomForm({
+        room_name: '',
+        max_participants: 6,
+        topic_category: '',
+        cefr_level: ''
+      })
+      setHostAnonymousName('')
     }
+  }
+
+  const handleRoomFormChange = (field, value) => {
+    setRoomForm(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   const handleJoinPredefinedRoom = (room) => {
@@ -355,29 +420,108 @@ function LobbyPage() {
                     Create Room
                   </button>
                 ) : (
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={newRoomId}
-                      onChange={(e) => setNewRoomId(e.target.value)}
-                      placeholder="Enter room name..."
-                      className="w-full max-w-md mx-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
-                    />
+                  <div className="space-y-6 max-w-2xl mx-auto text-left">
+                    {/* Room Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Room Name</label>
+                      <input
+                        type="text"
+                        value={roomForm.room_name}
+                        onChange={(e) => handleRoomFormChange('room_name', e.target.value)}
+                        placeholder="Enter room name..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    {/* Max Participants */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Participants</label>
+                      <select
+                        value={roomForm.max_participants}
+                        onChange={(e) => handleRoomFormChange('max_participants', parseInt(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        {[2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                          <option key={num} value={num}>{num} participants</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Topic Category */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Topic Category</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {topicCategories.map((category) => (
+                          <button
+                            key={category.id}
+                            type="button"
+                            onClick={() => handleRoomFormChange('topic_category', category.id)}
+                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${
+                              roomForm.topic_category === category.id 
+                                ? `${category.color} border-current` 
+                                : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            {category.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* CEFR Level */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">CEFR Level</label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {cefrLevels.map((level) => (
+                          <button
+                            key={level.id}
+                            type="button"
+                            onClick={() => handleRoomFormChange('cefr_level', level.id)}
+                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${
+                              roomForm.cefr_level === level.id 
+                                ? `${level.color} border-current` 
+                                : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                            }`}
+                            title={level.description}
+                          >
+                            {level.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Host Anonymous Name */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Your Anonymous Name for this Session</label>
+                      <input
+                        type="text"
+                        value={hostAnonymousName}
+                        onChange={(e) => setHostAnonymousName(e.target.value)}
+                        placeholder="Enter your anonymous display name..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
                     <div className="flex justify-center space-x-3">
                       <button
                         onClick={handleCreateRoom}
-                        disabled={!newRoomId.trim()}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        disabled={!roomForm.room_name.trim() || !roomForm.topic_category || !roomForm.cefr_level || !hostAnonymousName.trim()}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                       >
-                        Create
+                        Publish Room
                       </button>
                       <button
                         onClick={() => {
                           setShowCreateRoom(false)
-                          setNewRoomId('')
+                          setRoomForm({
+                            room_name: '',
+                            max_participants: 6,
+                            topic_category: '',
+                            cefr_level: ''
+                          })
+                          setHostAnonymousName('')
                         }}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                        className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                       >
                         Cancel
                       </button>
@@ -393,6 +537,9 @@ function LobbyPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {predefinedRooms.map((room) => {
                   const IconComponent = room.icon
+                  const cefrLevel = cefrLevels.find(level => level.id === room.cefr_level)
+                  const topicCategory = topicCategories.find(cat => cat.id === room.topic_category)
+                  
                   return (
                     <div
                       key={room.id}
@@ -406,6 +553,27 @@ function LobbyPage() {
                           <h4 className="text-lg font-semibold text-gray-900">{room.name}</h4>
                           <p className="text-sm text-gray-600 mt-2">{room.description}</p>
                         </div>
+                        
+                        {/* Room Details */}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap justify-center gap-2">
+                            {cefrLevel && (
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevel.color} flex items-center`}>
+                                <Star className="w-3 h-3 mr-1" />
+                                {cefrLevel.id}
+                              </span>
+                            )}
+                            {topicCategory && (
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategory.color}`}>
+                                {topicCategory.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Max: {room.max_participants} participants
+                          </div>
+                        </div>
+                        
                         <button
                           onClick={() => handleJoinPredefinedRoom(room)}
                           className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -436,11 +604,36 @@ function LobbyPage() {
                       <Users className="w-6 h-6 text-white" />
                     </div>
                   )}
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-2xl font-bold text-gray-900">{currentRoom?.name}</h2>
                     <p className="text-gray-600">
                       {currentRoom?.isCustom ? 'Custom Room' : predefinedRooms.find(r => r.id === currentRoom.id)?.description}
                     </p>
+                    
+                    {/* Room Details */}
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {currentRoom?.cefr_level && (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevels.find(level => level.id === currentRoom.cefr_level)?.color} flex items-center`}>
+                          <Star className="w-3 h-3 mr-1" />
+                          {currentRoom.cefr_level}
+                        </span>
+                      )}
+                      {currentRoom?.topic_category && (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategories.find(cat => cat.id === currentRoom.topic_category)?.color}`}>
+                          {topicCategories.find(cat => cat.id === currentRoom.topic_category)?.label}
+                        </span>
+                      )}
+                      {currentRoom?.max_participants && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                          Max: {currentRoom.max_participants}
+                        </span>
+                      )}
+                      {currentRoom?.host_anonymous_name && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                          Host: {currentRoom.host_anonymous_name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <button
