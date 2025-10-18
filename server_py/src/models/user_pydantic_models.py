@@ -19,7 +19,7 @@ class SignUpModel(BaseModel):
     # Authentication
     name: str = Field(..., min_length=2, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
-    hashed_password: str = Field(..., min_length=6, description="User's hashed password")
+    password: str = Field(..., min_length=6, description="User's password")
 
     # CEFR Progress Tracking
     current_cefr_level: CEFRLevel = Field(default=CEFRLevel.A0, description="Current CEFR level: A0...C2")
@@ -59,12 +59,5 @@ class UpdateUserLastActiveModel(BaseModel):
 class UpdateUserPasswordModel(BaseModel):
     """Model for updating a user's password."""
     user_id: str = Field(..., description="User UUID, Primary Key")
-    hashed_password: str = Field(..., description="The new hashed password")
-
-# --- Comprehensive Update Model for User ---
-class UserUpdateModel(BaseModel):
-    """Model for updating user fields."""
-    name: Optional[str] = Field(None, description="User's full name")
-    topic_categories: Optional[List[str]] = Field(None, description="Topic categories of interest")
-    current_cefr_level: Optional[CEFRLevel] = Field(None, description="Current CEFR level")
-    last_active: Optional[datetime] = Field(None, description="Last active timestamp")
+    old_password: str = Field(..., description="The current password")
+    new_password: str = Field(..., description="The new password")

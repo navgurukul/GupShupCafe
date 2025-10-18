@@ -62,7 +62,7 @@ class Database:
                     room_name TEXT,
                     
                     -- Room Configuration
-                    topic TEXT NOT NULL,
+                    topic_title TEXT NOT NULL,
                     topic_category TEXT NOT NULL,
                     max_participants INTEGER DEFAULT 6,
                     speaking_time_per_turn INTEGER DEFAULT 60,

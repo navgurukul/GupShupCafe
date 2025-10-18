@@ -19,14 +19,38 @@ class Room_service:
     def create_room(self, room_model: CreateRoomModel) -> RoomResponseModel:
         """Service to handle room creation"""
         try:
+            from datetime import datetime
             room_id = uuid.uuid4().hex
-            participant_count = 0  # Initial participant count
-            duration_seconds = 0  # Initial duration
-            status = "waiting"  # Initial status
-            max_participants = 6  # Default max participants
+            created_at = datetime.now()
+            
             self.cursor.execute(
-                "INSERT INTO rooms (room_id, room_name,topic_title,topic_category,participant_count, started_at,ended_at,duration_seconds,rounds_completed,created_at, status,cefr_level, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (room_id, room_model.room_name, room_model.room_topic, room_model.topic_category, participant_count, room_model.started_at, room_model.ended_at, duration_seconds, room_model.rounds_completed, room_model.created_at, status, room_model.cefr_level, getattr(room_model, 'created_by', None))
+                """INSERT INTO rooms (
+                    room_id, room_name, topic_title, topic_category, 
+                    max_participants, speaking_time_per_turn, num_rounds, cefr_level,
+                    status, current_round, current_speaker_index,
+                    participant_count, created_at, started_at, ended_at, 
+                    duration_seconds, agent_id, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    room_id, 
+                    room_model.room_name, 
+                    room_model.topic_title, 
+                    room_model.topic_category,
+                    room_model.max_participants,
+                    room_model.speaking_time_per_turn,
+                    room_model.num_rounds,
+                    room_model.cefr_level.value,
+                    room_model.status.value,
+                    room_model.current_round,
+                    room_model.current_speaker_index,
+                    room_model.participant_count,
+                    created_at,
+                    room_model.started_at,
+                    room_model.ended_at,
+                    room_model.duration_seconds,
+                    room_model.agent_id,
+                    room_model.created_by
+                )
             )
             self.conn.commit()
             return RoomResponseModel(
@@ -39,7 +63,7 @@ class Room_service:
             return RoomResponseModel(
                 status="failure",
                 data="",
-                message="Room creation failed"
+                message=f"Room creation failed: {e}"
             )
 
     def join_room(self, room_id: str) -> RoomResponseModel:
@@ -91,7 +115,12 @@ class Room_service:
 
     def update_room(self, room_id: str, updates: dict) -> dict:
         try:
-            allowed = {"room_name", "topic_title", "topic_category", "participant_count", "started_at", "ended_at", "duration_seconds", "rounds_completed", "status", "cefr_level"}
+            allowed = {
+                "room_name", "topic_title", "topic_category", "max_participants",
+                "speaking_time_per_turn", "num_rounds", "cefr_level", "status",
+                "current_round", "current_speaker_index", "participant_count",
+                "started_at", "ended_at", "duration_seconds", "agent_id"
+            }
             fields = []
             values = []
             for k, v in updates.items():
