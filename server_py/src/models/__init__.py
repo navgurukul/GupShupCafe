@@ -6,7 +6,11 @@ from .participant_pydantic_models import (
     CreateParticipantModel, 
     CreateParticipantResponseModel,
     ParticipantModel,
-    ParticipantUpdateModel
+    ParticipantUpdateModel,
+    ParticipantLeftModel,
+    ParticipantIsMutedModel,
+    ParticipantIsSpeakingModel,
+    ParticipantIsReadyModel
 )
 from .room_pydantic_models import (
     RoomResponseModel, 
@@ -22,7 +26,10 @@ from .user_pydantic_models import (
     LoginModel, 
     SignUpModel,
     UserModel,
-    UserUpdateModel
+    UserUpdateModel,
+    UpdateUserCEFRModel,
+    UpdateUserLastActiveModel,
+    UpdateUserPasswordModel
 )
 from .feedback_pydantic_models import (
     InstantFeedbackModel,
@@ -36,6 +43,7 @@ from .transcript_pydantic_models import (
     UpdateTranscriptProcessingModel,
     UpdateTranscriptAudioURLModel
 )
+from .enums import CEFRLevel
 
 __all__ = [
     # Participant Models
@@ -43,6 +51,10 @@ __all__ = [
     "CreateParticipantResponseModel",
     "ParticipantModel",
     "ParticipantUpdateModel",
+    "ParticipantLeftModel",
+    "ParticipantIsMutedModel",
+    "ParticipantIsSpeakingModel",
+    "ParticipantIsReadyModel",
     # Room Models
     "RoomResponseModel",
     "CreateRoomModel",
@@ -57,6 +69,9 @@ __all__ = [
     "SignUpModel",
     "UserModel",
     "UserUpdateModel",
+    "UpdateUserCEFRModel",
+    "UpdateUserLastActiveModel",
+    "UpdateUserPasswordModel",
     # Feedback Models
     "InstantFeedbackModel",
     "ComprehensiveFeedbackModel",
@@ -67,4 +82,7 @@ __all__ = [
     "TranscriptOut",
     "UpdateTranscriptProcessingModel",
     "UpdateTranscriptAudioURLModel",
+    # Enums
+    "CEFRLevel",
+    "RoomStatusEnum",
 ]
