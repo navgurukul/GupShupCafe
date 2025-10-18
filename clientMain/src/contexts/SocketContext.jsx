@@ -16,15 +16,15 @@ const SocketContext = createContext()
 export function SocketProvider({ children }) {
   const socketRef = React.useRef(null)
   // metaRef holds plain metadata so we never overwrite the socket instance
-  const metaRef = React.useRef({ currentRoom: null, selectedRole: null, roomMetadata: null })
+  const metaRef = React.useRef({ currentRoom: null, selectedRole: null })
   const [socket, setSocket] = useState(null)
   const [connected, setConnected] = useState(false)
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, anonymousName } = useAuth()
 
   useEffect(() => {
     // Only connect if user is authenticated
     // Only initialize socket once when auth becomes available
-    if (isAuthenticated && user && !socketRef.current) {
+    if (isAuthenticated && user && anonymousName && !socketRef.current) {
       const isProd = import.meta.env.MODE === 'production';
       const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? undefined : 'http://localhost:3003');
 
@@ -35,6 +35,7 @@ export function SocketProvider({ children }) {
           name: user.name,
           campus: user.campus,
           location: user.location,
+          anonymousName: anonymousName
         },
         transports: ['websocket', 'polling'],
         reconnection: true,
@@ -48,19 +49,7 @@ export function SocketProvider({ children }) {
         setConnected(true)
         // re-join room if needed after reconnect using metaRef
         if (metaRef.current.currentRoom && metaRef.current.selectedRole) {
-          const userData = {
-            userId: user?.id,
-            name: user?.name,
-            campus: user?.campus,
-            location: user?.location,
-
-            role: metaRef.current.selectedRole
-          }
-          if (metaRef.current.roomMetadata) {
-            newSocket.emit('join-room', metaRef.current.currentRoom, userData, metaRef.current.roomMetadata)
-          } else {
-            newSocket.emit('join-room', metaRef.current.currentRoom, userData)
-          }
+          newSocket.emit('join-room', metaRef.current.currentRoom, { role: metaRef.current.selectedRole })
         }
       })
 
@@ -87,42 +76,32 @@ export function SocketProvider({ children }) {
           console.warn('[Socket] Error closing socket during cleanup', e)
         }
         socketRef.current = null
-        metaRef.current = { currentRoom: null, selectedRole: null, roomMetadata: null }
+        metaRef.current = { currentRoom: null, selectedRole: null }
         setSocket(null)
         setConnected(false)
       }
     }
-  }, [isAuthenticated, user])
+  }, [isAuthenticated, user, anonymousName])
 
   /**
    * Join a room
    * @param {string} roomId - Room identifier
    * @param {string} role - User role ('speaker' or 'listener')
-   * @param {object} roomMetadata - Optional room metadata (name, topic_category, cefr_level, etc.)
    */
-  const joinRoom = (roomId, role = 'listener', roomMetadata = null) => {
+  const joinRoom = (roomId, role = 'listener') => {
     const s = socketRef.current || socket
     if (s && s.emit) {
       // store current room/role in metaRef so reconnects can rejoin
       metaRef.current.currentRoom = roomId
       metaRef.current.selectedRole = role
-      metaRef.current.roomMetadata = roomMetadata
-      
-      const userData = {
+      s.emit('join-room', roomId, {
         userId: user?.id,
         name: user?.name,
         campus: user?.campus,
         location: user?.location,
         anonymousName: anonymousName,
         role: role
-      }
-      
-      // Emit with room metadata as third parameter if provided
-      if (roomMetadata) {
-        s.emit('join-room', roomId, userData, roomMetadata)
-      } else {
-        s.emit('join-room', roomId, userData)
-      }
+      })
     }
   }
 

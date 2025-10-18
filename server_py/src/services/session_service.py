@@ -19,11 +19,11 @@ class Session_service:
             session_id = uuid.uuid4().hex
             room_id = uuid.uuid4().hex
             participant_count = 0  # Initial participant count
-            duration_seconds = 0
-            status = 'active'
+            duration_seconds = 0  # Initial duration
+            status = "waiting"  # Initial status
             self.cursor.execute(
-                "INSERT INTO sessions (session_id, room_id,room_name,topic_title,topic_category,participant_count,started_at,ended_at,duration_seconds,rounds_completed,created_at, status,crf_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (session_id, room_id, session_model.room_name, session_model.room_topic, session_model.topic_category, participant_count, session_model.started_at, session_model.ended_at, duration_seconds, session_model.rounds_completed, session_model.created_at, status, session_model.crf_level)
+                "INSERT INTO sessions (session_id, room_id,room_name,topic_title,topic_category,participant_count,started_at,ended_at,duration_seconds,rounds_completed,created_at, status,cefr_level) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (session_id, room_id, session_model.room_name, session_model.room_topic, session_model.topic_category, participant_count, session_model.started_at, session_model.ended_at, duration_seconds, session_model.rounds_completed, session_model.created_at, status, session_model.cefr_level)
             )
             self.conn.commit()
             return SessionResponseModel(

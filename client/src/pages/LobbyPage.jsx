@@ -122,7 +122,7 @@ function LobbyPage() {
   ]
 
   // Room management functions
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (roomForm.room_name.trim() && roomForm.topic_category && roomForm.cefr_level && hostAnonymousName.trim()) {
       const roomData = {
         id: `${roomForm.room_name.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
@@ -134,6 +134,57 @@ function LobbyPage() {
         host_anonymous_name: hostAnonymousName.trim(),
         host_id: user?.id
       }
+      
+      try {
+        // Create session in the database
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+        const sessionResponse = await fetch(`${apiUrl}/sessions/session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            room_name: roomData.name,
+            room_topic: '', // Will be generated later
+            topic_category: roomData.topic_category,
+            started_at: new Date().toISOString(),
+            ended_at: new Date().toISOString(),
+            rounds_completed: 0,
+            created_at: new Date().toISOString(),
+            crf_level: parseInt(roomData.cefr_level.charAt(0)) // Extract numeric value from CEFR level (A1->0, B1->1, C1->2)
+          }),
+        })
+        
+        const sessionResult = await sessionResponse.json()
+        console.log('[Lobby] Session created:', sessionResult)
+        
+        // Store session_id for later use
+        if (sessionResult.status === 'success') {
+          sessionStorage.setItem('current_session_id', sessionResult.data)
+          
+          // Create participant entry
+          const participantResponse = await fetch(`${apiUrl}/participants/participant`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              user_id: user?.id || 'guest',
+              session_id: sessionResult.data,
+              anonymous_name: anonymousName,
+              campus: null,
+              location: null,
+              joined_at: new Date().toISOString()
+            }),
+          })
+          
+          const participantResult = await participantResponse.json()
+          console.log('[Lobby] Participant created:', participantResult)
+        }
+      } catch (error) {
+        console.error('[Lobby] Error creating session/participant:', error)
+      }
+      
       // Pass room metadata as third parameter to joinRoom
       joinRoom(roomData.id, selectedRole, {
         name: roomData.name,
@@ -163,7 +214,57 @@ function LobbyPage() {
     }))
   }
 
-  const handleJoinPredefinedRoom = (room) => {
+  const handleJoinPredefinedRoom = async (room) => {
+    try {
+      // Create session in the database for predefined room
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+      const sessionResponse = await fetch(`${apiUrl}/sessions/session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          room_name: room.name,
+          room_topic: '', // Will be generated later
+          topic_category: room.topic_category,
+          started_at: new Date().toISOString(),
+          ended_at: new Date().toISOString(),
+          rounds_completed: 0,
+          created_at: new Date().toISOString(),
+          crf_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
+        }),
+      })
+      
+      const sessionResult = await sessionResponse.json()
+      console.log('[Lobby] Predefined room session created:', sessionResult)
+      
+      // Store session_id for later use
+      if (sessionResult.status === 'success') {
+        sessionStorage.setItem('current_session_id', sessionResult.data)
+        
+        // Create participant entry
+        const participantResponse = await fetch(`${apiUrl}/participants/participant`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: user?.id || 'guest',
+            session_id: sessionResult.data,
+            anonymous_name: anonymousName,
+            campus: null,
+            location: null,
+            joined_at: new Date().toISOString()
+          }),
+        })
+        
+        const participantResult = await participantResponse.json()
+        console.log('[Lobby] Participant created for predefined room:', participantResult)
+      }
+    } catch (error) {
+      console.error('[Lobby] Error creating session/participant for predefined room:', error)
+    }
+    
     // Pass room metadata as third parameter to joinRoom
     joinRoom(room.id, selectedRole, {
       name: room.name,
@@ -188,7 +289,7 @@ function LobbyPage() {
   // Timer for waiting time and late join check
   useEffect(() => {
     // Disable late join check in development to prevent loops
-    const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost'
+    const isDevelopment = window.location.hostname === 'localhost'
     if (isDevelopment) {
       console.log('[Lobby][Debug] Development mode - disabling auto late join navigation')
       // Just start the timer, skip late join check
@@ -345,7 +446,8 @@ function LobbyPage() {
   const isReadyButtonDisabled = !canStart
 
   // Early return for development debugging
-  if (import.meta.env.DEV && participants.length === 0) {
+  const isDevelopment = window.location.hostname === 'localhost'
+  if (isDevelopment && participants.length === 0) {
     // In development, show the interface even with no participants
     console.log('[Lobby][Debug] Development mode - showing interface with 0 participants')
   }

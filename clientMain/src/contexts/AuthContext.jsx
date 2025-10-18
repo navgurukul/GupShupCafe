@@ -2,7 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react'
 
 /**
  * Authentication Context for managing user login state
- * Handles user email, name, password, and interest categories
+ * Handles user ID, name, campus, location, and anonymous display name
  */
 
 const AuthContext = createContext()
@@ -27,8 +27,8 @@ function authReducer(state, action) {
     case AUTH_ACTIONS.LOGIN:
       return {
         isAuthenticated: true,
-        user: action.payload.user || action.payload,
-        anonymousName: action.payload.anonymousName || null
+        user: action.payload.user,
+        anonymousName: action.payload.anonymousName
       }
     case AUTH_ACTIONS.LOGOUT:
       return initialState
@@ -51,23 +51,19 @@ export function AuthProvider({ children }) {
 
   // Load authentication state from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('auth_user')
-    
-    if (savedUser) {
+    const savedAuth = localStorage.getItem('auth')
+    if (savedAuth) {
       try {
-        const user = JSON.parse(savedUser)
-        if (user && user.email) {
+        const { user, anonymousName } = JSON.parse(savedAuth)
+        if (user && anonymousName) {
           dispatch({
             type: AUTH_ACTIONS.LOGIN,
-            payload: {
-              user
-            }
+            payload: { user, anonymousName }
           })
         }
       } catch (error) {
         console.error('Error loading saved auth:', error)
-        localStorage.removeItem('auth_user')
-        localStorage.removeItem('auth_anonymousName')
+        localStorage.removeItem('auth')
       }
     }
   }, [])
@@ -75,22 +71,26 @@ export function AuthProvider({ children }) {
   // Save authentication state to localStorage
   useEffect(() => {
     if (state.isAuthenticated) {
-      localStorage.setItem('auth_user', JSON.stringify(state.user))
+      localStorage.setItem('auth', JSON.stringify({
+        user: state.user,
+        anonymousName: state.anonymousName
+      }))
     } else {
-      localStorage.removeItem('auth_user')
+      localStorage.removeItem('auth')
     }
   }, [state.isAuthenticated, state.user, state.anonymousName])
 
   /**
    * Login function
-   * @param {Object} userData - User data (email, name, interests, etc.)
-   * @param {String} anonymousName - Optional anonymous name for the user
+   * @param {Object} userData - User data (id, name, campus, location)
+   * @param {string} anonymousName - Anonymous display name for the session
    */
-  const login = (userData) => {
+  const login = (userData, anonymousName) => {
     dispatch({
       type: AUTH_ACTIONS.LOGIN,
       payload: {
         user: userData,
+        anonymousName
       }
     })
   }

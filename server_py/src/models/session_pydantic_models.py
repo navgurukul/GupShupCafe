@@ -1,7 +1,16 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import date, datetime, time, timedelta
+from enum import Enum
 
 from typing import Optional
+
+
+class RoomStatus(str, Enum):
+    """Room status enumeration"""
+    WAITING = "waiting"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 class CreateSessionModel(BaseModel):
     room_name: str = Field(..., min_length=3, description="Name of the session")
@@ -11,8 +20,8 @@ class CreateSessionModel(BaseModel):
     ended_at: datetime = Field(..., description="Session end time in ISO format")
     rounds_completed: int = Field(..., description="Number of rounds completed in the session")
     created_at: datetime = Field(..., description="Session creation time in ISO format")
-    # status: str = Field(..., description="Current status of the session")
-    crf_level: int = Field(..., description="CRF level of the session")
+    status: RoomStatus = Field(..., description="Current status of the session")
+    cefr_level: int = Field(..., description="CEFR level of the session")
 
 class SessionResponseModel(BaseModel):
     status: str = Field(..., description="Session creation status message")

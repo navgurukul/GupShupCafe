@@ -83,6 +83,41 @@ class User_services:
                 data="",
                 message="Signup failed"
             )
+    
+    def get_user(self, user_id: str) -> dict:
+        """Service to get user details"""
+        try:
+            self.cursor.execute(
+                "SELECT user_id, name, email, category, crf_level FROM users WHERE user_id=?",
+                (user_id,)
+            )
+            user = self.cursor.fetchone()
+            
+            if user:
+                return {
+                    "status": "success",
+                    "data": {
+                        "user_id": user[0],
+                        "name": user[1],
+                        "email": user[2],
+                        "category": user[3],
+                        "crf_level": user[4]
+                    },
+                    "message": "User found"
+                }
+            else:
+                return {
+                    "status": "failure",
+                    "data": None,
+                    "message": "User not found"
+                }
+        except Exception as e:
+            print(f"Error getting user: {e}")
+            return {
+                "status": "failure",
+                "data": None,
+                "message": "Failed to retrieve user"
+            }
 
 if __name__ == "__main__":
     # Initialize the service

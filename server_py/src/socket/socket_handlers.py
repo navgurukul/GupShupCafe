@@ -25,17 +25,46 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     # In-memory map of active session ids per room
     active_sessions: Dict[str, str] = {}
     
-    @sio.event
+    @sio.on('connect')
     async def connect(sid, environ, auth):
         """Handle client connection"""
         print(f"[Backend] Socket connected: {sid}")
         print(f"[Backend] Handshake auth: {auth}")
+        try:
+            # Log a small subset of environ for diagnostics
+            headers = environ.get('headers') if isinstance(environ, dict) else None
+            origin = None
+            user_agent = None
+            if headers and isinstance(headers, list):
+                for k, v in headers:
+                    if k.lower() == 'origin':
+                        origin = v
+                    if k.lower() == 'user-agent':
+                        user_agent = v
+            print(f"[Backend] Connect meta -> origin: {origin}, ua: {user_agent}")
+        except Exception as e:
+            print(f"[Backend] Error parsing connect environ: {e}")
         
         # Save auth data to session so it can be retrieved in join_room
         if auth:
             await sio.save_session(sid, {'auth': auth})
+
+        # Emit a connection acknowledgement for quick client-side sanity checks
+        try:
+            await sio.emit(
+                "connection-ack",
+                {
+                    "sid": sid,
+                    "connectedAt": datetime.now().isoformat(),
+                    "serverPid": os.getpid(),
+                },
+                room=sid,
+            )
+            print(f"[Backend] Sent connection-ack to {sid}")
+        except Exception as e:
+            print(f"[Backend] Failed to emit connection-ack to {sid}: {e}")
     
-    @sio.event
+    @sio.on('disconnect')
     async def disconnect(sid):
         """Handle client disconnection"""
         print(f"👋 User disconnected: {sid}")
@@ -65,7 +94,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     
                     print(f"[Backend] {anonymous_name} disconnected from room {room_id}")
     
-    @sio.event
+    @sio.on('join-room')
     async def join_room(sid, *args):
         """Handle user joining a room"""
         try:
@@ -174,7 +203,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             import traceback
             traceback.print_exc()
     
-    @sio.event
+    @sio.on('user-ready')
     async def user_ready(sid, data=None):
         """Handle user ready status"""
         try:
@@ -222,7 +251,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             import traceback
             traceback.print_exc()
     
-    @sio.event
+    @sio.on('change-role')
     async def change_role(sid, data):
         """Handle role change request"""
         try:
@@ -294,6 +323,97 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         except Exception as e:
             print(f"Error handling message: {str(e)}")
     
+    @sio.event
+    async def debug_ping(sid, data=None):
+        """Roundtrip latency/debug check: client emits 'debug-ping', server responds 'debug-pong'"""
+        try:
+            print(f"[Backend] <- debug-ping from {sid}: {data}")
+            await sio.emit(
+                "debug-pong",
+                {
+                    "echo": data,
+                    "serverTime": datetime.now().isoformat(),
+                    "sid": sid,
+                },
+                room=sid,
+            )
+            print(f"[Backend] -> debug-pong to {sid}")
+        except Exception as e:
+            print(f"[Backend] Error in debug-ping handler: {e}")
+
+    @sio.event
+    async def debug_whoami(sid, data=None):
+        """Return the current socket id and any saved auth session data"""
+        try:
+            session = await sio.get_session(sid)
+            payload = {
+                "sid": sid,
+                "auth": (session.get("auth") if session else None),
+                "serverTime": datetime.now().isoformat(),
+            }
+            await sio.emit("debug-whoami", payload, room=sid)
+            print(f"[Backend] Provided whoami to {sid}")
+        except Exception as e:
+            print(f"[Backend] Error in debug-whoami handler: {e}")
+
+    @sio.event
+    async def debug_room_state(sid, data=None):
+        """Emit the current room state for this socket (participants, status, timers)"""
+        try:
+            # Determine the room this socket is currently in (other than its own room)
+            room_id = None
+            try:
+                for rid in sio.rooms(sid):
+                    if rid != sid:
+                        room_id = rid
+                        break
+            except Exception:
+                room_id = None
+
+            if not room_id:
+                await sio.emit(
+                    "debug-room-state",
+                    {"error": "Socket not in any room", "sid": sid},
+                    room=sid,
+                )
+                print(f"[Backend] debug-room-state requested by {sid} but socket not in room")
+                return
+
+            room = room_manager.get_room(room_id)
+            participants = []
+            try:
+                participants = [
+                    (p.to_dict() if hasattr(p, "to_dict") else {
+                        "id": getattr(p, "id", None),
+                        "socketId": getattr(p, "socket_id", None),
+                        "anonymousName": getattr(p, "anonymous_name", None),
+                        "role": getattr(getattr(p, "role", None), "value", getattr(p, "role", None)),
+                        "isReady": getattr(p, "is_ready", None),
+                    })
+                    for p in getattr(room, "participants", [])
+                ]
+            except Exception as pe:
+                print(f"[Backend] Error serializing participants for debug-room-state: {pe}")
+
+            payload = {
+                "roomId": room_id,
+                "status": getattr(getattr(room, "status", None), "value", getattr(room, "status", None)),
+                "topic": getattr(room, "topic", None),
+                "participantsCount": len(participants),
+                "participants": participants,
+                "currentSpeakerIndex": getattr(room, "current_speaker_index", None),
+                "currentRound": getattr(room, "current_round", None),
+                "speakingTime": getattr(room, "speaking_time", None),
+                "timeRemaining": getattr(room, "time_remaining", None),
+                "activeSessionId": active_sessions.get(room_id),
+                "serverTime": datetime.now().isoformat(),
+            }
+
+            await sio.emit("debug-room-state", payload, room=sid)
+            print(f"[Backend] Sent debug-room-state to {sid} for room {room_id}")
+        except Exception as e:
+            print(f"[Backend] Error in debug-room-state handler: {e}")
+
     @sio.on('webrtc-offer')
     async def webrtc_offer(sid, data):
         """Relay WebRTC offer to target peer"""

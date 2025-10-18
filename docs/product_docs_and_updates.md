@@ -25,6 +25,66 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-18 14:30 UTC] - Complete API Integration for User Login, Session, and Participant Management
+**Commit**: Add API calls for login, room creation, and participant tracking
+**Author**: GitHub Copilot
+**Type**: Feature | Architecture
+
+**Changes**:
+- **Backend Services & Models**:
+  - Created new `participant_service.py` with methods for creating and managing participants
+  - Added `participant_pydantic_models.py` with `CreateParticipantModel` and `ParticipantResponseModel`
+  - Created `participant_routes.py` with POST `/participants/participant` and GET `/participants/participant/{user_id}/{session_id}` endpoints
+  - Added `get_user()` method to `user_services.py` to fetch user details by user_id
+  - Added GET `/users/{user_id}` endpoint to retrieve user information
+
+- **Backend Route Registration**:
+  - Registered participant router in `main.py` under `/participants` prefix with "Participant Management" tag
+  - Imported `participant_routes` alongside existing user and session routes
+
+- **LoginPage.jsx Updates**:
+  - Replaced mock authentication with real API call to `/users/login`
+  - Added user details fetch call to `/users/{user_id}` to retrieve name and interests
+  - User data now includes id, email, name, and interests from backend
+  - Anonymous name generation maintained for lobby display
+  - Proper error handling with user-friendly messages
+
+- **LobbyPage.jsx Updates**:
+  - `handleCreateRoom()` now creates session via POST `/sessions/session`
+  - Creates participant entry via POST `/participants/participant` after session creation
+  - Session ID stored in sessionStorage for later reference
+  - `handleJoinPredefinedRoom()` also creates session and participant entries
+  - CEFR level conversion logic (A1->0, B1->1, C1->2) for database storage
+  - Both custom and predefined rooms now persist to database
+
+- **Data Flow**:
+  - Login: Frontend → `/users/login` → Database → Returns user_id → Fetch full user data → Navigate to lobby
+  - Room Creation: Frontend → `/sessions/session` → Database → Returns session_id → Create participant → Join socket room
+  - Participant Join: After session creation → `/participants/participant` → Database → User tracked in session
+
+- **Benefits**:
+  - Complete user authentication and authorization flow
+  - All sessions and participants are now tracked in database
+  - Foundation for analytics and session history
+  - Consistent data capture across signup, login, and room joining
+  - Backend-driven user management instead of client-side mocks
+
+**Files Modified**:
+- Backend:
+  - `server_py/src/services/participant_service.py` (created)
+  - `server_py/src/models/participant_pydantic_models.py` (created)
+  - `server_py/src/api/participant_routes.py` (created)
+  - `server_py/src/services/user_services.py` (modified - added get_user method)
+  - `server_py/src/api/user_routes.py` (modified - added GET endpoint)
+  - `server_py/main.py` (modified - registered participant router)
+- Frontend:
+  - `client/src/pages/LoginPage.jsx` (modified - added API integration)
+  - `client/src/pages/LobbyPage.jsx` (modified - added session and participant creation)
+- Documentation:
+  - `docs/product_docs_and_updates.md` (this file)
+
+---
+
 ### [2025-10-18 10:19 UTC] - Database Integration for User, Session, and Participant Data
 **Commit**: Database Integration - Frontend and Backend Data Capture
 **Author**: GitHub Copilot

@@ -57,7 +57,6 @@ class Database:
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
-                    room_id TEXT NOT NULL,
                     room_name TEXT NOT NULL,
                     topic_title TEXT,
                     topic_category TEXT,
@@ -67,8 +66,8 @@ class Database:
                     duration_seconds INTEGER,
                     rounds_completed INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT NOT NULL DEFAULT 'active',
-                    crf_level INTEGER NOT NULL DEFAULT 0
+                    status TEXT NOT NULL DEFAULT 'cancelled',
+                    cefr_level INTEGER NOT NULL DEFAULT 0
                 )
             """)
             
