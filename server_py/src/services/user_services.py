@@ -5,7 +5,10 @@ import os
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel, UserOutModel, UserUpdateModel
+from src.models.user_pydantic_models import (
+    LoginModel, SignUpModel, LoginSignUpResponseModel, UserUpdateModel,
+    UserModel, UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+)
 from src.database.db_connection import conn, cursor
 
 class User_services:
@@ -174,6 +177,54 @@ class User_services:
             print(f"Error deleting user: {e}")
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": "Failed to delete user"}
+
+    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
+        """Update user's CEFR level"""
+        try:
+            self.cursor.execute(
+                "UPDATE users SET current_cefr_level=? WHERE user_id=?",
+                (update.current_cefr_level.value, update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "CEFR level updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating CEFR level: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update CEFR level"}
+
+    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
+        """Update user's last active timestamp"""
+        try:
+            self.cursor.execute(
+                "UPDATE users SET last_active=? WHERE user_id=?",
+                (update.last_active, update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Last active updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating last active: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update last active"}
+
+    def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
+        """Update user's password"""
+        try:
+            self.cursor.execute(
+                "UPDATE users SET hashed_password=? WHERE user_id=?",
+                (update.hashed_password, update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Password updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating password: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update password"}
 
 if __name__ == "__main__":
     # Initialize the service

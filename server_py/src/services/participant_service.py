@@ -6,7 +6,10 @@ from datetime import datetime
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantResponseModel, ParticipantUpdateModel
+from src.models.participant_pydantic_models import (
+    CreateParticipantModel, CreateParticipantResponseModel, ParticipantUpdateModel,
+    ParticipantLeftModel, ParticipantIsMutedModel, ParticipantIsSpeakingModel, ParticipantIsReadyModel
+)
 from src.database.db_connection import conn, cursor
 
 class Participant_service:
@@ -14,7 +17,7 @@ class Participant_service:
         self.conn = conn
         self.cursor = cursor
         
-    def create_participant(self, participant_model: CreateParticipantModel) -> ParticipantResponseModel:
+    def create_participant(self, participant_model: CreateParticipantModel) -> CreateParticipantResponseModel:
         """Service to handle participant creation"""
         try:
             # Check if participant already exists in the room
@@ -25,7 +28,7 @@ class Participant_service:
             existing_participant = self.cursor.fetchone()
             
             if existing_participant:
-                return ParticipantResponseModel(
+                return CreateParticipantResponseModel(
                     status="success",
                     data=participant_model.user_id,
                     message="Participant already exists in this room"
@@ -51,7 +54,7 @@ class Participant_service:
             )
             self.conn.commit()
             
-            return ParticipantResponseModel(
+            return CreateParticipantResponseModel(
                 status="success",
                 data=participant_id,
                 message="Participant created successfully"
@@ -59,7 +62,7 @@ class Participant_service:
         except Exception as e:
             print(f"[Backend] Error during participant creation: {e}")
             self.conn.rollback()
-            return ParticipantResponseModel(
+            return CreateParticipantResponseModel(
                 status="failure",
                 data="",
                 message="Participant creation failed"
@@ -106,7 +109,7 @@ class Participant_service:
                 "message": "Failed to retrieve participant"
             }
     
-    def update_participant_left_time(self, user_id: str, room_id: str, left_at: datetime) -> ParticipantResponseModel:
+    def update_participant_left_time(self, user_id: str, room_id: str, left_at: datetime) -> CreateParticipantResponseModel:
         """Update participant left time"""
         try:
             self.cursor.execute(
@@ -116,13 +119,13 @@ class Participant_service:
             self.conn.commit()
             
             if self.cursor.rowcount > 0:
-                return ParticipantResponseModel(
+                return CreateParticipantResponseModel(
                     status="success",
                     data=user_id,
                     message="Participant left time updated"
                 )
             else:
-                return ParticipantResponseModel(
+                return CreateParticipantResponseModel(
                     status="failure",
                     data="",
                     message="Participant not found"
@@ -130,7 +133,7 @@ class Participant_service:
         except Exception as e:
             print(f"[Backend] Error updating participant left time: {e}")
             self.conn.rollback()
-            return ParticipantResponseModel(
+            return CreateParticipantResponseModel(
                 status="failure",
                 data="",
                 message="Failed to update participant left time"
@@ -180,3 +183,74 @@ class Participant_service:
                 print(f"[Backend] Error deleting participant: {e}")
                 self.conn.rollback()
                 return {"status": "failure", "data": None, "message": "Failed to delete participant"}
+
+        def update_participant_left(self, update: ParticipantLeftModel) -> dict:
+            """Update participant left status"""
+            try:
+                fields = []
+                values = []
+                if update.left_at is not None:
+                    fields.append("left_at=?")
+                    values.append(update.left_at)
+                if update.ending_cefr_level is not None:
+                    fields.append("ending_cefr_level=?")
+                    values.append(update.ending_cefr_level)
+                if not fields:
+                    return {"status": "failure", "data": None, "message": "No fields to update"}
+                values.append(update.participant_id)
+                sql = f"UPDATE participants SET {', '.join(fields)} WHERE participant_id=?"
+                self.cursor.execute(sql, tuple(values))
+                self.conn.commit()
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Participant left status updated"}
+            except Exception as e:
+                print(f"[Backend] Error updating participant left: {e}")
+                self.conn.rollback()
+                return {"status": "failure", "data": None, "message": "Failed to update participant left status"}
+
+        def update_participant_muted(self, update: ParticipantIsMutedModel) -> dict:
+            """Update participant muted status"""
+            try:
+                # Convert boolean to integer for SQLite
+                is_muted_int = 1 if update.is_muted else 0
+                self.cursor.execute(
+                    "UPDATE participants SET is_muted=? WHERE participant_id=?",
+                    (is_muted_int, update.participant_id)
+                )
+                self.conn.commit()
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Participant muted status updated"}
+            except Exception as e:
+                print(f"[Backend] Error updating participant muted: {e}")
+                self.conn.rollback()
+                return {"status": "failure", "data": None, "message": "Failed to update participant muted status"}
+
+        def update_participant_speaking(self, update: ParticipantIsSpeakingModel) -> dict:
+            """Update participant speaking status"""
+            try:
+                # Convert boolean to integer for SQLite
+                is_speaking_int = 1 if update.is_speaking else 0
+                self.cursor.execute(
+                    "UPDATE participants SET is_speaking=? WHERE participant_id=?",
+                    (is_speaking_int, update.participant_id)
+                )
+                self.conn.commit()
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Participant speaking status updated"}
+            except Exception as e:
+                print(f"[Backend] Error updating participant speaking: {e}")
+                self.conn.rollback()
+                return {"status": "failure", "data": None, "message": "Failed to update participant speaking status"}
+
+        def update_participant_ready(self, update: ParticipantIsReadyModel) -> dict:
+            """Update participant ready status"""
+            try:
+                # Convert boolean to integer for SQLite
+                is_ready_int = 1 if update.is_ready else 0
+                self.cursor.execute(
+                    "UPDATE participants SET is_ready=? WHERE participant_id=?",
+                    (is_ready_int, update.participant_id)
+                )
+                self.conn.commit()
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Participant ready status updated"}
+            except Exception as e:
+                print(f"[Backend] Error updating participant ready: {e}")
+                self.conn.rollback()
+                return {"status": "failure", "data": None, "message": "Failed to update participant ready status"}

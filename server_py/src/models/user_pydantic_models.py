@@ -60,3 +60,11 @@ class UpdateUserPasswordModel(BaseModel):
     """Model for updating a user's password."""
     user_id: str = Field(..., description="User UUID, Primary Key")
     hashed_password: str = Field(..., description="The new hashed password")
+
+# --- Comprehensive Update Model for User ---
+class UserUpdateModel(BaseModel):
+    """Model for updating user fields."""
+    name: Optional[str] = Field(None, description="User's full name")
+    topic_categories: Optional[List[str]] = Field(None, description="Topic categories of interest")
+    current_cefr_level: Optional[CEFRLevel] = Field(None, description="Current CEFR level")
+    last_active: Optional[datetime] = Field(None, description="Last active timestamp")

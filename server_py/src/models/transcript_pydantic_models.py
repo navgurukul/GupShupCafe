@@ -51,7 +51,7 @@ class CreateTranscriptModelResponse(BaseModel):
 
 # --- Model for data read from DB (includes PK and creation time) ---
 
-class TranscriptModel(TranscriptCreateModel):
+class TranscriptModel(CreateTranscriptModel):
     """Full transcript model as represented in the database."""
     transcript_id: str = Field(..., description="Transcript UUID, Primary Key")
     created_at: datetime = Field(..., description="Timestamp when record was created")

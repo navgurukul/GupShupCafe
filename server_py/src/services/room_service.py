@@ -5,7 +5,10 @@ import os
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.room_pydantic_models import CreateRoomModel, RoomResponseModel
+from src.models.room_pydantic_models import (
+    CreateRoomModel, RoomResponseModel, UpdateRoomStatusModel,
+    UpdateRoomStateModel, UpdateRoomEndModel
+)
 from src.database.db_connection import conn, cursor
 
 class Room_service:
@@ -116,3 +119,65 @@ class Room_service:
             print(f"Error deleting room: {e}")
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": "Failed to delete room"}
+
+    def update_room_status(self, room_id: str, update: UpdateRoomStatusModel) -> dict:
+        """Update room status"""
+        try:
+            fields = ["status=?"]
+            values = [update.status.value]
+            if update.started_at is not None:
+                fields.append("started_at=?")
+                values.append(update.started_at)
+            values.append(room_id)
+            sql = f"UPDATE rooms SET {', '.join(fields)} WHERE room_id=?"
+            self.cursor.execute(sql, tuple(values))
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Room status updated"}
+            return {"status": "failure", "data": None, "message": "Room not found"}
+        except Exception as e:
+            print(f"Error updating room status: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update room status"}
+
+    def update_room_state(self, room_id: str, update: UpdateRoomStateModel) -> dict:
+        """Update room discussion state"""
+        try:
+            fields = []
+            values = []
+            if update.current_round is not None:
+                fields.append("current_round=?")
+                values.append(update.current_round)
+            if update.current_speaker_index is not None:
+                fields.append("current_speaker_index=?")
+                values.append(update.current_speaker_index)
+            if update.participant_count is not None:
+                fields.append("participant_count=?")
+                values.append(update.participant_count)
+            if not fields:
+                return {"status": "failure", "data": None, "message": "No fields to update"}
+            values.append(room_id)
+            sql = f"UPDATE rooms SET {', '.join(fields)} WHERE room_id=?"
+            self.cursor.execute(sql, tuple(values))
+            self.conn.commit()
+            return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Room state updated"}
+        except Exception as e:
+            print(f"Error updating room state: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update room state"}
+
+    def end_room(self, room_id: str, update: UpdateRoomEndModel) -> dict:
+        """Mark room as finished"""
+        try:
+            self.cursor.execute(
+                "UPDATE rooms SET status=?, ended_at=?, duration_seconds=? WHERE room_id=?",
+                (update.status.value, update.ended_at, update.duration_seconds, room_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Room ended"}
+            return {"status": "failure", "data": None, "message": "Room not found"}
+        except Exception as e:
+            print(f"Error ending room: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to end room"}

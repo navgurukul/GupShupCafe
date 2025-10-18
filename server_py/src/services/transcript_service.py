@@ -6,7 +6,9 @@ from typing import Dict, Any
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.transcript_pydantic_models import CreateTranscriptModel
+from src.models.transcript_pydantic_models import (
+    CreateTranscriptModel, UpdateTranscriptProcessingModel, UpdateTranscriptAudioURLModel
+)
 from src.database.db_connection import conn, cursor
 
 class TranscriptService:
@@ -74,3 +76,33 @@ class TranscriptService:
             print(f"[Backend] Error deleting transcript: {e}")
             self.conn.rollback()
             return {"success": False, "error": "Failed to delete transcript"}
+
+    def update_transcript_processing(self, update: UpdateTranscriptProcessingModel) -> Dict[str, Any]:
+        """Update transcript processing status"""
+        try:
+            # Convert boolean to integer for SQLite
+            is_processed_int = 1 if update.is_processed else 0
+            self.cursor.execute(
+                "UPDATE transcripts SET is_processed=?, processed_at=? WHERE transcript_id=?",
+                (is_processed_int, update.processed_at, update.transcript_id)
+            )
+            self.conn.commit()
+            return {"success": True, "data": {"updated": self.cursor.rowcount}}
+        except Exception as e:
+            print(f"[Backend] Error updating transcript processing: {e}")
+            self.conn.rollback()
+            return {"success": False, "error": "Failed to update transcript processing"}
+
+    def update_transcript_audio_url(self, update: UpdateTranscriptAudioURLModel) -> Dict[str, Any]:
+        """Update transcript audio file URL"""
+        try:
+            self.cursor.execute(
+                "UPDATE transcripts SET audio_file_url=? WHERE transcript_id=?",
+                (update.audio_file_url, update.transcript_id)
+            )
+            self.conn.commit()
+            return {"success": True, "data": {"updated": self.cursor.rowcount}}
+        except Exception as e:
+            print(f"[Backend] Error updating transcript audio URL: {e}")
+            self.conn.rollback()
+            return {"success": False, "error": "Failed to update transcript audio URL"}
