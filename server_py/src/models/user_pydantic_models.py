@@ -22,7 +22,7 @@ class CreateRoomModel(BaseModel):
     room_id: str = Field(..., description="Unique identifier for the room")
     room_name: str = Field(..., min_length=3, description="Name of the room")
     room_topic: str = Field(..., min_length=5, description="Topic of discussion for the room")
-    participants: int = Field(..., description="Number of participants expected in the room")
+    participants: int = Field(..., ge=2, le=6, description="Number of participants expected in the room (2-6)")
 
 class JoinRoomModel(BaseModel):
     room_id: str = Field(..., description="ID of the room to join")

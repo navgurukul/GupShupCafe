@@ -29,7 +29,7 @@ class Database:
         self.db = await aiosqlite.connect(db_path)
         self.db.row_factory = aiosqlite.Row
         
-        print(f"📊 Connected to SQLite database at {db_path}")
+        print(f"Connected to SQLite database at {db_path}")
         
         # Create tables
         await self._create_tables()
@@ -103,7 +103,7 @@ class Database:
             
             await self.db.commit()
         
-        print("✅ Database tables created/verified")
+        print("Database tables created/verified")
 
     async def save_session(self, session_data: Dict[str, Any]) -> int:
         """Save a discussion session"""
@@ -293,7 +293,7 @@ class Database:
         """Close database connection"""
         if self.db:
             await self.db.close()
-            print("📊 Database connection closed")
+            print("Database connection closed")
 
 
 # Singleton instance
