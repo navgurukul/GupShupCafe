@@ -15,9 +15,6 @@ yarn-error.log*
 dist/
 build/
 
-# Database
-server/data/*.db
-*.db
 
 # Logs
 logs/

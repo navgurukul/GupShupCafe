@@ -11,12 +11,23 @@ from dotenv import load_dotenv
 import uvicorn
 import re
 import sys
+# import logger
+import logging
+
 
 from src.api.routes import router as api_router
 from src.database.database import db
 from src.socket.socket_handlers import setup_socket_handlers
 from src.api.user_routes import router as user_router
 from src.api.session_routes import router as session_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 load_dotenv()
 
@@ -35,6 +46,9 @@ elif os.getenv("CORS_ORIGIN"):
 default_dev_origins = ["http://localhost:5173", "http://localhost:5174"]
 default_prod_origins = [
     "https://gup-shup-cafe.vercel.app",
+     "https://testing-team.d17x6h4sinckrd.amplifyapp.com/",
+     "https://dev.d17x6h4sinckrd.amplifyapp.com/",
+     "https://main.d17x6h4sinckrd.amplifyapp.com/"
     # For regex patterns, we'll handle them differently
 ]
 
@@ -133,22 +147,22 @@ async def startup_event():
     """Initialize the server on startup"""
     try:
         # Initialize database
-        print("🗄️ Initializing database...")
+        logger.info("🗄️ Initializing database...")
         db_path = os.getenv("DATABASE_URL", "./database/gupshup_database.db")
         await db.initialize(db_path)
         
         # Setup Socket.io handlers
-        print("🔌 Setting up Socket.io handlers...")
+        logger.info("🔌 Setting up Socket.io handlers...")
         await setup_socket_handlers(sio)
         
-        print(f"🚀 Server starting on port {PORT}")
-        print(f"📡 Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
+        logger.info(f"🚀 Server starting on port {PORT}")
+        logger.info(f"📡 Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
         if os.getenv("CORS_ORIGIN") and not os.getenv("ALLOWED_ORIGINS"):
-            print("ℹ️ Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
-        print(f"🌐 Environment: {PYTHON_ENV}")
-        print(f"📊 Health check: http://localhost:{PORT}/health")
-        print("")
-        print("✅ AI Roundtable Discussion Server is ready!")
+            logger.info("ℹ️ Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
+        logger.info(f"🌐 Environment: {PYTHON_ENV}")
+        logger.info(f"📊 Health check: http://localhost:{PORT}/health")
+        logger.info("")
+        logger.info("✅ AI Roundtable Discussion Server is ready!")
         
     except Exception as error:
         print(f"❌ Failed to start server: {str(error)}")
