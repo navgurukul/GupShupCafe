@@ -12,7 +12,7 @@ from ..ai.topic_generator import (
     generate_discussion_topic,
     get_topic_by_category
 )
-# from ..database import db_connection as db
+from ..database.database import db
 from ..socket.room_manager import room_manager
 
 router = APIRouter()
@@ -80,51 +80,51 @@ async def get_topic_by_cat(category: str):
         raise HTTPException(status_code=500, detail="Failed to retrieve topic")
 
 
-# @router.get("/analytics/sessions")
-# async def get_sessions(limit: int = Query(default=10, ge=1, le=100)):
-#     """Get session analytics"""
-#     try:
-#         sessions = await db.get_session_analytics(limit)
-        
-#         return {
-#             "success": True,
-#             "data": sessions,
-#             "count": len(sessions)
-#         }
-#     except Exception as e:
-#         print(f"Error getting session analytics: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to retrieve session analytics")
+@router.get("/analytics/sessions")
+async def get_sessions(limit: int = Query(default=10, ge=1, le=100)):
+    """Get session analytics"""
+    try:
+        sessions = await db.get_session_analytics(limit)
+
+        return {
+            "success": True,
+            "data": sessions,
+            "count": len(sessions)
+        }
+    except Exception as e:
+        print(f"Error getting session analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve session analytics")
 
 
-# @router.get("/analytics/topics")
-# async def get_topic_analytics():
-#     """Get topic usage analytics"""
-#     try:
-#         topics = await db.get_topic_analytics()
-        
-#         return {
-#             "success": True,
-#             "data": topics,
-#             "count": len(topics)
-#         }
-#     except Exception as e:
-#         print(f"Error getting topic analytics: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to retrieve topic analytics")
+@router.get("/analytics/topics")
+async def get_topic_analytics():
+    """Get topic usage analytics"""
+    try:
+        topics = await db.get_topic_analytics()
+
+        return {
+            "success": True,
+            "data": topics,
+            "count": len(topics)
+        }
+    except Exception as e:
+        print(f"Error getting topic analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve topic analytics")
 
 
-# @router.get("/analytics/stats")
-# async def get_stats():
-#     """Get server statistics"""
-#     try:
-#         stats = await db.get_server_stats()
-        
-#         return {
-#             "success": True,
-#             "data": stats
-#         }
-#     except Exception as e:
-#         print(f"Error getting server stats: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Failed to retrieve server statistics")
+@router.get("/analytics/stats")
+async def get_stats():
+    """Get server statistics"""
+    try:
+        stats = await db.get_server_stats()
+
+        return {
+            "success": True,
+            "data": stats
+        }
+    except Exception as e:
+        print(f"Error getting server stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve server statistics")
 
 
 @router.post("/feedback")

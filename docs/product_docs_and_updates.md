@@ -1,3 +1,17 @@
+\n## 2025-10-18 — Backend parity and socket/event alignment
+
+- Align FastAPI (`server_py`) with legacy Node server (`server`):
+  - Implemented missing AI Topic Generator in `server_py/src/ai/topic_generator.py` with HF fallback parity.
+  - Enabled analytics REST endpoints in `server_py/src/api/routes.py`: `/api/analytics/sessions`, `/api/analytics/topics`, `/api/analytics/stats` with `{ success, data }` envelopes.
+  - Normalized socket event names/payloads in `server_py/src/socket/socket_handlers.py` to match client expectations:
+    - Hyphenated events: `join-room`, `user-ready`, `role-change`, `next-speaker`, `ready-for-webrtc`, `webrtc-offer`, `webrtc-answer`, `webrtc-ice-candidate`.
+    - WebRTC payload keys use `{ to, sdp }` and responses emit `{ from, sdp }`.
+    - Emit `role-change-success` / `role-change-error` and enrich `role-changed` payload with `roleStats` + `participants`.
+    - Added `start-discussion-manual` for testing; fixed `message` handler participant lookup.
+  - Brought `server_py/src/database/database.py` schema and methods closer to Node parity (column names, inserts/updates) and fixed `update_session_end` usage.
+- Verified locally: database and AI unit tests passed; broader agent tests are out-of-scope for this change.
+- Note: Per request, comprehensive test runs were skipped; manual verification to be done during integrated QA.
+
 # Product Documentation & Updates Changelog
 
 This document serves as a living changelog for all product and architectural changes made to the Gup-Shup Café platform. Every significant code update, architectural decision, or feature change should be documented here with a timestamp and informative description.
