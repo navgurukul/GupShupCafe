@@ -44,11 +44,11 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     user_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    category TEXT,
-                    cefr_level TEXT NOT NULL DEFAULT 'A0',
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    email TEXT NOT NULL UNIQUE,
+                    hashed_password TEXT NOT NULL,
+                    current_cefr_level TEXT DEFAULT 'A0',
+                    topic_categories TEXT, -- Stored as JSON string
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
                     last_active DATETIME
                 )
             """)
@@ -59,18 +59,37 @@ class Database:
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS rooms (
                     room_id TEXT PRIMARY KEY,
-                    room_name TEXT NOT NULL,
-                    topic_title TEXT,
-                    topic_category TEXT,
-                    participant_count INTEGER,
-                    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ended_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    duration_seconds INTEGER,
-                    rounds_completed INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT NOT NULL DEFAULT 'waiting',
-                    cefr_level INTEGER NOT NULL DEFAULT 0,
-                    created_by TEXT,
+                    room_name TEXT,
+                    
+                    -- Room Configuration
+                    topic TEXT NOT NULL,
+                    topic_category TEXT NOT NULL,
+                    max_participants INTEGER DEFAULT 6,
+                    speaking_time_per_turn INTEGER DEFAULT 60,
+                    num_rounds INTEGER DEFAULT 3,
+                    cefr_level TEXT NOT NULL,
+                    
+                    -- Room State
+                    status TEXT NOT NULL,
+                    current_round INTEGER DEFAULT 0,
+                    current_speaker_index INTEGER DEFAULT 0,
+                    
+                    -- Participants
+                    participant_count INTEGER DEFAULT 0,
+                    
+                    -- Timing
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    started_at DATETIME,
+                    ended_at DATETIME,
+                    duration_seconds INTEGER DEFAULT 0,
+                    
+                    -- Facilitator Agent
+                    agent_id TEXT,
+                    
+                    -- Metadata
+                    created_by TEXT NOT NULL,
+                    
+                    -- Foreign Key
                     FOREIGN KEY (created_by) REFERENCES users (user_id)
                 )
             """)
@@ -81,55 +100,132 @@ class Database:
                     participant_id TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL,
                     room_id TEXT NOT NULL,
-                    anonymous_name TEXT,
-                    campus TEXT,
-                    location TEXT,
-                    joined_at DATETIME,
+                    
+                    -- Identity
+                    anonymous_name TEXT NOT NULL,
+                    avatar_color TEXT,
+                    
+                    -- Room Config
+                    role TEXT DEFAULT 'participant',
+                    is_ready INTEGER DEFAULT 0,
+                    turn_order INTEGER DEFAULT 0,
+                    
+                    -- Real-Time State
+                    is_speaking INTEGER DEFAULT 0,
+                    is_muted INTEGER DEFAULT 0,
+                    socket_id TEXT,
+                    
+                    -- CEFR Level
+                    starting_cefr_level TEXT NOT NULL,
+                    ending_cefr_level TEXT,
+                    
+                    -- Connection
+                    joined_at DATETIME NOT NULL,
                     left_at DATETIME,
+                    
+                    -- Optional Info
+                    campusOrLocation TEXT,
+                    
+                    -- Tracking (from previous schema)
                     speaking_time_seconds INTEGER DEFAULT 0,
+                    
+                    -- Foreign Keys
                     FOREIGN KEY (room_id) REFERENCES rooms (room_id),
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
 
-            # Transcripts table (MVP)
+            # Transcripts table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS transcripts (
                     transcript_id TEXT PRIMARY KEY,
                     room_id TEXT NOT NULL,
                     participant_id TEXT NOT NULL,
-                    user_id TEXT,
-                    text TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    user_id TEXT NOT NULL,
+                    
+                    -- Context
+                    round_number INTEGER NOT NULL,
+                    turn_order INTEGER NOT NULL,
+                    
+                    -- Content
+                    transcript_text TEXT NOT NULL,
+                    language TEXT DEFAULT 'en',
+                    stt_confidence REAL DEFAULT 0.0,
+                    
+                    -- Timing
+                    started_at DATETIME NOT NULL,
+                    ended_at DATETIME NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    
+                    -- Audio Metadata
+                    word_count INTEGER NOT NULL,
+                    speech_rate REAL NOT NULL,
+                    
+                    -- Processing Status
+                    is_processed INTEGER NOT NULL DEFAULT 0,
+                    processed_at DATETIME,
+                    
+                    -- Audio Reference
                     audio_file_url TEXT,
-                    FOREIGN KEY (room_id) REFERENCES rooms (room_id)
+                    
+                    -- Record Timestamp
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    
+                    -- Foreign Keys
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
+                    FOREIGN KEY (participant_id) REFERENCES participants (participant_id)
                 )
             """)
 
             # Feedback table (MVP)
+            # This table combines all fields from FeedbackModel, InstantFeedbackModel, 
+            # and ComprehensiveFeedbackModel. The 'feedback_type' column
+            # distinguishes which fields are populated.
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS feedback (
-                    feedback_id TEXT PRIMARY KEY,
+                    id TEXT PRIMARY KEY,
                     room_id TEXT NOT NULL,
                     participant_id TEXT NOT NULL,
-                    user_id TEXT,
-                    feedback_type TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    feedback_type TEXT NOT NULL, -- 'instant' or 'comprehensive'
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+
+                    -- Instant Feedback / Common Fields
                     display_message TEXT,
-                    cefr_level TEXT,
-                    grammar_score REAL,
-                    vocabulary_score REAL,
-                    fluency_score REAL,
-                    overall_score REAL,
-                    grammar_issues TEXT,
-                    vocabulary_suggestions TEXT,
-                    fluency_issues TEXT,
-                    suggestions TEXT,
-                    strengths TEXT,
                     agent_id TEXT,
                     agent_model TEXT,
-                    generation_time_ms INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (room_id) REFERENCES rooms (room_id)
+
+                    -- Comprehensive Feedback Fields
+                    cefr_speaking TEXT,
+                    cefr_listening TEXT,
+                    listening_activity TEXT,
+                    response_effectiveness TEXT,
+                    listening_positive_observation TEXT,
+                    listening_improvement_suggestion TEXT,
+                    fluency TEXT,
+                    sentence_complexity TEXT,
+                    pace TEXT,
+                    filler_examples TEXT, -- Stored as JSON string
+                    grammar TEXT,
+                    vocab_examples TEXT, -- Stored as JSON string
+                    vocab_analysis TEXT,
+                    vocab_positive_observation TEXT,
+                    vocab_improvement_suggestion TEXT,
+                    understanding_level TEXT,
+                    explanation_quality TEXT,
+                    interaction_style TEXT,
+                    depth_of_understanding_suggestion TEXT,
+                    comparative_performance TEXT,
+                    comparative_suggestion TEXT,
+                    summary_strength TEXT,
+                    summary_improvement_area TEXT,
+                    target_cefr_level TEXT,
+
+                    
+                    -- Foreign Keys
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
+                    FOREIGN KEY (participant_id) REFERENCES participants (participant_id),
+                    FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
             
@@ -145,6 +241,7 @@ class Database:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+           
             
             await self.db.commit()
         
@@ -242,7 +339,6 @@ class Database:
         """Get room analytics"""
         query = """
             SELECT 
-                s.room_id,
                 s.room_id,
                 s.room_name,
                 s.topic_title,

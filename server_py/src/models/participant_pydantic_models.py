@@ -2,31 +2,9 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
+
 class CreateParticipantModel(BaseModel):
-    participant_id: Optional[str] = Field(None, description="Participant ID (UUID)")
-    user_id: str = Field(..., description="User ID of the participant")
-    room_id: str = Field(..., description="Room ID the participant is joining")
-    anonymous_name: str = Field(..., min_length=2, description="Anonymous name for the participant")
-    campus: Optional[str] = Field(None, description="Campus of the participant")
-    location: Optional[str] = Field(None, description="Location of the participant")
-    joined_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when participant joined")
-    
-class ParticipantResponseModel(BaseModel):
-    status: str = Field(..., description="Participant creation status message")
-    data: str = Field(..., description="Participant user ID")
-    message: Optional[str] = Field(None, description="Additional message")
-
-
-class JoinRoomAsParticipantModel(BaseModel):
-    room_id: str = Field(..., description="ID of the room to join")
-    participant_number: int = Field(..., description="Participant number for joining the room")
-    anonymous_name: str = Field(..., min_length=2, description="Anonymous name for the participant")
-    campus: Optional[str] = Field(None, description="Campus of the participant")
-    location: Optional[str] = Field(None, description="Location of the participant")
-
-class ParticipantModel(BaseModel):
     """Complete Participant model matching the schema"""
-    id: str = Field(..., description="Participant UUID")
     room_id: str = Field(..., description="Room ID (foreign key)")
     user_id: str = Field(..., description="User ID (foreign key)")
     
@@ -34,7 +12,7 @@ class ParticipantModel(BaseModel):
     anonymous_name: str = Field(..., description="Anonymous name like 'Blue Panda', 'Red Dragon'")
     avatar_color: Optional[str] = Field(None, description="Hex color code for avatar")
     
-    # Room Role
+    # Room Config
     role: str = Field(default="participant", description="Role: participant, host, listener")
     is_ready: bool = Field(default=False, description="Ready to start discussion")
     turn_order: int = Field(default=0, description="Order in speaking turns")
@@ -53,10 +31,47 @@ class ParticipantModel(BaseModel):
     left_at: Optional[datetime] = Field(None, description="Timestamp when participant left")
     
     # Optional fields (campus, location from existing models)
+    campusOrLocation: Optional[str] = Field(None, description="Campus or location of the participant")
+
+    
+class CreateParticipantResponseModel(BaseModel):
+    status: str = Field(..., description="Participant creation status message")
+    data: str = Field(..., description="Participant user ID")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Model for data read from DB (includes PK and creation time) ---
+class ParticipantModel(CreateParticipantModel):
+    """Full participant model as represented in the database."""
+    participant_id: str = Field(..., description="Participant UUID, Primary Key")
+    created_at: datetime = Field(..., description="Timestamp when participant was created")
+
+    class Config:
+        from_attributes = True
+
+# --- Model for Updating Participant Info ---
+class JoinRoomAsParticipantModel(BaseModel):
+    room_id: str = Field(..., description="ID of the room to join")
+    participant_number: int = Field(..., description="Participant number for joining the room")
+    anonymous_name: str = Field(..., min_length=2, description="Anonymous name for the participant")
     campus: Optional[str] = Field(None, description="Campus of the participant")
     location: Optional[str] = Field(None, description="Location of the participant")
 
 
-class ParticipantUpdateModel(BaseModel):
-    left_at: Optional[datetime] = None
-    speaking_time_seconds: Optional[int] = None
+
+class ParticipantLeftModel(BaseModel):
+    participant_id: str = Field(..., description="Participant UUID")
+    left_at: Optional[datetime] = Field(None, description="Timestamp when participant left")
+    ending_cefr_level: Optional[str] = Field(None, description="CEFR level at room end")
+
+class ParticipantIsMutedModel(BaseModel):
+    participant_id: str = Field(..., description="Participant UUID")
+    is_muted: Optional[bool] = Field(None, description="Is the participant muted?")
+
+class ParticipantIsSpeakingModel(BaseModel):
+    participant_id: str = Field(..., description="Participant UUID")
+    is_speaking: Optional[bool] = Field(None, description="Is the participant speaking?")
+
+class ParticipantIsReadyModel(BaseModel):
+    participant_id: str = Field(..., description="Participant UUID")
+    is_ready: Optional[bool] = Field(None, description="Is the participant ready?")
+

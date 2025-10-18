@@ -1,9 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field
-from datetime import date, datetime, time, timedelta
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
 from enum import Enum
 
-from typing import Optional, List
 
+# --- Enums Referenced by the Models ---
+from .enums import CEFRLevel
 
 class RoomStatus(str, Enum):
     """Room status enumeration"""
@@ -12,25 +14,10 @@ class RoomStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+# --- Model for Creating a Room ---
+
 class CreateRoomModel(BaseModel):
-    room_name: str = Field(..., min_length=3, description="Name of the room")
-    room_topic: str = Field(..., min_length=5, description="Topic of discussion for the room")
-    topic_category: str = Field(..., description="Category of the room topic")
-    started_at: datetime = Field(..., description="Room start time in ISO format")    
-    ended_at: datetime = Field(..., description="Room end time in ISO format")
-    rounds_completed: int = Field(..., description="Number of rounds completed in the room")
-    created_at: datetime = Field(..., description="Room creation time in ISO format")
-    status: RoomStatus = Field(..., description="Current status of the room")
-    cefr_level: int = Field(..., description="CEFR level of the room")
-
-class RoomResponseModel(BaseModel):
-    status: str = Field(..., description="Room creation status message")
-    data: str = Field(..., description="Room ID of the created room")
-    message: Optional[str] = Field(None, description="Additional message")
-
-class RoomModel(BaseModel):
-    """Complete Room/Room model matching the schema"""
-    id: str = Field(..., description="Room UUID")
+    """Complete Room model matching the schema"""
     room_name: Optional[str] = Field(None, description="Human-readable room name")
     
     # Room Configuration
@@ -39,7 +26,8 @@ class RoomModel(BaseModel):
     max_participants: int = Field(default=6, description="Maximum number of participants")
     speaking_time_per_turn: int = Field(default=60, description="Speaking time per turn in seconds")
     num_rounds: int = Field(default=3, description="Number of discussion rounds")
-    
+    cefr_level: CEFRLevel = Field(..., description="CEFR level for the room")
+
     # Room State
     status: RoomStatus = Field(..., description="Room status")
     current_round: int = Field(default=0, description="Current round number")
@@ -54,9 +42,44 @@ class RoomModel(BaseModel):
     duration_seconds: int = Field(default=0, description="Room duration in seconds")
     
     # Facilitator Agent
-    facilitator_agent_id: Optional[str] = Field(None, description="AWS Strands agent instance ID")
+    agent_id: Optional[str] = Field(None, description="AWS Strands agent instance ID")
     
     # Metadata
-    created_at: datetime = Field(..., description="Room creation timestamp")
     created_by: str = Field(..., description="User ID who created the room")
 
+# --- Model for Reading from DB ---
+
+class RoomModel(CreateRoomModel):
+    """Full Room model as represented in the database, including PK."""
+    room_id: str = Field(..., description="Room UUID, Primary Key")
+    created_at: datetime = Field(..., description="Timestamp when room was created")
+
+    class Config:
+        from_attributes = True
+
+# --- NEW: Update Models ---
+
+class UpdateRoomStatusModel(BaseModel):
+    """Model for updating the room's status."""
+    room_id: str = Field(..., description="Room UUID")
+    status: RoomStatus = Field(..., description="New room status")
+    started_at: Optional[datetime] = Field(None, description="Timestamp when room started (if applicable)")
+    
+class UpdateRoomStateModel(BaseModel):
+    """Model for updating the room's live discussion state."""
+    current_round: Optional[int] = Field(None, description="Current round number")
+    current_speaker_index: Optional[int] = Field(None, description="Current speaker index")
+    participant_count: Optional[int] = Field(None, description="Current number of participants")
+
+class UpdateRoomEndModel(BaseModel):
+    """Model for marking a room as finished."""
+    status: RoomStatus = Field(..., description="Set to 'finished' or 'cancelled'")
+    ended_at: datetime = Field(..., description="Timestamp when room ended")
+    duration_seconds: int = Field(..., description="Total room duration in seconds")
+
+class RoomResponseModel(BaseModel):
+    status: str = Field(..., description="Room creation status message")
+    data: str = Field(..., description="Room ID of the created room")
+    message: Optional[str] = Field(None, description="Additional message")
+
+    
