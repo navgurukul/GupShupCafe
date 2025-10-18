@@ -8,6 +8,9 @@ import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Database:
@@ -15,7 +18,7 @@ class Database:
         self.db: Optional[aiosqlite.Connection] = None
         self.db_path: str = ""
 
-    async def initialize(self, db_path: str = "./database/gupshup_database.db"):
+    async def initialize(self, db_path: str = "./data/gupshup_database.db"):
         """Initialize the database connection and create tables"""
         self.db_path = db_path
         
@@ -295,3 +298,13 @@ class Database:
 
 # Singleton instance
 db = Database()
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        await db.initialize(os.getenv("DATABASE_URL", "./data/gupshup-database.db"))
+        # You can add test calls here to verify functionality
+        await db.close()
+
+    asyncio.run(main())
