@@ -1,41 +1,93 @@
 """
 AWS Strands Orchestrator
 Coordinates multiple AI agents for comprehensive feedback
-Integrates Strands Agent framework with multi-agent coordination
+Integrates Strands Agent framework with multi-agent coordination and MCP tools
 """
 
 from typing import Dict, Any, List, Optional
 from .english_feedback_agent import EnglishFeedbackAgent
 from .debate_facilitator_agent import DebateFacilitatorAgent
 from ..llm.strands_model_adapter import StrandsModelAdapter
+from .mcp_tools_manager import get_mcp_tools_manager, initialize_mcp_clients
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AWSStrandsOrchestrator:
     """
     Orchestrates multiple AI agents using Strands framework
-    Provides unified interface for agent coordination
+    Provides unified interface for agent coordination with MCP tools
     """
     
-    def __init__(self, model_provider: Optional[str] = None):
+    def __init__(
+        self,
+        model_provider: Optional[str] = None,
+        enable_mcp_tools: bool = True,
+        mcp_config: Optional[Dict[str, str]] = None
+    ):
         """
-        Initialize AWS Strands Orchestrator with Strands Agent framework
+        Initialize AWS Strands Orchestrator with Strands Agent framework and MCP tools
         
         Args:
             model_provider: LLM provider ('gemini' or 'bedrock'). 
                           Defaults to env var LLM_PROVIDER or 'gemini'
+            enable_mcp_tools: Whether to initialize and use MCP tools (default: True)
+            mcp_config: Custom MCP client configuration (optional)
         """
         # Create Strands model based on environment configuration
         self.model = StrandsModelAdapter.create_model(provider=model_provider)
+        self.model_provider = StrandsModelAdapter.get_current_provider()
         
-        # Initialize agents with the shared model
+        # Initialize MCP tools if enabled
+        self.mcp_enabled = enable_mcp_tools
+        self.mcp_manager = None
+        
+        if enable_mcp_tools:
+            try:
+                initialize_mcp_clients(mcp_config)
+                self.mcp_manager = get_mcp_tools_manager()
+                logger.info("✅ MCP tools manager initialized")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to initialize MCP tools: {e}. Continuing without MCP tools.")
+                self.mcp_enabled = False
+        
+        # Initialize agents with the shared model (tools added later if MCP enabled)
         self.english_agent = EnglishFeedbackAgent(self.model)
         self.facilitator_agent = DebateFacilitatorAgent(self.model)
         
-        self.model_provider = StrandsModelAdapter.get_current_provider()
+        logger.info(f"✅ Initialized AWSStrandsOrchestrator with {self.model_provider} model")
+        logger.info(f"   ├─ EnglishFeedbackAgent ready")
+        logger.info(f"   ├─ DebateFacilitatorAgent ready")
+        logger.info(f"   └─ MCP tools: {'enabled' if self.mcp_enabled else 'disabled'}")
+    
+    def activate_mcp_tools(self):
+        """
+        Activate MCP tools for agents.
+        Must be called before using agents if MCP tools are enabled.
+        Uses context managers to maintain MCP client connections.
+        """
+        if not self.mcp_enabled or not self.mcp_manager:
+            logger.warning("MCP tools not enabled or manager not initialized")
+            return
         
-        print(f"✅ Initialized AWSStrandsOrchestrator with {self.model_provider} model")
-        print(f"   ├─ EnglishFeedbackAgent ready")
-        print(f"   └─ DebateFacilitatorAgent ready")
+        # Grammar tools for English agent
+        try:
+            with self.mcp_manager.use_client('grammar_tools') as client:
+                grammar_tools = self.mcp_manager.get_tools('grammar_tools')
+                self.english_agent.add_mcp_tools(grammar_tools)
+                logger.info(f"✅ Added grammar tools to EnglishFeedbackAgent")
+        except Exception as e:
+            logger.warning(f"⚠️  Could not add grammar tools: {e}")
+        
+        # Debate tools for Facilitator agent
+        try:
+            with self.mcp_manager.use_client('debate_tools') as client:
+                debate_tools = self.mcp_manager.get_tools('debate_tools')
+                self.facilitator_agent.add_mcp_tools(debate_tools)
+                logger.info(f"✅ Added debate tools to DebateFacilitatorAgent")
+        except Exception as e:
+            logger.warning(f"⚠️  Could not add debate tools: {e}")
     
     async def get_english_feedback(
         self,

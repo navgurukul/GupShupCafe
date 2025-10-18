@@ -2,27 +2,34 @@
 Debate Facilitator Agent
 Manages discussion flow and provides guidance
 Uses Strands Agent framework with pluggable LLM models
+Integrates MCP tools for topic selection and turn management
 """
 
 from typing import Dict, Any, List, Optional
 from strands import Agent, tool
 from strands.models import Model
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DebateFacilitatorAgent:
     """
     Agent for facilitating roundtable discussions
     Built on Strands Agent framework
+    Enhanced with MCP tools for debate room management
     """
     
-    def __init__(self, model: Model):
+    def __init__(self, model: Model, mcp_tools: Optional[List[Any]] = None):
         """
-        Initialize Debate Facilitator Agent with Strands framework
+        Initialize Debate Facilitator Agent with Strands framework and optional MCP tools
         
         Args:
             model: Strands Model instance (Gemini, Bedrock, etc.)
+            mcp_tools: Optional list of MCP tools for debate room management
         """
         self.model = model
+        self.mcp_tools = mcp_tools or []
         
         # Define system prompt for facilitation
         system_prompt = """You are an expert discussion facilitator for educational roundtable debates.
@@ -35,21 +42,49 @@ Your role is to:
 5. Help participants explore topics thoroughly
 
 Be encouraging, thoughtful, and focus on helping participants develop their ideas and communication skills."""
-        print(f"Model: {self.model}, system_prompt: {system_prompt}")
+        
+        # Initialize Strands Agent with or without MCP tools
+        agent_tools = self.mcp_tools if self.mcp_tools else []
+        
         # Initialize Strands Agent
         self.agent = Agent(
             model=self.model,
             system_prompt=system_prompt,
             agent_id="debate_facilitator_agent",
             name="Debate Facilitator Agent",
-            description="Facilitates roundtable discussions and guides participants"
+            description="Facilitates roundtable discussions and guides participants",
+            tools=agent_tools  # MCP tools integrated here
         )
         
-        print("✅ Initialized DebateFacilitatorAgent with Strands framework")
+        logger.info(f"✅ Initialized DebateFacilitatorAgent with Strands framework "
+                   f"({len(agent_tools)} MCP tools)")
+    
+    def add_mcp_tools(self, tools: List[Any]):
+        """
+        Add MCP tools to the agent dynamically
+        
+        Args:
+            tools: List of MCP tools (from MCPClient.list_tools_sync())
+        """
+        self.mcp_tools.extend(tools)
+        
+        # Recreate agent with new tools
+        self.agent = Agent(
+            model=self.model,
+            system_prompt=self.agent._system_prompt,  # Preserve system prompt
+            agent_id=self.agent.agent_id,
+            name=self.agent.name,
+            description=self.agent.description,
+            tools=self.mcp_tools
+        )
+        
+        logger.info(f"✅ Added {len(tools)} MCP tools to DebateFacilitatorAgent. "
+                   f"Total tools: {len(self.mcp_tools)}")
     
     async def facilitate_turn(self, context: Dict[str, Any]) -> str:
         """
         Provide guidance for current speaking turn
+        Can use MCP tools for topic selection and turn management
         
         Args:
             context: Dict with room state, current speaker, topic, etc.
@@ -63,6 +98,12 @@ Be encouraging, thoughtful, and focus on helping participants develop their idea
         previous_statements = context.get("previous_statements", [])
         total_rounds = context.get("total_rounds", 3)
         current_round = context.get("current_round", 1)
+        
+        # Enhanced prompt that hints at MCP tools
+        tools_hint = ""
+        if self.mcp_tools:
+            tool_names = [tool.tool_name for tool in self.mcp_tools]
+            tools_hint = f"\n\nYou have access to these tools: {', '.join(tool_names)}. Use them if needed."
         
         # Construct context-aware prompt
         prompt = f"""Generate a brief, engaging speaking prompt for this roundtable discussion:
@@ -80,9 +121,9 @@ Provide a 1-2 sentence prompt that:
 - Encourages the speaker to share their perspective
 - Is supportive and non-judgmental
 
-Keep it concise and natural."""
+Keep it concise and natural.{tools_hint}"""
         
-        # Get agent response
+        # Get agent response - agent will use MCP tools automatically if needed
         result = self.agent(prompt)
         response_text = str(result.message.get('content', [{}])[0].get('text', ''))
         

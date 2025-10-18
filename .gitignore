@@ -68,3 +68,5 @@ ENV/
 env/
 .pytest_cache/
 *.egg-info/
+
+.venv/

@@ -25,6 +25,96 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-18 15:30 UTC] - AgentCore demo uses MCP tools
+
+**Commit**: Update agents __main__ demo to launch MCP servers and use tools
+**Author**: GitHub Copilot
+**Type**: Feature | Documentation
+
+**Changes**:
+- Updated `server_py/src/agents/__main__.py` AgentCore demo to:
+  - Start MCP servers (debate_tools on 8000, grammar_tools on 8001) via `MCPServerLauncher`
+  - Initialize AgentCore with MCP tools enabled and call `activate_mcp_tools()`
+  - Demonstrate direct MCP tool calls (`grammar_tools.check_grammar`, `debate_tools.topic_selector`)
+  - Cleanly stop MCP servers after the demo completes
+- Improved `server_py/src/mcp/launcher.py` to set `PYTHONPATH`/cwd for process spawning and use detached stdio in background mode.
+
+**Impact**:
+- One-command demo now brings up MCP servers and shows agents leveraging MCP tools.
+- If servers cannot start, the demo gracefully continues without MCP tools.
+
+**Files Modified**:
+- `server_py/src/agents/__main__.py`
+- `server_py/src/mcp/launcher.py`
+
+
+### [2025-10-18 14:30 UTC] - MCP Tools Integration with Strands SDK
+
+**Commit**: `Integrate MCP (Model Context Protocol) tools with agents using Strands SDK patterns`  
+**Author**: GitHub Copilot + Vinit Gore  
+**Type**: Architecture | Feature | Integration
+
+**Changes**:
+- **Integrated Model Context Protocol (MCP) tools** following Strands SDK and Bedrock AgentCore patterns
+  - Created MCPToolsManager for managing MCP client connections
+  - Implements streamable HTTP transport following Strands MCPClient pattern
+  - Context manager pattern for safe resource management
+  - Singleton pattern for application-wide access
+
+- **Created Two MCP Servers:**
+  1. **Debate Room Tools** (`server_py/src/mcp/debate_room_tools.py`)
+     - Port 8000, endpoint: `http://localhost:8000/mcp/`
+     - Tools: topic_selector, get_next_speaker, validate_turn, initialize_room, analyze_discussion_pulse
+     - Supports debate/discussion room management
+  
+  2. **Grammar Tools** (`server_py/src/mcp/grammar_tools.py`)
+     - Port 8001, endpoint: `http://localhost:8001/mcp/`
+     - Tools: check_grammar, analyze_vocabulary, detect_fillers, analyze_sentence_structure
+     - Supports English language analysis for CEFR assessment
+
+- **Enhanced Agents with MCP Tools:**
+  - **EnglishFeedbackAgent** now uses grammar tools for detailed analysis
+  - **DebateFacilitatorAgent** now uses debate room tools for facilitation
+  - Agents automatically invoke MCP tools based on LLM decision-making
+  - Dynamic tool addition via `add_mcp_tools()` method
+
+- **Updated Orchestrators:**
+  - **AWSStrandsOrchestrator** supports MCP tool initialization
+  - **AgentCore** follows Bedrock AgentCore patterns for production
+  - Both support optional MCP integration (can run with or without tools)
+
+- **Created MCP Server Launcher Utility** (`server_py/src/mcp/launcher.py`)
+  - Start/stop MCP servers for development
+  - Background process management with PID files
+  - Status checking and server health monitoring
+  - Commands: `start`, `stop`, `restart`, `status` with `--all` or `--server` flags
+
+- **Architecture Benefits:**
+  - **Modularity**: Tools isolated in separate servers
+  - **Scalability**: MCP servers can run independently, scale horizontally
+  - **Flexibility**: Agents work with or without MCP tools
+  - **Production-Ready**: Based on Bedrock AgentCore patterns with proper resource management
+
+**Files Created**:
+- `server_py/src/agents/mcp_tools_manager.py` - MCP client connection manager
+- `server_py/src/mcp/launcher.py` - Server lifecycle management utility
+- `docs/Miscellaneous/MCP_INTEGRATION_GUIDE.md` - Comprehensive integration documentation
+
+**Files Modified**:
+- `server_py/src/mcp/debate_room_tools.py` - Enhanced with production-ready server structure
+- `server_py/src/mcp/grammar_tools.py` - Implemented complete grammar analysis tools
+- `server_py/src/agents/english_feedback_agent.py` - Added MCP tools support
+- `server_py/src/agents/debate_facilitator_agent.py` - Added MCP tools support
+- `server_py/src/agents/aws_strands_orchestrator.py` - Integrated MCP tools manager
+- `server_py/src/agents/agentcore.py` - Production integration with MCP tools
+
+**References**:
+- Strands SDK MCP Client: https://github.com/strands-agents/sdk-python
+- Bedrock AgentCore SDK: https://github.com/aws/bedrock-agentcore-sdk-python
+- Model Context Protocol: https://modelcontextprotocol.io/
+
+---
+
 ### [2025-10-17 18:45 UTC] - Strands Agent Framework Integration with Pluggable LLM Architecture
 
 **Commit**: `Integrate Strands SDK and Bedrock AgentCore for agent-based architecture with model flexibility`  

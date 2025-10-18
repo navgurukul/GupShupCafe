@@ -14,6 +14,8 @@ from .debate_facilitator_agent import DebateFacilitatorAgent
 from .aws_strands_orchestrator import AWSStrandsOrchestrator
 from .agentcore import AgentCore
 from ..llm.ai_service_manager import AIServiceManager
+from ..mcp.launcher import MCPServerLauncher
+import time
 
 
 async def demonstrate_english_feedback_agent():
@@ -234,44 +236,82 @@ async def demonstrate_agentcore():
     print("🤖 Demonstrating AgentCore Orchestrator")
     print("="*60)
 
-    # Initialize AgentCore with default provider 
-    agentcore = AgentCore()
+    # Start MCP servers for tools (debate + grammar)
+    launcher = MCPServerLauncher()
+    try:
+        print("\n🔧 Starting MCP servers (debate_tools, grammar_tools)…")
+        launcher.start_all(detached=True)
+        # small wait to ensure servers are listening
+        time.sleep(2)
 
-    # Test unified analysis and facilitation
-    statements = [
-        "Renewable energy is essential for a sustainable future.",
-        "Solar and wind power can reduce our dependence on fossil fuels.",
-        "Governments should invest more in green technologies."
-    ]
-    context = {"speaker": "student-3", "topic": "renewable energy"}
-    print("\n🔍 Test 1: Unified analysis and facilitation")
-    result = await agentcore.analyze_and_facilitate(
-        statements=statements,
-        context=context,
-        instant=False,
-        speaker="student-3"
-    )
-    print(f"\nStatements analyzed:")
-    for i, stmt in enumerate(statements, 1):
-        print(f"  {i}. {stmt}")
-    print(f"\nAnalysis: {result['analysis']}")
-    print(f"\nFacilitation Suggestion: {result['facilitation_suggestion']}")
-    print(f"\nFeedback Message: {result['feedback_message']}")
-    print(f"\nGentle Mention: {result['gentle_mention']}")
-    print(f"\nModel Provider: {result['model_provider']}")
+        # Initialize AgentCore with MCP tools enabled and activate them
+        agentcore = AgentCore(enable_mcp_tools=True)
+        agentcore.activate_mcp_tools()
 
-    # Test instant feedback
-    print("\n🔍 Test 2: Instant feedback mode")
-    instant_result = await agentcore.analyze_and_facilitate(
-        statements=["I want to improve my English skills."],
-        context={"speaker": "student-4", "topic": "language learning"},
-        instant=True,
-        speaker="student-4"
-    )
-    print(f"\nAnalysis: {instant_result['analysis']}")
-    print(f"\nFeedback Message: {instant_result['feedback_message']}")
-    print(f"\nGentle Mention: {instant_result['gentle_mention']}")
-    print(f"\nModel Provider: {instant_result['model_provider']}")
+        # Optional: demonstrate direct MCP tool usage alongside agents
+        print("\n🔍 MCP Tools quick check")
+        try:
+            if agentcore.mcp_manager:
+                with agentcore.mcp_manager.use_client('grammar_tools'):
+                    grammar_tool_result = agentcore.mcp_manager.call_tool(
+                        'grammar_tools',
+                        'check_grammar',
+                        {"text": "i like english  very much but sometime i forget punctuation"}
+                    )
+                    print(f"  🧠 grammar_tools.check_grammar → issues: {grammar_tool_result.get('issue_count')} status: {grammar_tool_result.get('status')}")
+
+                with agentcore.mcp_manager.use_client('debate_tools'):
+                    topic_result = agentcore.mcp_manager.call_tool(
+                        'debate_tools',
+                        'topic_selector',
+                        {}
+                    )
+                    print(f"  🎯 debate_tools.topic_selector → {topic_result}")
+        except Exception as e:
+            print(f"  ⚠️  MCP tools demo skipped: {e}")
+
+        # Test unified analysis and facilitation (agents may leverage MCP tools internally)
+        statements = [
+            "Renewable energy is essential for a sustainable future.",
+            "Solar and wind power can reduce our dependence on fossil fuels.",
+            "Governments should invest more in green technologies."
+        ]
+        context = {"speaker": "student-3", "topic": "renewable energy"}
+        print("\n🔍 Test 1: Unified analysis and facilitation")
+        result = await agentcore.analyze_and_facilitate(
+            statements=statements,
+            context=context,
+            instant=False,
+            speaker="student-3"
+        )
+        print(f"\nStatements analyzed:")
+        for i, stmt in enumerate(statements, 1):
+            print(f"  {i}. {stmt}")
+        print(f"\nAnalysis: {result['analysis']}")
+        print(f"\nFacilitation Suggestion: {result['facilitation_suggestion']}")
+        print(f"\nFeedback Message: {result['feedback_message']}")
+        print(f"\nGentle Mention: {result['gentle_mention']}")
+        print(f"\nModel Provider: {result['model_provider']}")
+
+        # Test instant feedback
+        print("\n🔍 Test 2: Instant feedback mode")
+        instant_result = await agentcore.analyze_and_facilitate(
+            statements=["I want to improve my English skills."],
+            context={"speaker": "student-4", "topic": "language learning"},
+            instant=True,
+            speaker="student-4"
+        )
+        print(f"\nAnalysis: {instant_result['analysis']}")
+        print(f"\nFeedback Message: {instant_result['feedback_message']}")
+        print(f"\nGentle Mention: {instant_result['gentle_mention']}")
+        print(f"\nModel Provider: {instant_result['model_provider']}")
+    finally:
+        # Ensure MCP servers are stopped after demo
+        try:
+            print("\n🛑 Stopping MCP servers…")
+            launcher.stop_all()
+        except Exception as e:
+            print(f"⚠️  MCP servers stop encountered an issue: {e}")
 
 
 async def interactive_mode():

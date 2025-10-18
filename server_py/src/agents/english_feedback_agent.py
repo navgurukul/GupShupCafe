@@ -2,28 +2,35 @@
 English Feedback Agent
 Analyzes English language proficiency and provides CEFR-based feedback
 Uses Strands Agent framework with pluggable LLM models
+Integrates MCP tools for grammar checking and language analysis
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from strands import Agent, tool
 from strands.models import Model
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EnglishFeedbackAgent:
     """
     Agent for analyzing English language proficiency
     Built on Strands Agent framework - delegates CEFR assessment to LLM
+    Enhanced with MCP tools for detailed grammar and vocabulary analysis
     """
 
-    def __init__(self, model: Model):
+    def __init__(self, model: Model, mcp_tools: Optional[List[Any]] = None):
         """
-        Initialize English Feedback Agent with Strands framework
+        Initialize English Feedback Agent with Strands framework and optional MCP tools
 
         Args:
             model: Strands Model instance (Gemini, Bedrock, etc.)
+            mcp_tools: Optional list of MCP tools for grammar analysis
         """
         self.model = model
+        self.mcp_tools = mcp_tools or []
 
         # Enhanced system prompt that delegates CEFR assessment to the agent
         system_prompt = """You are an expert English communication evaluator and CEFR assessor.
@@ -78,21 +85,48 @@ Keep practicing to reach a stronger {{next CEFR level}} in your speaking and lis
 Answer only those sections where you add value to the user. Keep your feedback constructive and encouraging.
 """
 
-        # Initialize Strands Agent
+        # Initialize Strands Agent with or without MCP tools
+        agent_tools = self.mcp_tools if self.mcp_tools else []
+        
         self.agent = Agent(
             model=self.model,
             system_prompt=system_prompt,
             agent_id="english_feedback_agent",
             name="English Feedback Agent",
-            description="Analyzes English proficiency with CEFR-based assessment focusing on depth and descriptiveness"
+            description="Analyzes English proficiency with CEFR-based assessment focusing on depth and descriptiveness",
+            tools=agent_tools  # MCP tools integrated here
         )
 
-        print("✅ Initialized EnglishFeedbackAgent with Strands framework")
+        logger.info(f"✅ Initialized EnglishFeedbackAgent with Strands framework "
+                   f"({len(agent_tools)} MCP tools)")
+    
+    def add_mcp_tools(self, tools: List[Any]):
+        """
+        Add MCP tools to the agent dynamically
+        
+        Args:
+            tools: List of MCP tools (from MCPClient.list_tools_sync())
+        """
+        self.mcp_tools.extend(tools)
+        
+        # Recreate agent with new tools
+        self.agent = Agent(
+            model=self.model,
+            system_prompt=self.agent._system_prompt,  # Preserve system prompt
+            agent_id=self.agent.agent_id,
+            name=self.agent.name,
+            description=self.agent.description,
+            tools=self.mcp_tools
+        )
+        
+        logger.info(f"✅ Added {len(tools)} MCP tools to EnglishFeedbackAgent. "
+                   f"Total tools: {len(self.mcp_tools)}")
 
     async def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Comprehensive English analysis using Strands Agent
+        Comprehensive English analysis using Strands Agent with MCP tools
         Delegates all CEFR assessment logic to the LLM
+        LLM can use MCP tools (check_grammar, analyze_vocabulary, etc.) automatically
 
         Args:
             data: Dict with 'text', 'speaker_info', 'context', etc.
@@ -105,15 +139,21 @@ Answer only those sections where you add value to the user. Keep your feedback c
         speaker_info = context.get("speaker_info", {})
         topic = context.get("topic", "general discussion")
 
+        # Enhanced prompt that suggests using MCP tools
+        tools_hint = ""
+        if self.mcp_tools:
+            tool_names = [tool.tool_name for tool in self.mcp_tools]
+            tools_hint = f"\n\nYou have access to these analysis tools: {', '.join(tool_names)}. Use them if helpful for detailed analysis."
+
         # Construct prompt for the agent
         prompt = f"""Analyze the following English text for language proficiency:
 
 TOPIC: {topic}
 TEXT: "{text}"
-SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
+SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}{tools_hint}
 """
 
-        # Get agent response - pass prompt as the user message
+        # Get agent response - the agent will automatically use MCP tools if needed
         result = self.agent(prompt)
 
         # Parse the agent's response
@@ -123,6 +163,9 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
 
         # Extract structured data from response
         parsed_result = self._parse_agent_response(response_text, text)
+        
+        # Add MCP tool usage information
+        parsed_result['mcp_tools_used'] = len(self.mcp_tools) > 0
 
         return parsed_result
 
@@ -145,10 +188,10 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
 
                 # Ensure all required fields are present
                 return {
-                    "cefr_level": parsed.get("cefr_level", "B1"),
-                    "grammar_score": float(parsed.get("grammar_score", 0.7)),
-                    "vocabulary_score": float(parsed.get("vocabulary_score", 0.7)),
-                    "fluency_score": float(parsed.get("fluency_score", 0.7)),
+                    "cefr_level": parsed.get("cefr_level", None),
+                    "grammar_score": float(parsed.get("grammar_score", None)),
+                    "vocabulary_score": float(parsed.get("vocabulary_score", None)),
+                    "fluency_score": float(parsed.get("fluency_score", None)),
                     "analysis": parsed.get("analysis", response_text),
                     "suggestions": parsed.get("suggestions", []),
                     "analyzed_text": original_text
@@ -164,9 +207,9 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
 
         return {
             "cefr_level": cefr_level,
-            "grammar_score": scores.get("grammar", 0.7),
-            "vocabulary_score": scores.get("vocabulary", 0.7),
-            "fluency_score": scores.get("fluency", 0.7),
+            "grammar_score": scores.get("grammar", None),
+            "vocabulary_score": scores.get("vocabulary", None),
+            "fluency_score": scores.get("fluency", None),
             "analysis": response_text,
             "suggestions": suggestions,
             "analyzed_text": original_text
@@ -179,7 +222,7 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
         match = re.search(r'\b([ABC][12])\b', response_text.upper())
         if match:
             return match.group(1)
-        return "B1"  # Default fallback
+        return None  # Default fallback
 
     def _extract_suggestions(self, response_text: str) -> list:
         """Extract suggestions from agent response"""
@@ -193,11 +236,7 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
                 cleaned = re.sub(r'^[•\-*\d.]+\s*', '', stripped)
                 if cleaned:
                     suggestions.append(cleaned)
-        return suggestions[:5] if suggestions else [
-            "Continue practicing regular conversations",
-            "Try to elaborate more on your ideas",
-            "Focus on providing more detailed descriptions"
-        ]
+        return suggestions[:5] if suggestions else None
 
     def _extract_scores(self, response_text: str) -> Dict[str, float]:
         """Extract numerical scores from response text"""
@@ -221,7 +260,7 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
         # Set defaults for missing scores
         for category in ['grammar', 'vocabulary', 'fluency']:
             if category not in scores:
-                scores[category] = 0.7
+                scores[category] = None
 
         return scores
 
@@ -270,4 +309,4 @@ SPEAKER CONTEXT: {speaker_info if speaker_info else "Not provided"}
             Default CEFR level (use analyze() method instead)
         """
         print("[WARNING] determine_cefr_level is deprecated. Use analyze() which delegates to the agent.")
-        return "B1"
+        return None

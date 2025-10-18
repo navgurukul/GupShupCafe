@@ -20,15 +20,6 @@ socket.on('audio-data', (audioData) => {
 })
 ```
 
-### Option 2: WebRTC Peer-to-Peer (More Complex)
-- Requires STUN/TURN servers for NAT traversal
-- Free options: Google STUN servers
-- More complex implementation
-
-### Option 3: Third-Party Services
-- **Agora.io**: Free tier available
-- **Twilio**: Pay-per-use
-- **Daily.co**: Free tier for small groups
 
 ## Browser Compatibility
 - ✅ Chrome/Edge: Full WebRTC support
