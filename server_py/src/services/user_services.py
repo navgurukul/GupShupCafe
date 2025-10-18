@@ -5,7 +5,7 @@ import os
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel
+from src.models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel, UserOutModel, UserUpdateModel
 from src.database.db_connection import conn, cursor
 
 class User_services:
@@ -57,16 +57,11 @@ class User_services:
                 )
             
             user_id = uuid.uuid4().hex
-            category_str = ','.join(signup_model.category)  # Convert list to comma-separated string
-            if signup_model.name and signup_model.email and signup_model.password and signup_model.category:
+            category_str = ','.join(signup_model.topic_categories) if signup_model.topic_categories else ''
+            if signup_model.name and signup_model.email and signup_model.password:
                 self.cursor.execute(
-                    "INSERT INTO users (user_id, name, email, password, category, cefr_level) VALUES (?, ?, ?, ?, ?, ?)",
-                    (user_id, signup_model.name, signup_model.email, signup_model.password, category_str, "A0")
-                )
-            else:
-                self.cursor.execute(
-                    "INSERT INTO users (user_id, name, email, password, category, cefr_level) VALUES (?, ?, ?, ?, ?, ?)",
-                    (user_id, signup_model.name, signup_model.email, signup_model.password, signup_model.category, 0)
+                    "INSERT INTO users (user_id, name, email, password, category, cefr_level, created_at, last_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (user_id, signup_model.name, signup_model.email, signup_model.password, category_str, signup_model.current_cefr_level, signup_model.created_at, signup_model.last_active)
                 )
             self.conn.commit()
             
@@ -88,7 +83,7 @@ class User_services:
         """Service to get user details"""
         try:
             self.cursor.execute(
-                "SELECT user_id, name, email, category, cefr_level FROM users WHERE user_id=?",
+                "SELECT user_id, name, email, category, cefr_level, created_at, last_active FROM users WHERE user_id=?",
                 (user_id,)
             )
             user = self.cursor.fetchone()
@@ -100,13 +95,7 @@ class User_services:
 
                 # Normalize CEFR level to string A0..C2 if integer stored
                 cefr_value = user[4]
-                if isinstance(cefr_value, int):
-                    cefr_map = {
-                        0: "A0", 1: "A1", 2: "A2", 3: "B1", 4: "B2", 5: "C1", 6: "C2"
-                    }
-                    current_cefr_level = cefr_map.get(cefr_value, "A0")
-                else:
-                    current_cefr_level = str(cefr_value)
+                current_cefr_level = str(cefr_value)
                 return {
                     "status": "success",
                     "data": {
@@ -119,6 +108,8 @@ class User_services:
                         # New normalized fields aligned with MVP models
                         "topic_categories": topic_categories,
                         "current_cefr_level": current_cefr_level,
+                        "created_at": user[5],
+                        "last_active": user[6],
                     },
                     "message": "User found"
                 }
@@ -135,6 +126,54 @@ class User_services:
                 "data": None,
                 "message": "Failed to retrieve user"
             }
+
+    def list_users(self) -> dict:
+        try:
+            self.cursor.execute("SELECT user_id, name, email, category, cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
+            rows = self.cursor.fetchall()
+            cols = [d[0] for d in self.cursor.description]
+            return {"status": "success", "data": [dict(zip(cols, r)) for r in rows], "message": "Users listed"}
+        except Exception as e:
+            print(f"Error listing users: {e}")
+            return {"status": "failure", "data": [], "message": "Failed to list users"}
+
+    def update_user(self, user_id: str, update: UserUpdateModel) -> dict:
+        try:
+            fields = []
+            values = []
+            if update.name is not None:
+                fields.append("name=?")
+                values.append(update.name)
+            if update.topic_categories is not None:
+                fields.append("category=?")
+                values.append(','.join(update.topic_categories))
+            if update.current_cefr_level is not None:
+                fields.append("cefr_level=?")
+                values.append(update.current_cefr_level)
+            if update.last_active is not None:
+                fields.append("last_active=?")
+                values.append(update.last_active)
+            if not fields:
+                return {"status": "failure", "data": None, "message": "No fields to update"}
+            values.append(user_id)
+            sql = f"UPDATE users SET {', '.join(fields)} WHERE user_id=?"
+            self.cursor.execute(sql, tuple(values))
+            self.conn.commit()
+            return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "User updated"}
+        except Exception as e:
+            print(f"Error updating user: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to update user"}
+
+    def delete_user(self, user_id: str) -> dict:
+        try:
+            self.cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
+            self.conn.commit()
+            return {"status": "success", "data": {"deleted": self.cursor.rowcount}, "message": "User deleted"}
+        except Exception as e:
+            print(f"Error deleting user: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": "Failed to delete user"}
 
 if __name__ == "__main__":
     # Initialize the service

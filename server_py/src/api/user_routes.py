@@ -4,7 +4,7 @@ RESTful endpoints for the application
 """
 from fastapi import APIRouter, HTTPException
 from ..services.user_services import User_services
-from ..models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel
+from ..models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel, UserUpdateModel
 router = APIRouter()
 
 user_service = User_services()
@@ -26,3 +26,18 @@ async def get_user(user_id: str):
     if response["status"] == "failure":
         raise HTTPException(status_code=404, detail=response["message"])
     return response
+
+@router.get("/", description="List users")
+async def list_users():
+    return user_service.list_users()
+
+@router.patch("/{user_id}", description="Update user")
+async def update_user(user_id: str, payload: UserUpdateModel):
+    resp = user_service.update_user(user_id, payload)
+    if resp["status"] == "failure":
+        raise HTTPException(status_code=400, detail=resp["message"])
+    return resp
+
+@router.delete("/{user_id}", description="Delete user")
+async def delete_user(user_id: str):
+    return user_service.delete_user(user_id)

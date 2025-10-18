@@ -20,8 +20,8 @@ class TranscriptService:
             self.cursor.execute(
                 """
                 INSERT INTO transcripts (
-                    transcript_id, room_id, participant_id, user_id, text, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    transcript_id, room_id, participant_id, user_id, text, created_at, audio_file_url
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     transcript_id,
@@ -30,6 +30,7 @@ class TranscriptService:
                     model.user_id,
                     model.text,
                     model.created_at,
+                    model.audio_file_url,
                 ),
             )
             self.conn.commit()
@@ -51,3 +52,25 @@ class TranscriptService:
         except Exception as e:
             print(f"[Backend] Error fetching transcripts: {e}")
             return {"success": False, "error": "Failed to fetch transcripts"}
+
+    def get_transcript(self, transcript_id: str) -> Dict[str, Any]:
+        try:
+            self.cursor.execute("SELECT * FROM transcripts WHERE transcript_id=?", (transcript_id,))
+            row = self.cursor.fetchone()
+            if not row:
+                return {"success": False, "error": "Transcript not found"}
+            cols = [d[0] for d in self.cursor.description]
+            return {"success": True, "data": dict(zip(cols, row))}
+        except Exception as e:
+            print(f"[Backend] Error fetching transcript: {e}")
+            return {"success": False, "error": "Failed to fetch transcript"}
+
+    def delete_transcript(self, transcript_id: str) -> Dict[str, Any]:
+        try:
+            self.cursor.execute("DELETE FROM transcripts WHERE transcript_id=?", (transcript_id,))
+            self.conn.commit()
+            return {"success": True, "data": {"deleted": self.cursor.rowcount}}
+        except Exception as e:
+            print(f"[Backend] Error deleting transcript: {e}")
+            self.conn.rollback()
+            return {"success": False, "error": "Failed to delete transcript"}

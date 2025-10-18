@@ -3,12 +3,13 @@ from datetime import datetime
 from typing import Optional
 
 class CreateParticipantModel(BaseModel):
+    participant_id: Optional[str] = Field(None, description="Participant ID (UUID)")
     user_id: str = Field(..., description="User ID of the participant")
     room_id: str = Field(..., description="Room ID the participant is joining")
     anonymous_name: str = Field(..., min_length=2, description="Anonymous name for the participant")
     campus: Optional[str] = Field(None, description="Campus of the participant")
     location: Optional[str] = Field(None, description="Location of the participant")
-    joined_at: datetime = Field(..., description="Timestamp when participant joined")
+    joined_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp when participant joined")
     
 class ParticipantResponseModel(BaseModel):
     status: str = Field(..., description="Participant creation status message")
@@ -54,3 +55,8 @@ class ParticipantModel(BaseModel):
     # Optional fields (campus, location from existing models)
     campus: Optional[str] = Field(None, description="Campus of the participant")
     location: Optional[str] = Field(None, description="Location of the participant")
+
+
+class ParticipantUpdateModel(BaseModel):
+    left_at: Optional[datetime] = None
+    speaking_time_seconds: Optional[int] = None

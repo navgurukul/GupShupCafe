@@ -59,6 +59,60 @@ This document serves as a living changelog for all product and architectural cha
 - Existing `/api/feedback` rating endpoint remains unchanged; new feedback APIs live under `/feedback/*`.
 - Pytest suite has a custom fixture scope error unrelated to these changes; limited tests were not executed.
 
+### [2025-10-19 06:40 UTC] - Normalize DB schema, add CRUD services & routes for core MVP models
+**Commit**: db+models+services+routes: normalize schema, implement CRUD for users/rooms/participants/transcripts/feedback
+**Author**: GitHub Copilot
+**Type**: Architecture | Feature | Refactor
+
+**Changes**:
+- Database schema updates (`server_py/src/database/database.py`):
+  - Normalized `users` table: added `created_at`, `last_active` and switched `cefr_level` to TEXT (A0..C2) for clarity.
+  - Normalized `participants` table to use `participant_id` as primary key and explicit `user_id` + `room_id` FKs.
+  - Added `audio_file_url` column to `transcripts` and ensured `transcripts` and `feedback` tables follow FK relationships to `rooms`.
+  - Added `created_by` to `rooms` to track room creator (FK to `users`).
+
+- Pydantic model updates (`server_py/src/models/*.py`):
+  - `user_pydantic_models.py`: added `UserOutModel`, `UserUpdateModel`, default timestamps for creation.
+  - `participant_pydantic_models.py`: include `participant_id`, `ParticipantUpdateModel` to support left time and speaking-time updates.
+  - `transcript_pydantic_models.py`: simplified MVP transcript payload, added `TranscriptOut` and `audio_file_url` support.
+  - `feedback_pydantic_models.py`: added `FeedbackOut` and harmonized instant/comprehensive payloads for storage.
+
+- Service layer enhancements (`server_py/src/services/*.py`):
+  - `user_services.py`: added list/get/update/delete methods and improved signup/login persistence.
+  - `room_service.py`: create/get/list/update/delete rooms and fixed insert bindings.
+  - `participant_service.py`: create/get/list/update/delete participants using `participant_id` PK and improved payload handling.
+  - `transcript_service.py`: accept `audio_file_url`, added get/delete endpoints and consistent list behavior.
+  - `feedback_service.py`: added list-by-room, get-by-id and delete operations; existing create methods retained.
+
+- API routes (`server_py/src/api/*.py`):
+  - `user_routes.py`: added list, update (PATCH) and delete endpoints alongside login/signup/get.
+  - `room_routes.py`: added get/list/update/delete endpoints and made create RESTful under `/rooms/`.
+  - `participant_routes.py`: added list-by-room, update (PATCH) and delete endpoints; adjusted create/get paths under `/participants/`.
+  - `transcript_routes.py`: added get/delete endpoints and kept list-by-room and create routes.
+  - `feedback_routes.py`: added list-by-room, get-by-id and delete endpoints alongside instant/comprehensive creates.
+
+**Files Modified**:
+- Database: `server_py/src/database/database.py`
+- Models: `server_py/src/models/user_pydantic_models.py`, `server_py/src/models/participant_pydantic_models.py`, `server_py/src/models/transcript_pydantic_models.py`, `server_py/src/models/feedback_pydantic_models.py`
+- Services: `server_py/src/services/user_services.py`, `server_py/src/services/room_service.py`, `server_py/src/services/participant_service.py`, `server_py/src/services/transcript_service.py`, `server_py/src/services/feedback_service.py`
+- API Routes: `server_py/src/api/user_routes.py`, `server_py/src/api/room_routes.py`, `server_py/src/api/participant_routes.py`, `server_py/src/api/transcript_routes.py`, `server_py/src/api/feedback_routes.py`
+
+**Impact**:
+- Backend now provides full CRUD coverage for the MVP persistent models required by the real-time discussion loop (users, rooms, participants, transcripts, feedback).
+- Database schema is more robust and explicit about relationships (FKs) and temporal fields, making analytics and future migrations easier.
+- Frontend can rely on predictable endpoints for creating/listing/updating/deleting core entities.
+
+**Migration / Run Notes**:
+- Database changes run on FastAPI startup (async DB initializer). If you have an existing SQLite DB file, either migrate or remove it to allow the new schema to be created automatically.
+- After pulling these changes, run the server and validate endpoints with a REST client or the provided tests.
+
+**Next steps (recommended)**:
+- Run test suite and fix any integration failures: `python -m pytest server_py/tests -q` (or project test runner).
+- Add lightweight integration tests for the new CRUD endpoints (happy path + 1-2 edge cases per endpoint).
+
+**Notes**:
+- Changes are additive and largely backward compatible; frontend may need to reference `participant_id` instead of `user_id` where participants are stored separately from users.
+
 ### [2025-10-18 21:30 UTC] - Enhanced Pydantic Models to Match System Design Schema
 **Commit**: Add comprehensive fields to User, Room/Session, Participant, and Feedback models
 **Author**: GitHub Copilot

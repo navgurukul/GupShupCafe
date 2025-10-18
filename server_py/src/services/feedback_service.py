@@ -97,3 +97,38 @@ class FeedbackService:
         except Exception as e:
             print(f"[Backend] Error fetching feedback: {e}")
             return {"success": False, "error": "Failed to fetch feedback"}
+
+    def list_feedback_for_room(self, room_id: str) -> Dict[str, Any]:
+        try:
+            self.cursor.execute(
+                "SELECT * FROM feedback WHERE room_id=? ORDER BY created_at DESC",
+                (room_id,),
+            )
+            rows = self.cursor.fetchall()
+            cols = [desc[0] for desc in self.cursor.description]
+            return {"success": True, "data": [dict(zip(cols, row)) for row in rows]}
+        except Exception as e:
+            print(f"[Backend] Error fetching feedback for room: {e}")
+            return {"success": False, "error": "Failed to fetch feedback"}
+
+    def get_feedback(self, feedback_id: str) -> Dict[str, Any]:
+        try:
+            self.cursor.execute("SELECT * FROM feedback WHERE feedback_id=?", (feedback_id,))
+            row = self.cursor.fetchone()
+            if not row:
+                return {"success": False, "error": "Feedback not found"}
+            cols = [d[0] for d in self.cursor.description]
+            return {"success": True, "data": dict(zip(cols, row))}
+        except Exception as e:
+            print(f"[Backend] Error fetching feedback: {e}")
+            return {"success": False, "error": "Failed to fetch feedback"}
+
+    def delete_feedback(self, feedback_id: str) -> Dict[str, Any]:
+        try:
+            self.cursor.execute("DELETE FROM feedback WHERE feedback_id=?", (feedback_id,))
+            self.conn.commit()
+            return {"success": True, "data": {"deleted": self.cursor.rowcount}}
+        except Exception as e:
+            print(f"[Backend] Error deleting feedback: {e}")
+            self.conn.rollback()
+            return {"success": False, "error": "Failed to delete feedback"}

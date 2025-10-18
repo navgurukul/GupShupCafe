@@ -46,9 +46,11 @@ class Database:
                     name TEXT NOT NULL,
                     email TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
-                    category TEXT, 
-                    cefr_level INTEGER NOT NULL DEFAULT 0
-                    )
+                    category TEXT,
+                    cefr_level TEXT NOT NULL DEFAULT 'A0',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    last_active DATETIME
+                )
             """)
             
         
@@ -66,16 +68,19 @@ class Database:
                     duration_seconds INTEGER,
                     rounds_completed INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT NOT NULL DEFAULT 'cancelled',
-                    cefr_level INTEGER NOT NULL DEFAULT 0
+                    status TEXT NOT NULL DEFAULT 'waiting',
+                    cefr_level INTEGER NOT NULL DEFAULT 0,
+                    created_by TEXT,
+                    FOREIGN KEY (created_by) REFERENCES users (user_id)
                 )
             """)
             
             # Participants table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS participants (
-                    user_id TEXT PRIMARY KEY,
-                    room_id TEXT,
+                    participant_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    room_id TEXT NOT NULL,
                     anonymous_name TEXT,
                     campus TEXT,
                     location TEXT,
@@ -96,6 +101,7 @@ class Database:
                     user_id TEXT,
                     text TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    audio_file_url TEXT,
                     FOREIGN KEY (room_id) REFERENCES rooms (room_id)
                 )
             """)
@@ -148,8 +154,9 @@ class Database:
         """Save a discussion room"""
         query = """
             INSERT INTO rooms (
-                room_id, room_id, room_name, topic_title, topic_category, participant_count,started_at, ended_at, duration_seconds, rounds_completed, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                room_id, room_name, topic_title, topic_category, participant_count,
+                started_at, ended_at, duration_seconds, rounds_completed, status, cefr_level, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         topic = room_data.get("topic", {})
@@ -158,7 +165,6 @@ class Database:
         room_name = room_data.get("room_name") or room_data.get("roomName") or room_id or "general"
         
         cursor = await self.db.execute(query, (
-            room_data.get("room_id") or room_data.get("id"),
             room_id,
             room_name,
             topic.get("title") if topic else None,
@@ -168,7 +174,9 @@ class Database:
             room_data.get("endedAt") or room_data.get("ended_at"),
             room_data.get("durationSeconds") or room_data.get("duration_seconds"),
             room_data.get("roundsCompleted") or room_data.get("rounds_completed"),
-            room_data.get("status", "active")
+            room_data.get("status", "waiting"),
+            room_data.get("cefrLevel") or room_data.get("cefr_level", 0),
+            room_data.get("createdBy") or room_data.get("created_by")
         ))
         
         await self.db.commit()
@@ -178,12 +186,13 @@ class Database:
         """Save participant data"""
         query = """
             INSERT INTO participants (
-                user_id, room_id, anonymous_name, campus, location,
+                participant_id, user_id, room_id, anonymous_name, campus, location,
                 joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         cursor = await self.db.execute(query, (
+            participant_data.get("participant_id") or participant_data.get("participantId"),
             participant_data.get("user_id") or participant_data.get("userId"),
             participant_data.get("room_id") or participant_data.get("roomId"),
             participant_data.get("anonymous_name") or participant_data.get("anonymousName"),

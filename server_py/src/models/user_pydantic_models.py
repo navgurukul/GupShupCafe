@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class LoginModel(BaseModel):
@@ -12,18 +12,34 @@ class LoginSignUpResponseModel(BaseModel):
     message: Optional[str] = Field(None, description="Additional message")
     
 class SignUpModel(BaseModel):
-    # user_id: str = Field(..., description="Unique identifier for the user")
     # Authentication
     name: str = Field(..., min_length=2, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., min_length=6, description="User's password")
 
-    # CEFR Progress Tracking 
+    # CEFR Progress Tracking
     current_cefr_level: str = Field(default="A0", description="Current CEFR level: A0, A1, A2, B1, B2, C1, C2")
-    
+
     # Topic Interests (For Future Lobby Matching)
-    topic_categories: list[str] = Field(default_factory=list, description="Topic categories of interest")
-    
+    topic_categories: List[str] = Field(default_factory=list, description="Topic categories of interest")
+
     # Metadata
-    created_at: datetime = Field(..., description="Account creation timestamp")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Account creation timestamp")
     last_active: Optional[datetime] = Field(None, description="Last activity timestamp")
+
+
+class UserOutModel(BaseModel):
+    user_id: str
+    name: str
+    email: EmailStr
+    topic_categories: List[str] = Field(default_factory=list)
+    current_cefr_level: str = Field(default="A0")
+    created_at: Optional[datetime] = None
+    last_active: Optional[datetime] = None
+
+
+class UserUpdateModel(BaseModel):
+    name: Optional[str] = None
+    topic_categories: Optional[List[str]] = None
+    current_cefr_level: Optional[str] = None
+    last_active: Optional[datetime] = None
