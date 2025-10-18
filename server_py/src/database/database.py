@@ -114,17 +114,22 @@ class Database:
         """
         
         topic = session_data.get("topic", {})
+        # Get room_id and use it for room_name if not provided
+        room_id = session_data.get("room_id") or session_data.get("roomId")
+        room_name = session_data.get("room_name") or session_data.get("roomName") or room_id or "general"
+        
         cursor = await self.db.execute(query, (
-            session_data.get("session_id"),
-            session_data.get("room_id"),
-            session_data.get("room_name"),
+            session_data.get("session_id") or session_data.get("id"),
+            room_id,
+            room_name,
             topic.get("title") if topic else None,
             topic.get("category") if topic else None,
-            session_data.get("participantCount"),
-            session_data.get("startedAt"),
-            session_data.get("endedAt"),
-            session_data.get("durationSeconds"),
-            session_data.get("roundsCompleted")
+            session_data.get("participantCount") or session_data.get("participant_count"),
+            session_data.get("startedAt") or session_data.get("started_at"),
+            session_data.get("endedAt") or session_data.get("ended_at"),
+            session_data.get("durationSeconds") or session_data.get("duration_seconds"),
+            session_data.get("roundsCompleted") or session_data.get("rounds_completed"),
+            session_data.get("status", "active")
         ))
         
         await self.db.commit()
@@ -140,14 +145,14 @@ class Database:
         """
         
         cursor = await self.db.execute(query, (
-            participant_data.get("user_id"),
-            participant_data.get("session_id"),
-            participant_data.get("anonymous_name"),
+            participant_data.get("user_id") or participant_data.get("userId"),
+            participant_data.get("session_id") or participant_data.get("sessionId"),
+            participant_data.get("anonymous_name") or participant_data.get("anonymousName"),
             participant_data.get("campus"),
             participant_data.get("location"),
-            participant_data.get("joinedAt"),
-            participant_data.get("leftAt"),
-            participant_data.get("speakingTimeSeconds", 0)
+            participant_data.get("joinedAt") or participant_data.get("joined_at"),
+            participant_data.get("leftAt") or participant_data.get("left_at"),
+            participant_data.get("speakingTimeSeconds") or participant_data.get("speaking_time_seconds", 0)
         ))
         
         await self.db.commit()
@@ -189,8 +194,9 @@ class Database:
         """Get session analytics"""
         query = """
             SELECT 
-                s.id,
+                s.session_id,
                 s.room_id,
+                s.room_name,
                 s.topic_title,
                 s.topic_category,
                 s.participant_count,
@@ -198,10 +204,10 @@ class Database:
                 s.ended_at,
                 s.duration_seconds,
                 s.rounds_completed,
-                COUNT(p.id) as recorded_participants
+                COUNT(p.user_id) as recorded_participants
             FROM sessions s
-            LEFT JOIN participants p ON s.id = p.session_id
-            GROUP BY s.id
+            LEFT JOIN participants p ON s.session_id = p.session_id
+            GROUP BY s.session_id
             ORDER BY s.started_at DESC
             LIMIT ?
         """
@@ -275,15 +281,15 @@ class Database:
         query = """
             UPDATE sessions
             SET ended_at = ?, duration_seconds = ?, rounds_completed = ?, participant_count = ?
-            WHERE id = ?
+            WHERE session_id = ?
         """
         
         cursor = await self.db.execute(query, (
-            session_data.get("endedAt"),
-            session_data.get("durationSeconds"),
-            session_data.get("roundsCompleted"),
-            session_data.get("participantCount"),
-            session_data.get("id")
+            session_data.get("endedAt") or session_data.get("ended_at"),
+            session_data.get("durationSeconds") or session_data.get("duration_seconds"),
+            session_data.get("roundsCompleted") or session_data.get("rounds_completed"),
+            session_data.get("participantCount") or session_data.get("participant_count"),
+            session_data.get("id") or session_data.get("session_id")
         ))
         
         await self.db.commit()

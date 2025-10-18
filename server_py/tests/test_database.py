@@ -67,7 +67,7 @@ async def test_get_session_analytics(test_db, sample_session):
     # Get analytics
     sessions = await test_db.get_session_analytics(limit=10)
     assert len(sessions) > 0
-    assert sessions[0]["id"] == sample_session["id"]
+    assert sessions[0]["session_id"] == sample_session["id"]
 
 
 @pytest.mark.asyncio

@@ -134,7 +134,14 @@ function LobbyPage() {
         host_anonymous_name: hostAnonymousName.trim(),
         host_id: user?.id
       }
-      joinRoom(roomData.id, selectedRole)
+      // Pass room metadata as third parameter to joinRoom
+      joinRoom(roomData.id, selectedRole, {
+        name: roomData.name,
+        room_name: roomData.name,
+        topic_category: roomData.topic_category,
+        cefr_level: roomData.cefr_level,
+        max_participants: roomData.max_participants
+      })
       setCurrentRoom(roomData)
       setInRoom(true)
       setShowCreateRoom(false)
@@ -157,7 +164,14 @@ function LobbyPage() {
   }
 
   const handleJoinPredefinedRoom = (room) => {
-    joinRoom(room.id, selectedRole)
+    // Pass room metadata as third parameter to joinRoom
+    joinRoom(room.id, selectedRole, {
+      name: room.name,
+      room_name: room.name,
+      topic_category: room.topic_category,
+      cefr_level: room.cefr_level,
+      max_participants: room.max_participants
+    })
     setCurrentRoom(room)
     setInRoom(true)
   }
