@@ -25,6 +25,62 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-18 10:19 UTC] - Database Integration for User, Session, and Participant Data
+**Commit**: Database Integration - Frontend and Backend Data Capture
+**Author**: GitHub Copilot
+**Type**: Feature | Architecture
+
+**Changes**:
+- **Database Layer Improvements**:
+  - Fixed `save_session()` method to accept both camelCase and snake_case field names for flexibility
+  - Added missing `status` parameter to session insert (fixed SQL binding mismatch)
+  - Updated `get_session_analytics()` to include `room_name` in SELECT query
+  - Made database methods backward-compatible with existing data formats
+
+- **Room Metadata Support**:
+  - Added `metadata` attribute to Room model to store room_name, topic_category, cefr_level, max_participants
+  - Socket handlers now accept and store room metadata when users join rooms
+  - CEFR level mapping implemented (A1-C2 → 1-6) for database storage
+
+- **Session and Participant Persistence**:
+  - Updated `check_and_start_discussion()` to save complete session data including room metadata
+  - Automatically save all participant data (user_id, anonymous_name, campus, location) when discussion starts
+  - Session data includes room_name, topic_category, CEFR level from room metadata
+
+- **Frontend Integration**:
+  - Extended `SocketContext.joinRoom()` to accept and pass room metadata to backend
+  - Updated `LobbyPage.jsx` to send room metadata when joining predefined or custom rooms
+  - Added `anonymousName` support to `AuthContext` with separate localStorage persistence
+  - Integrated `SignupPage.jsx` with backend `/users/signup` API endpoint
+  - Auto-generated anonymous names (e.g., "Happy Tiger", "Clever Eagle") for new users
+
+- **Testing**:
+  - Created comprehensive integration tests for session/participant data flow
+  - All 10 tests passing (7 database + 3 integration)
+  - Tests validate CEFR level mapping, room metadata handling, and participant tracking
+
+**Impact**:
+- User registration data now persists to `users` table via backend API
+- Session data (room name, topic, CEFR level, participants) automatically saved to `sessions` table when discussions start
+- Participant data (anonymous name, campus, location) saved to `participants` table with session linkage
+- Full traceability of user activity and discussion sessions
+- Foundation for analytics and reporting features
+
+**Files Modified**:
+- `server_py/.env.example` (already correct)
+- `server_py/src/database/database.py`
+- `server_py/src/models/room.py`
+- `server_py/src/socket/socket_handlers.py`
+- `client/src/contexts/SocketContext.jsx`
+- `client/src/contexts/AuthContext.jsx`
+- `client/src/pages/LobbyPage.jsx`
+- `client/src/pages/SignupPage.jsx`
+- `server_py/tests/test_database.py`
+- `server_py/tests/test_integration.py` (new)
+- `docs/Miscellaneous/database_integration_2025-10-18.md` (new documentation)
+
+---
+
 ### [2025-10-18 15:30 UTC] - AgentCore demo uses MCP tools
 
 **Commit**: Update agents __main__ demo to launch MCP servers and use tools
