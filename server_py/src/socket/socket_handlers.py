@@ -294,21 +294,21 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         except Exception as e:
             print(f"Error handling message: {str(e)}")
     
-    @sio.event
+    @sio.on('webrtc-offer')
     async def webrtc_offer(sid, data):
         """Relay WebRTC offer to target peer"""
         try:
             target_sid = data.get("to")
-            offer = data.get("offer")
+            sdp = data.get("sdp")
             
-            if not target_sid or not offer:
+            if not target_sid or not sdp:
                 print(f"[Backend] Invalid webrtc-offer data: {data}")
                 return
             
             print(f"[Backend] Relaying WebRTC offer from {sid} to {target_sid}")
             await sio.emit("webrtc-offer", {
                 "from": sid,
-                "offer": offer
+                "sdp": sdp
             }, room=target_sid)
             
         except Exception as e:
@@ -316,21 +316,21 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             import traceback
             traceback.print_exc()
     
-    @sio.event
+    @sio.on('webrtc-answer')
     async def webrtc_answer(sid, data):
         """Relay WebRTC answer to target peer"""
         try:
             target_sid = data.get("to")
-            answer = data.get("answer")
+            sdp = data.get("sdp")
             
-            if not target_sid or not answer:
+            if not target_sid or not sdp:
                 print(f"[Backend] Invalid webrtc-answer data: {data}")
                 return
             
             print(f"[Backend] Relaying WebRTC answer from {sid} to {target_sid}")
             await sio.emit("webrtc-answer", {
                 "from": sid,
-                "answer": answer
+                "sdp": sdp
             }, room=target_sid)
             
         except Exception as e:
@@ -338,7 +338,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             import traceback
             traceback.print_exc()
     
-    @sio.event
+    @sio.on('webrtc-ice-candidate')
     async def webrtc_ice_candidate(sid, data):
         """Relay ICE candidate to target peer"""
         try:
