@@ -18,21 +18,41 @@ class TranscriptService:
 
     def create_transcript(self, model: CreateTranscriptModel) -> Dict[str, Any]:
         try:
+            from datetime import datetime
             transcript_id = uuid.uuid4().hex
+            created_at = datetime.now()
+            # Convert boolean to integer for SQLite
+            is_processed_int = 1 if model.is_processed else 0
+            
             self.cursor.execute(
                 """
                 INSERT INTO transcripts (
-                    transcript_id, room_id, participant_id, user_id, text, created_at, audio_file_url
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    transcript_id, room_id, participant_id, user_id,
+                    round_number, turn_order, transcript_text, language, stt_confidence,
+                    started_at, ended_at, duration_seconds,
+                    word_count, speech_rate, is_processed, processed_at,
+                    audio_file_url, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     transcript_id,
                     model.room_id,
                     model.participant_id,
                     model.user_id,
-                    model.text,
-                    model.created_at,
+                    model.round_number,
+                    model.turn_order,
+                    model.transcript_text,
+                    model.language,
+                    model.stt_confidence,
+                    model.started_at,
+                    model.ended_at,
+                    model.duration_seconds,
+                    model.word_count,
+                    model.speech_rate,
+                    is_processed_int,
+                    model.processed_at,
                     model.audio_file_url,
+                    created_at,
                 ),
             )
             self.conn.commit()
@@ -40,7 +60,7 @@ class TranscriptService:
         except Exception as e:
             print(f"[Backend] Error creating transcript: {e}")
             self.conn.rollback()
-            return {"success": False, "error": "Failed to save transcript"}
+            return {"success": False, "error": f"Failed to save transcript: {e}"}
 
     def list_transcripts_for_room(self, room_id: str) -> Dict[str, Any]:
         try:

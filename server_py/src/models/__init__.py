@@ -26,7 +26,6 @@ from .user_pydantic_models import (
     LoginModel, 
     SignUpModel,
     UserModel,
-    UserUpdateModel,
     UpdateUserCEFRModel,
     UpdateUserLastActiveModel,
     UpdateUserPasswordModel
@@ -43,18 +42,23 @@ from .transcript_pydantic_models import (
     UpdateTranscriptProcessingModel,
     UpdateTranscriptAudioURLModel
 )
-from .enums import CEFRLevel
+from .enums import CEFRLevel, ParticipantRole
+
+# Aliases for backward compatibility
+Participant = ParticipantModel
 
 __all__ = [
     # Participant Models
     "CreateParticipantModel",
     "CreateParticipantResponseModel",
     "ParticipantModel",
+    "Participant",  # Alias
     "ParticipantUpdateModel",
     "ParticipantLeftModel",
     "ParticipantIsMutedModel",
     "ParticipantIsSpeakingModel",
     "ParticipantIsReadyModel",
+    "ParticipantRole",
     # Room Models
     "RoomResponseModel",
     "CreateRoomModel",
@@ -68,7 +72,6 @@ __all__ = [
     "LoginModel",
     "SignUpModel",
     "UserModel",
-    "UserUpdateModel",
     "UpdateUserCEFRModel",
     "UpdateUserLastActiveModel",
     "UpdateUserPasswordModel",
@@ -84,5 +87,4 @@ __all__ = [
     "UpdateTranscriptAudioURLModel",
     # Enums
     "CEFRLevel",
-    "RoomStatusEnum",
 ]

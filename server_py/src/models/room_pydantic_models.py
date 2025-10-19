@@ -21,7 +21,7 @@ class CreateRoomModel(BaseModel):
     room_name: Optional[str] = Field(None, description="Human-readable room name")
     
     # Room Configuration
-    topic: str = Field(..., description="Discussion topic")
+    topic_title: str = Field(..., description="Discussion topic")
     topic_category: str = Field(..., description="Topic category (Technology, Current Events, etc.)")
     max_participants: int = Field(default=6, description="Maximum number of participants")
     speaking_time_per_turn: int = Field(default=60, description="Speaking time per turn in seconds")
