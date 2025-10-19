@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSocket } from '../contexts/SocketContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useAudio } from '../contexts/AudioContext'
-import { Users, Clock, Mic, MicOff, LogOut, Settings, Plus, BookOpen, Atom, PenTool, Brain } from 'lucide-react'
+import { Users, Clock, Mic, MicOff, LogOut, Settings } from 'lucide-react'
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== 'undefined') {
@@ -36,75 +36,6 @@ function LobbyPage() {
   const [waitingTime, setWaitingTime] = useState(0)
   const [systemMessage, setSystemMessage] = useState('Connecting to lobby...')
   const [isNavigating, setIsNavigating] = useState(false)
-  
-  // New state for room management
-  const [showCreateRoom, setShowCreateRoom] = useState(false)
-  const [newRoomId, setNewRoomId] = useState('')
-  const [currentRoom, setCurrentRoom] = useState(null)
-  const [inRoom, setInRoom] = useState(false)
-
-  // Predefined rooms
-  const predefinedRooms = [
-    {
-      id: 'education',
-      name: 'Education',
-      icon: BookOpen,
-      color: 'bg-blue-500',
-      description: 'Discuss educational topics and learning methodologies'
-    },
-    {
-      id: 'science-technology',
-      name: 'Science & Technology',
-      icon: Atom,
-      color: 'bg-green-500',
-      description: 'Explore the latest in science and tech innovations'
-    },
-    {
-      id: 'literature',
-      name: 'Literature',
-      icon: PenTool,
-      color: 'bg-purple-500',
-      description: 'Share thoughts on books, poetry, and creative writing'
-    },
-    {
-      id: 'generative-ai',
-      name: 'Generative AI',
-      icon: Brain,
-      color: 'bg-orange-500',
-      description: 'Discuss AI, machine learning, and future technology'
-    }
-  ]
-
-  // Room management functions
-  const handleCreateRoom = () => {
-    if (newRoomId.trim()) {
-      const roomData = {
-        id: newRoomId.trim(),
-        name: newRoomId.trim(),
-        isCustom: true
-      }
-      joinRoom(roomData.id, selectedRole)
-      setCurrentRoom(roomData)
-      setInRoom(true)
-      setShowCreateRoom(false)
-      setNewRoomId('')
-    }
-  }
-
-  const handleJoinPredefinedRoom = (room) => {
-    joinRoom(room.id, selectedRole)
-    setCurrentRoom(room)
-    setInRoom(true)
-  }
-
-  const handleLeaveRoom = () => {
-    if (socket) {
-      socket.emit('leave-room', { roomId: currentRoom?.id })
-    }
-    setCurrentRoom(null)
-    setInRoom(false)
-    setParticipants([])
-  }
 
   // Timer for waiting time and late join check
   useEffect(() => {
@@ -367,197 +298,30 @@ function LobbyPage() {
       </header>
 
       {/* Main Content */}
-      {/* Main Content */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
-        {!inRoom ? (
-          // Room Selection View
-          <div className="space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-4">
-              <h2 className="text-3xl font-bold text-gray-900">Welcome to GupShup Cafe</h2>
-              <p className="text-lg text-gray-600">Join a discussion room or create your own</p>
-            </div>
-
-            {/* Create New Room Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto flex items-center justify-center">
-                  <Plus className="w-8 h-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900">Create New Room</h3>
-                <p className="text-gray-600">Start your own discussion room with a custom topic</p>
-                
-                {!showCreateRoom ? (
-                  <button
-                    onClick={() => setShowCreateRoom(true)}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Create Room
-                  </button>
-                ) : (
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                      value={newRoomId}
-                      onChange={(e) => setNewRoomId(e.target.value)}
-                      placeholder="Enter room name..."
-                      className="w-full max-w-md mx-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyPress={(e) => e.key === 'Enter' && handleCreateRoom()}
-                    />
-                    <div className="flex justify-center space-x-3">
-                      <button
-                        onClick={handleCreateRoom}
-                        disabled={!newRoomId.trim()}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                      >
-                        Create
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowCreateRoom(false)
-                          setNewRoomId('')
-                        }}
-                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Existing Rooms */}
-            <div className="space-y-4">
-              <h3 className="text-2xl font-bold text-gray-900 text-center">Existing Rooms</h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {predefinedRooms.map((room) => {
-                  const IconComponent = room.icon
-                  return (
-                    <div
-                      key={room.id}
-                      className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                    >
-                      <div className="text-center space-y-4">
-                        <div className={`w-16 h-16 ${room.color} rounded-full mx-auto flex items-center justify-center`}>
-                          <IconComponent className="w-8 h-8 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">{room.name}</h4>
-                          <p className="text-sm text-gray-600 mt-2">{room.description}</p>
-                        </div>
-                        <button
-                          onClick={() => handleJoinPredefinedRoom(room)}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                        >
-                          Join
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        ) : (
-          // In Room View
-          <div className="space-y-8">
-            {/* Room Header */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {currentRoom?.icon && !currentRoom?.isCustom && (
-                    <div className={`w-12 h-12 ${predefinedRooms.find(r => r.id === currentRoom.id)?.color} rounded-full flex items-center justify-center`}>
-                      {React.createElement(predefinedRooms.find(r => r.id === currentRoom.id)?.icon, { className: "w-6 h-6 text-white" })}
-                    </div>
-                  )}
-                  {currentRoom?.isCustom && (
-                    <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{currentRoom?.name}</h2>
-                    <p className="text-gray-600">
-                      {currentRoom?.isCustom ? 'Custom Room' : predefinedRooms.find(r => r.id === currentRoom.id)?.description}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLeaveRoom}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Leave Room
-                </button>
-              </div>
-            </div>
-
-            {/* Participants */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Participants ({participants.length})
-              </h3>
+      <main className="flex-1 max-w-4xl mx-auto w-full p-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Status Panel */}
+          <div className="space-y-6">
+            {/* System Status */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Session Status</h2>
               
-              {participants.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {participants.map((participant) => (
-                    <div 
-                      key={participant.id} 
-                      className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {participant.anonymousName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{participant.anonymousName}</p>
-                        <div className="flex items-center space-x-2">
-                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                            participant.role === 'speaker' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {participant.role === 'speaker' ? '🎤' : '👂'}
-                          </span>
-                          {participant.isReady && (
-                            <span className="text-xs text-green-600 font-medium">Ready</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>You're the first one here! Others will join soon.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Ready Button */}
-            <div className="text-center">
-              {!isReady ? (
-                <button
-                  onClick={() => {
-                    if (socket && currentRoom) {
-                      console.log('[Lobby][Debug] Signaling ready for room:', currentRoom.id)
-                      signalReady()
-                      setIsReady(true)
-                    }
-                  }}
-                  className="px-8 py-4 bg-green-600 text-white text-lg font-semibold rounded-xl hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  Ready
-                </button>
-              ) : (
-                <div className="inline-flex items-center space-x-3 px-6 py-3 bg-green-100 text-green-800 rounded-xl">
-                  <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse"></div>
-                  <span className="font-semibold">You're Ready! Waiting for others...</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              <div className="space-y-4">
+                {/* Role Selection */}
+                <div className="space-y-2">
+                  <span className="text-gray-600 text-sm font-medium">Your Role</span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setSelectedRole('speaker')
+                        if (connected) {
+                          console.log('[Lobby] Role changed to speaker, rejoining room')
+                          joinRoom(roomId, 'speaker')
+                        }
+                      }}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        selectedRole === 'speaker'
+                          ? 'bg-primary-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                     >

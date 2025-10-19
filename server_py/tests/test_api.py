@@ -98,7 +98,7 @@ def test_submit_feedback(client):
     feedback = {
         "rating": 5,
         "comment": "Great platform!",
-        "session_id": "test-session-123"
+        "room_id": "test-room-123"
     }
     response = client.post("/api/feedback", json=feedback)
     assert response.status_code == 200

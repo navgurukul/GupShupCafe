@@ -84,24 +84,61 @@ function LoginPage() {
     }
     
     try {
-      // Simulate API call - replace with actual authentication
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Call backend API for user login
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+      const response = await fetch(`${apiUrl}/users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
       
-      // For demo purposes, accept any valid email/password combination
-      const userData = {
-        email: formData.email,
-        name: formData.email.split('@')[0], // Use email prefix as name
-        id: Date.now().toString()
+      const result = await response.json()
+      
+      if (result.status === 'success') {
+        // Fetch user details to get name and interests
+        const userResponse = await fetch(`${apiUrl}/users/${result.data}`)
+        let userName = formData.email.split('@')[0] // Default to email prefix
+        let userInterests = []
+        
+        if (userResponse.ok) {
+          const userResult = await userResponse.json()
+          if (userResult.status === 'success' && userResult.data) {
+            userName = userResult.data.name || userName
+            userInterests = userResult.data.category ? 
+              (Array.isArray(userResult.data.category) ? userResult.data.category : userResult.data.category.split(',')) 
+              : []
+          }
+        }
+        
+        // Create user data with the ID returned from backend
+        const userData = {
+          id: result.data,
+          email: formData.email,
+          name: userName,
+          interests: userInterests
+        }
+        
+        // Generate a random anonymous name
+        const adjectives = ['Happy', 'Clever', 'Brave', 'Wise', 'Kind', 'Swift', 'Bright', 'Noble']
+        const animals = ['Tiger', 'Eagle', 'Dolphin', 'Fox', 'Owl', 'Lion', 'Hawk', 'Wolf']
+        const anonymousName = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${animals[Math.floor(Math.random() * animals.length)]}`
+        
+        // Login with the user data and anonymous name
+        login(userData, anonymousName)
+        
+        // Navigate to lobby
+        navigate('/lobby')
+      } else {
+        setErrors({ submit: result.message || 'Login failed. Please check your credentials.' })
       }
-      
-      // Login with the provided data
-      login(userData)
-      
-      // Navigate to lobby
-      navigate('/lobby')
     } catch (error) {
       console.error('Login error:', error)
-      setErrors({ submit: 'Login failed. Please try again.' })
+      setErrors({ submit: 'Login failed. Please check your connection and try again.' })
     } finally {
       setIsSubmitting(false)
     }

@@ -1,29 +1,63 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
+
+from .enums import CEFRLevel
 
 class LoginModel(BaseModel):
     email: EmailStr
     password: str
 
-class LoginResponseModel(BaseModel):
-    status: str = Field(..., description="Login status message")
-    data: str = Field(..., description="User ID for user session")
+class LoginSignUpResponseModel(BaseModel):
+    status: str = Field(..., description="Login/Signup status message")
+    data: str = Field(..., description="User ID for user room")
     message: Optional[str] = Field(None, description="Additional message")
     
+# --- Model for Creating a User (Sign Up) ---
+
 class SignUpModel(BaseModel):
-    # user_id: str = Field(..., description="Unique identifier for the user")
+    # Authentication
     name: str = Field(..., min_length=2, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
     password: str = Field(..., min_length=6, description="User's password")
-    category: list[str] = Field(..., description="Categories of interest for the user")
-    # crf_level: Optional[int] = Field(default=0, description="CRF level for the user")
 
-class CreateRoomModel(BaseModel):
-    room_id: str = Field(..., description="Unique identifier for the room")
-    room_name: str = Field(..., min_length=3, description="Name of the room")
-    room_topic: str = Field(..., min_length=5, description="Topic of discussion for the room")
-    participants: int = Field(..., ge=2, le=6, description="Number of participants expected in the room (2-6)")
+    # CEFR Progress Tracking
+    current_cefr_level: CEFRLevel = Field(default=CEFRLevel.A0, description="Current CEFR level: A0...C2")
 
-class JoinRoomModel(BaseModel):
-    room_id: str = Field(..., description="ID of the room to join")
-    participant_number: int = Field(..., description="Participant number for joining the room")
+    # Topic Interests (For Future Lobby Matching)
+    topic_categories: List[str] = Field(default_factory=list, description="Topic categories of interest")
+
+# --- Model for Reading from DB ---
+
+class UserModel(SignUpModel):
+    """Full User model as represented in the database."""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    created_at: datetime = Field(..., description="Account creation timestamp")
+
+    class Config:
+        from_attributes = True
+
+
+
+# --- NEW: Update Models ---
+class UserTopicCategoriesModel(BaseModel):
+    """Model for updating a user's topic categories and CEFR level."""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    topic_categories: Optional[List[str]] = None
+
+
+class UpdateUserCEFRModel(BaseModel):
+    """Model for updating a user's CEFR level."""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    current_cefr_level: CEFRLevel = Field(..., description="The user's new CEFR level")
+
+class UpdateUserLastActiveModel(BaseModel):
+    """Model for updating a user's last active timestamp."""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    last_active: datetime = Field(..., description="Timestamp of last activity")
+
+class UpdateUserPasswordModel(BaseModel):
+    """Model for updating a user's password."""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    old_password: str = Field(..., description="The current password")
+    new_password: str = Field(..., description="The new password")

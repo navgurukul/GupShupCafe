@@ -98,7 +98,7 @@ class MCPServerLauncher:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     stdin=subprocess.DEVNULL,
-                    start_new_session=True,
+                    start_new_room=True,
                     cwd=str(repo_root),
                     env=env
                 )

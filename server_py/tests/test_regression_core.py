@@ -20,9 +20,9 @@ class TestAnalyticsEndpoints:
     """Test suite for analytics endpoints"""
 
     @pytest.mark.skip(reason="Analytics endpoints require initialized database - tested separately")
-    def test_analytics_sessions_empty_database(self, client):
-        """Test session analytics with empty database"""
-        response = client.get("/api/analytics/sessions?limit=5")
+    def test_analytics_rooms_empty_database(self, client):
+        """Test room analytics with empty database"""
+        response = client.get("/api/analytics/rooms?limit=5")
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
@@ -30,20 +30,20 @@ class TestAnalyticsEndpoints:
         assert data["count"] >= 0
 
     @pytest.mark.skip(reason="Analytics endpoints require initialized database - tested separately")
-    def test_analytics_sessions_limit_parameter(self, client):
-        """Test session analytics respects limit parameter"""
+    def test_analytics_rooms_limit_parameter(self, client):
+        """Test room analytics respects limit parameter"""
         # Request only 3
-        response = client.get("/api/analytics/sessions?limit=3")
+        response = client.get("/api/analytics/rooms?limit=3")
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data["data"], list)
 
-    def test_analytics_sessions_invalid_limit(self, client):
+    def test_analytics_rooms_invalid_limit(self, client):
         """Test analytics with invalid limit parameter"""
-        response = client.get("/api/analytics/sessions?limit=0")
+        response = client.get("/api/analytics/rooms?limit=0")
         assert response.status_code == 422  # Validation error
         
-        response = client.get("/api/analytics/sessions?limit=101")
+        response = client.get("/api/analytics/rooms?limit=101")
         assert response.status_code == 422  # Validation error
 
     @pytest.mark.skip(reason="Analytics endpoints require initialized database - tested separately")
@@ -66,20 +66,20 @@ class TestAnalyticsEndpoints:
         stats = data["data"]
         
         # Check all required stats fields
-        assert "totalSessions" in stats
+        assert "totalRooms" in stats
         assert "totalParticipants" in stats
-        assert "avgSessionDuration" in stats
-        assert "avgParticipantsPerSession" in stats
+        assert "avgRoomDuration" in stats
+        assert "avgParticipantsPerRoom" in stats
         assert "topCategories" in stats
 
 
-class TestSessionLifecycle:
-    """Test complete session lifecycle"""
+class TestRoomLifecycle:
+    """Test complete room lifecycle"""
 
-    def test_create_and_retrieve_session(self, test_db):
-        """Test creating and retrieving a session"""
-        session_data = {
-            "id": "lifecycle-session-1",
+    def test_create_and_retrieve_room(self, test_db):
+        """Test creating and retrieving a room"""
+        room_data = {
+            "id": "lifecycle-room-1",
             "roomId": "test-room-lifecycle",
             "topic": {
                 "title": "Test Topic",
@@ -92,20 +92,20 @@ class TestSessionLifecycle:
             "roundsCompleted": 0
         }
         
-        result = asyncio.run(test_db.save_session(session_data))
+        result = asyncio.run(test_db.save_room(room_data))
         assert result is not None
         
         # Retrieve and verify
-        sessions = asyncio.run(test_db.get_session_analytics(limit=10))
-        saved_session = next((s for s in sessions if s["id"] == session_data["id"]), None)
-        assert saved_session is not None
-        assert saved_session["id"] == session_data["id"]
+        rooms = asyncio.run(test_db.get_room_analytics(limit=10))
+        saved_room = next((s for s in rooms if s["id"] == room_data["id"]), None)
+        assert saved_room is not None
+        assert saved_room["id"] == room_data["id"]
 
-    def test_update_session_end_data(self, test_db):
-        """Test updating session with end data"""
-        # Create session
-        session_data = {
-            "id": "lifecycle-session-2",
+    def test_update_room_end_data(self, test_db):
+        """Test updating room with end data"""
+        # Create room
+        room_data = {
+            "id": "lifecycle-room-2",
             "roomId": "test-room-end",
             "topic": {"title": "Test", "category": "Test"},
             "participantCount": 2,
@@ -114,27 +114,27 @@ class TestSessionLifecycle:
             "durationSeconds": None,
             "roundsCompleted": 0
         }
-        asyncio.run(test_db.save_session(session_data))
+        asyncio.run(test_db.save_room(room_data))
         
         # Update with end data
         end_data = {
-            "id": session_data["id"],
+            "id": room_data["id"],
             "endedAt": (datetime.now() + timedelta(minutes=10)).isoformat(),
             "durationSeconds": 600,
             "roundsCompleted": 3,
             "participantCount": 2
         }
         
-        result = asyncio.run(test_db.update_session_end(end_data))
+        result = asyncio.run(test_db.update_room_end(end_data))
         assert result == 1  # One row updated
 
-    def test_session_with_multiple_participants(self, test_db):
-        """Test session with multiple participants joining"""
-        session_id = "multi-participant-session"
+    def test_room_with_multiple_participants(self, test_db):
+        """Test room with multiple participants joining"""
+        room_id = "multi-participant-room"
         
-        # Create session
-        session_data = {
-            "id": session_id,
+        # Create room
+        room_data = {
+            "id": room_id,
             "roomId": "test-room-multi",
             "topic": {"title": "Multi-participant Test", "category": "Education"},
             "participantCount": 0,
@@ -143,13 +143,13 @@ class TestSessionLifecycle:
             "durationSeconds": None,
             "roundsCompleted": 0
         }
-        asyncio.run(test_db.save_session(session_data))
+        asyncio.run(test_db.save_room(room_data))
         
         # Add multiple participants
         for i in range(4):
             participant = {
                 "id": f"participant-multi-{i}",
-                "sessionId": session_id,
+                "roomId": room_id,
                 "userId": f"user-multi-{i}",
                 "anonymousName": f"User {i}",
                 "campus": "Test Campus",
@@ -166,8 +166,8 @@ class TestParticipantManagement:
 
     def test_save_participant_with_all_fields(self, test_db):
         """Test saving participant with all required fields"""
-        session_data = {
-            "id": "participant-test-session",
+        room_data = {
+            "id": "participant-test-room",
             "roomId": "test-room",
             "topic": {"title": "Test", "category": "Test"},
             "participantCount": 1,
@@ -176,11 +176,11 @@ class TestParticipantManagement:
             "durationSeconds": None,
             "roundsCompleted": 0
         }
-        asyncio.run(test_db.save_session(session_data))
+        asyncio.run(test_db.save_room(room_data))
         
         participant = {
             "id": "participant-full-fields",
-            "sessionId": "participant-test-session",
+            "roomId": "participant-test-room",
             "userId": "user-123",
             "anonymousName": "Clever Cat",
             "campus": "NavGurukul Bangalore",
@@ -195,8 +195,8 @@ class TestParticipantManagement:
 
     def test_participant_speaking_time(self, test_db):
         """Test tracking participant speaking time"""
-        session_data = {
-            "id": "speaking-time-session",
+        room_data = {
+            "id": "speaking-time-room",
             "roomId": "test-room",
             "topic": {"title": "Test", "category": "Test"},
             "participantCount": 1,
@@ -205,11 +205,11 @@ class TestParticipantManagement:
             "durationSeconds": None,
             "roundsCompleted": 0
         }
-        asyncio.run(test_db.save_session(session_data))
+        asyncio.run(test_db.save_room(room_data))
         
         participant = {
             "id": "participant-speaking",
-            "sessionId": "speaking-time-session",
+            "roomId": "speaking-time-room",
             "userId": "speaker-user",
             "anonymousName": "Talkative Tiger",
             "campus": "Test Campus",
@@ -292,7 +292,7 @@ class TestErrorHandling:
         feedback = {
             "rating": 4,
             "comment": "",
-            "session_id": "test-session"
+            "room_id": "test-room"
         }
         response = client.post("/api/feedback", json=feedback)
         assert response.status_code == 200
@@ -352,20 +352,20 @@ class TestIntegrationWorkflows:
         feedback = {
             "rating": 5,
             "comment": "Great discussion!",
-            "session_id": "workflow-session"
+            "room_id": "workflow-room"
         }
         feedback_response = client.post("/api/feedback", json=feedback)
         assert feedback_response.status_code == 200
         
         # Note: Analytics endpoints require DB initialization, tested separately
 
-    def test_concurrent_sessions_workflow(self, test_db):
-        """Test handling multiple concurrent sessions"""
-        # Create multiple sessions
-        sessions = []
+    def test_concurrent_rooms_workflow(self, test_db):
+        """Test handling multiple concurrent rooms"""
+        # Create multiple rooms
+        rooms = []
         for i in range(5):
-            session = {
-                "id": f"concurrent-session-{i}",
+            room = {
+                "id": f"concurrent-room-{i}",
                 "roomId": f"room-{i}",
                 "topic": {"title": f"Topic {i}", "category": "Test"},
                 "participantCount": 2,
@@ -374,13 +374,13 @@ class TestIntegrationWorkflows:
                 "durationSeconds": None,
                 "roundsCompleted": 0
             }
-            asyncio.run(test_db.save_session(session))
-            sessions.append(session)
+            asyncio.run(test_db.save_room(room))
+            rooms.append(room)
         
-        # Verify all sessions exist
-        analytics = asyncio.run(test_db.get_session_analytics(limit=10))
-        concurrent_sessions = [s for s in analytics if s["id"].startswith("concurrent-")]
-        assert len(concurrent_sessions) >= 5
+        # Verify all rooms exist
+        analytics = asyncio.run(test_db.get_room_analytics(limit=10))
+        concurrent_rooms = [s for s in analytics if s["id"].startswith("concurrent-")]
+        assert len(concurrent_rooms) >= 5
 
 
 # Import asyncio for async operations in tests
@@ -477,7 +477,7 @@ class TestFeedbackEndpoint:
         feedback = {
             "rating": 5,
             "comment": "Excellent discussion platform!",
-            "session_id": "test-session-feedback"
+            "room_id": "test-room-feedback"
         }
         response = client.post("/api/feedback", json=feedback)
         assert response.status_code == 200
@@ -497,7 +497,7 @@ class TestFeedbackEndpoint:
             feedback = {
                 "rating": rating,
                 "comment": f"Rating {rating}",
-                "session_id": f"session-{rating}"
+                "room_id": f"room-{rating}"
             }
             response = client.post("/api/feedback", json=feedback)
             assert response.status_code == 200

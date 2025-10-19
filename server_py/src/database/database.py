@@ -1,6 +1,6 @@
 """
 Database Management
-Simple SQLite database for storing session data and analytics
+Simple SQLite database for storing room data and analytics
 """
 
 import aiosqlite
@@ -29,7 +29,12 @@ class Database:
         self.db = await aiosqlite.connect(db_path)
         self.db.row_factory = aiosqlite.Row
         
-        print(f"Connected to SQLite database at {db_path}")
+        print(f"📊 Connected to SQLite database at {db_path}")
+
+        # Enforce foreign key constraints for this connection
+        await self.db.execute("PRAGMA foreign_keys = ON;")
+        await self.db.commit() # Commit the PRAGMA
+
         
         # Create tables
         await self._create_tables()
@@ -44,46 +49,187 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     user_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    category TEXT, 
-                    crf_level INTEGER NOT NULL DEFAULT 0
-                    )
+                    email TEXT NOT NULL UNIQUE,
+                    hashed_password TEXT NOT NULL,
+                    current_cefr_level TEXT DEFAULT 'A0',
+                    topic_categories TEXT, -- Stored as JSON string
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    last_active DATETIME
+                )
             """)
             
         
             
-            # Sessions table
+            # Rooms table
             await self.db.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_id TEXT PRIMARY KEY,
-                    room_id TEXT NOT NULL,
-                    room_name TEXT NOT NULL,
-                    topic_title TEXT,
-                    topic_category TEXT,
-                    participant_count INTEGER,
-                    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ended_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    duration_seconds INTEGER,
-                    rounds_completed INTEGER,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    status TEXT NOT NULL DEFAULT 'active',
-                    crf_level INTEGER NOT NULL DEFAULT 0
+                CREATE TABLE IF NOT EXISTS rooms (
+                    room_id TEXT PRIMARY KEY,
+                    room_name TEXT,
+                    
+                    -- Room Configuration
+                    topic_title TEXT NOT NULL,
+                    topic_category TEXT NOT NULL,
+                    max_participants INTEGER DEFAULT 6,
+                    speaking_time_per_turn INTEGER DEFAULT 60,
+                    num_rounds INTEGER DEFAULT 3,
+                    cefr_level TEXT NOT NULL,
+                    
+                    -- Room State
+                    status TEXT NOT NULL,
+                    current_round INTEGER DEFAULT 0,
+                    current_speaker_index INTEGER DEFAULT 0,
+                    
+                    -- Participants
+                    participant_count INTEGER DEFAULT 0,
+                    
+                    -- Timing
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    started_at DATETIME,
+                    ended_at DATETIME,
+                    duration_seconds INTEGER DEFAULT 0,
+                    
+                    -- Facilitator Agent
+                    agent_id TEXT,
+                    
+                    -- Metadata
+                    created_by TEXT NOT NULL,
+                    
+                    -- Foreign Key
+                    FOREIGN KEY (created_by) REFERENCES users (user_id)
                 )
             """)
             
             # Participants table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS participants (
-                    user_id TEXT PRIMARY KEY,
-                    session_id TEXT,
-                    anonymous_name TEXT,
-                    campus TEXT,
-                    location TEXT,
-                    joined_at DATETIME,
+                    participant_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    room_id TEXT NOT NULL,
+                    
+                    -- Identity
+                    anonymous_name TEXT NOT NULL,
+                    avatar_color TEXT,
+                    
+                    -- Room Config
+                    role TEXT DEFAULT 'participant',
+                    is_ready INTEGER DEFAULT 0,
+                    turn_order INTEGER DEFAULT 0,
+                    
+                    -- Real-Time State
+                    is_speaking INTEGER DEFAULT 0,
+                    is_muted INTEGER DEFAULT 0,
+                    socket_id TEXT,
+                    
+                    -- CEFR Level
+                    starting_cefr_level TEXT NOT NULL,
+                    ending_cefr_level TEXT,
+                    
+                    -- Connection
+                    joined_at DATETIME NOT NULL,
                     left_at DATETIME,
+                    
+                    -- Optional Info
+                    campusOrLocation TEXT,
+                    
+                    -- Tracking (from previous schema)
                     speaking_time_seconds INTEGER DEFAULT 0,
-                    FOREIGN KEY (session_id) REFERENCES sessions (session_id),
+                    
+                    -- Foreign Keys
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
+                    FOREIGN KEY (user_id) REFERENCES users (user_id)
+                )
+            """)
+
+            # Transcripts table
+            await self.db.execute("""
+                CREATE TABLE IF NOT EXISTS transcripts (
+                    transcript_id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    
+                    -- Context
+                    round_number INTEGER NOT NULL,
+                    turn_order INTEGER NOT NULL,
+                    
+                    -- Content
+                    transcript_text TEXT NOT NULL,
+                    language TEXT DEFAULT 'en',
+                    stt_confidence REAL DEFAULT 0.0,
+                    
+                    -- Timing
+                    started_at DATETIME NOT NULL,
+                    ended_at DATETIME NOT NULL,
+                    duration_seconds INTEGER NOT NULL,
+                    
+                    -- Audio Metadata
+                    word_count INTEGER NOT NULL,
+                    speech_rate REAL NOT NULL,
+                    
+                    -- Processing Status
+                    is_processed INTEGER NOT NULL DEFAULT 0,
+                    processed_at DATETIME,
+                    
+                    -- Audio Reference
+                    audio_file_url TEXT,
+                    
+                    -- Record Timestamp
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+                    
+                    -- Foreign Keys
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
+                    FOREIGN KEY (participant_id) REFERENCES participants (participant_id)
+                )
+            """)
+
+            # Feedback table (MVP)
+            # This table combines all fields from FeedbackModel, InstantFeedbackModel, 
+            # and ComprehensiveFeedbackModel. The 'feedback_type' column
+            # distinguishes which fields are populated.
+            await self.db.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id TEXT PRIMARY KEY,
+                    room_id TEXT NOT NULL,
+                    participant_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    feedback_type TEXT NOT NULL, -- 'instant' or 'comprehensive'
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+
+                    -- Instant Feedback / Common Fields
+                    display_message TEXT,
+                    agent_id TEXT,
+                    agent_model TEXT,
+
+                    -- Comprehensive Feedback Fields
+                    cefr_speaking TEXT,
+                    cefr_listening TEXT,
+                    listening_activity TEXT,
+                    response_effectiveness TEXT,
+                    listening_positive_observation TEXT,
+                    listening_improvement_suggestion TEXT,
+                    fluency TEXT,
+                    sentence_complexity TEXT,
+                    pace TEXT,
+                    filler_examples TEXT, -- Stored as JSON string
+                    grammar TEXT,
+                    vocab_examples TEXT, -- Stored as JSON string
+                    vocab_analysis TEXT,
+                    vocab_positive_observation TEXT,
+                    vocab_improvement_suggestion TEXT,
+                    understanding_level TEXT,
+                    explanation_quality TEXT,
+                    interaction_style TEXT,
+                    depth_of_understanding_suggestion TEXT,
+                    comparative_performance TEXT,
+                    comparative_suggestion TEXT,
+                    summary_strength TEXT,
+                    summary_improvement_area TEXT,
+                    target_cefr_level TEXT,
+
+                    
+                    -- Foreign Keys
+                    FOREIGN KEY (room_id) REFERENCES rooms (room_id),
+                    FOREIGN KEY (participant_id) REFERENCES participants (participant_id),
                     FOREIGN KEY (user_id) REFERENCES users (user_id)
                 )
             """)
@@ -100,31 +246,39 @@ class Database:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+           
             
             await self.db.commit()
         
         print("Database tables created/verified")
 
-    async def save_session(self, session_data: Dict[str, Any]) -> int:
-        """Save a discussion session"""
+    async def save_room(self, room_data: Dict[str, Any]) -> int:
+        """Save a discussion room"""
         query = """
-            INSERT INTO sessions (
-                session_id, room_id, room_name, topic_title, topic_category, participant_count,started_at, ended_at, duration_seconds, rounds_completed, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO rooms (
+                room_id, room_name, topic_title, topic_category, participant_count,
+                started_at, ended_at, duration_seconds, rounds_completed, status, cefr_level, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
-        topic = session_data.get("topic", {})
+        topic = room_data.get("topic", {})
+        # Get room_id and use it for room_name if not provided
+        room_id = room_data.get("room_id") or room_data.get("roomId")
+        room_name = room_data.get("room_name") or room_data.get("roomName") or room_id or "general"
+        
         cursor = await self.db.execute(query, (
-            session_data.get("session_id"),
-            session_data.get("room_id"),
-            session_data.get("room_name"),
+            room_id,
+            room_name,
             topic.get("title") if topic else None,
             topic.get("category") if topic else None,
-            session_data.get("participantCount"),
-            session_data.get("startedAt"),
-            session_data.get("endedAt"),
-            session_data.get("durationSeconds"),
-            session_data.get("roundsCompleted")
+            room_data.get("participantCount") or room_data.get("participant_count"),
+            room_data.get("startedAt") or room_data.get("started_at"),
+            room_data.get("endedAt") or room_data.get("ended_at"),
+            room_data.get("durationSeconds") or room_data.get("duration_seconds"),
+            room_data.get("roundsCompleted") or room_data.get("rounds_completed"),
+            room_data.get("status", "waiting"),
+            room_data.get("cefrLevel") or room_data.get("cefr_level", 0),
+            room_data.get("createdBy") or room_data.get("created_by")
         ))
         
         await self.db.commit()
@@ -134,20 +288,21 @@ class Database:
         """Save participant data"""
         query = """
             INSERT INTO participants (
-                user_id, session_id, anonymous_name, campus, location,
+                participant_id, user_id, room_id, anonymous_name, campus, location,
                 joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         cursor = await self.db.execute(query, (
-            participant_data.get("user_id"),
-            participant_data.get("session_id"),
-            participant_data.get("anonymous_name"),
+            participant_data.get("participant_id") or participant_data.get("participantId"),
+            participant_data.get("user_id") or participant_data.get("userId"),
+            participant_data.get("room_id") or participant_data.get("roomId"),
+            participant_data.get("anonymous_name") or participant_data.get("anonymousName"),
             participant_data.get("campus"),
             participant_data.get("location"),
-            participant_data.get("joinedAt"),
-            participant_data.get("leftAt"),
-            participant_data.get("speakingTimeSeconds", 0)
+            participant_data.get("joinedAt") or participant_data.get("joined_at"),
+            participant_data.get("leftAt") or participant_data.get("left_at"),
+            participant_data.get("speakingTimeSeconds") or participant_data.get("speaking_time_seconds", 0)
         ))
         
         await self.db.commit()
@@ -185,12 +340,12 @@ class Database:
             
             await self.db.commit()
 
-    async def get_session_analytics(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get session analytics"""
+    async def get_room_analytics(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get room analytics"""
         query = """
             SELECT 
-                s.id,
                 s.room_id,
+                s.room_name,
                 s.topic_title,
                 s.topic_category,
                 s.participant_count,
@@ -198,10 +353,10 @@ class Database:
                 s.ended_at,
                 s.duration_seconds,
                 s.rounds_completed,
-                COUNT(p.id) as recorded_participants
-            FROM sessions s
-            LEFT JOIN participants p ON s.id = p.session_id
-            GROUP BY s.id
+                COUNT(p.user_id) as recorded_participants
+            FROM rooms s
+            LEFT JOIN participants p ON s.room_id = p.room_id
+            GROUP BY s.room_id
             ORDER BY s.started_at DESC
             LIMIT ?
         """
@@ -231,29 +386,29 @@ class Database:
         """Get server statistics"""
         stats = {}
         
-        # Total sessions
-        async with self.db.execute("SELECT COUNT(*) as count FROM sessions") as cursor:
+        # Total rooms
+        async with self.db.execute("SELECT COUNT(*) as count FROM rooms") as cursor:
             row = await cursor.fetchone()
-            stats["totalSessions"] = dict(row) if row else {"count": 0}
+            stats["totalRooms"] = dict(row) if row else {"count": 0}
         
         # Total participants
         async with self.db.execute("SELECT COUNT(DISTINCT user_id) as count FROM participants") as cursor:
             row = await cursor.fetchone()
             stats["totalParticipants"] = dict(row) if row else {"count": 0}
         
-        # Average session duration
+        # Average room duration
         async with self.db.execute(
-            "SELECT AVG(duration_seconds) as avg FROM sessions WHERE duration_seconds > 0"
+            "SELECT AVG(duration_seconds) as avg FROM rooms WHERE duration_seconds > 0"
         ) as cursor:
             row = await cursor.fetchone()
-            stats["avgSessionDuration"] = dict(row) if row else {"avg": 0}
+            stats["avgRoomDuration"] = dict(row) if row else {"avg": 0}
         
-        # Average participants per session
+        # Average participants per room
         async with self.db.execute(
-            "SELECT AVG(participant_count) as avg FROM sessions"
+            "SELECT AVG(participant_count) as avg FROM rooms"
         ) as cursor:
             row = await cursor.fetchone()
-            stats["avgParticipantsPerSession"] = dict(row) if row else {"avg": 0}
+            stats["avgParticipantsPerRoom"] = dict(row) if row else {"avg": 0}
         
         # Top categories
         query = """
@@ -270,20 +425,20 @@ class Database:
         
         return stats
 
-    async def update_session_end(self, session_data: Dict[str, Any]) -> int:
-        """Update session end metadata"""
+    async def update_room_end(self, room_data: Dict[str, Any]) -> int:
+        """Update room end metadata"""
         query = """
-            UPDATE sessions
+            UPDATE rooms
             SET ended_at = ?, duration_seconds = ?, rounds_completed = ?, participant_count = ?
-            WHERE id = ?
+            WHERE room_id = ?
         """
         
         cursor = await self.db.execute(query, (
-            session_data.get("endedAt"),
-            session_data.get("durationSeconds"),
-            session_data.get("roundsCompleted"),
-            session_data.get("participantCount"),
-            session_data.get("id")
+            room_data.get("endedAt") or room_data.get("ended_at"),
+            room_data.get("durationSeconds") or room_data.get("duration_seconds"),
+            room_data.get("roundsCompleted") or room_data.get("rounds_completed"),
+            room_data.get("participantCount") or room_data.get("participant_count"),
+            room_data.get("id") or room_data.get("room_id")
         ))
         
         await self.db.commit()

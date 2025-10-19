@@ -49,7 +49,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 - ✅ **AWS AgentCore** wrapper for production deployment (runtime, identity, internet access)
 
 **Priority 4: Minimal Persistence**
-- ✅ Store session data (participants, transcripts, feedback)
+- ✅ Store room data (participants, transcripts, feedback)
 - ✅ Track basic CEFR progress per user
 - ✅ User authentication (simple login)
 - ✅ Save discussion history (last 24 hours for MVP)
@@ -103,7 +103,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
 │  └───────┼─────────────┼─────────────┼──────────────────────────┘     │
 │          │             │             │                                │
 │  ┌───────▼─────┐  ┌────▼────┐  ┌────▼─────┐                           │
-│  │ Room Manager│  │ Session │  │ WebRTC   │                           │
+│  │ Room Manager│  │ Room │  │ WebRTC   │                           │
 │  │  Service    │  │ Manager │  │ Relay    │                           │
 │  └─────┬───────┘  └────┬────┘  └──────────┘                           │
 │        │               │                                              │
@@ -113,7 +113,7 @@ Gup-Shup Café is a gamified, peer-to-peer discussion platform that provides ins
          │    ┌─────────────────┐
          │    │   SQLite         │
          │    │   - Users        │
-         │    │   - Sessions     │
+         │    │   - Rooms     │
          │    │   - Participants │
          │    │   - Feedback     │
          │    │                  │
@@ -271,7 +271,7 @@ The rest of your statement is clear and well-structured. (Instant feedbacks are 
 
 ### 2.3.1 Core Data Entities
 
-The application uses the following data models to persist user progress, session information, and feedback:
+The application uses the following data models to persist user progress, room information, and feedback:
 
 #### User Model
 
@@ -294,10 +294,13 @@ class User:
     # Topic Interests (For Future Lobby Matching)
     topic_categories: List[str]  # ["Technology", "Sports", "Politics", "Science", etc.]
     # Note: Lobby matching by CEFR level and topics is a FUTURE FEATURE (not MVP)
+    # Metadata
+    created_at: datetime
+    last_active: datetime
 
 ================== NOT IN MVP ==============================
     # Statistics - not in MVP
-    total_sessions: int
+    total_rooms: int
     total_speaking_time: int  # seconds
     total_words_spoken: int
     
@@ -307,9 +310,7 @@ class User:
     avg_fluency_score: float  # 0-10
     avg_overall_score: float  # 0-10
     
-    # Metadata
-    created_at: datetime
-    last_active: datetime
+  
     
     # Settings
     notification_preferences: dict
@@ -317,34 +318,34 @@ class User:
 ================== NOT IN MVP ==============================
 ```
 
-#### Session Model
+#### Room Model
 
 ```python
-# server_py/src/database/models/session.py
+# server_py/src/database/models/room.py
 from datetime import datetime
 from typing import List, Optional
 
-class Session:
+class Room:
     """
-    Discussion session model.
+    Discussion room model.
     """
     id: str  # UUID
-    room_code: str  # Human-readable room code
+    room_name: str  # Human-readable room code
     
-    # Session Configuration
+    # Room Configuration
     topic: str  # Discussion topic
     topic_category: str  # "Technology", "Current Events", etc.
     max_participants: int  # Default: 6
+    cefr_level: str  # "A0", "A1", "A2", "B1", "B2", "C1", "C2"
     speaking_time_per_turn: int  # seconds, default: 60
     num_rounds: int  # Default: 3
     
-    # Session State
+    # Room State
     status: str  # "waiting", "in_progress", "completed", "cancelled"
     current_round: int
     current_speaker_index: int
     
     # Participants
-    participant_ids: List[str]  # User IDs
     participant_count: int
     
     # Timing
@@ -369,17 +370,18 @@ from typing import List, Optional
 
 class Participant:
     """
-    Individual participant in a session.
+    Individual participant in a room.
     """
     id: str  # UUID
-    session_id: str # Foreign key
+    room_id: str # Foreign key
     user_id: str # Foreign key
     
     # Identity
     anonymous_name: str  # Anonymous name like "Blue Panda", "Red Dragon"
     avatar_color: str  # Hex color code
+    turn_order: int  # Order in speaking turns
     
-    # Session Role
+    # Room Role
     role: str  # "participant", "host", "listener"
     is_ready: bool  # Ready to start discussion
 
@@ -389,20 +391,22 @@ class Participant:
     socket_id: str  # Socket.io connection ID
 
     
-    # CEFR Level at Session Start (for progress tracking)
+    # CEFR Level at Room Start (for progress tracking)
     starting_cefr_level: str
-    ending_cefr_level: Optional[str]  # Updated at session end
+    ending_cefr_level: Optional[str]  # Updated at room end
+
+    # Connection
+    joined_at: datetime
+    left_at: Optional[datetime]
 
 ================== NOT IN MVP ==============================
     # Speaking Data
-    total_speaking_time: int  # seconds in this session
+    total_speaking_time: int  # seconds in this room
     total_words_spoken: int
     number_of_turns: int
     
     
     # Connection
-    joined_at: datetime
-    left_at: Optional[datetime]
     connection_quality: str  # "excellent", "good", "fair", "poor"
 ```
 
@@ -413,72 +417,117 @@ class Participant:
 from datetime import datetime
 from typing import List, Dict, Optional
 
-class Feedback:
+class Feedback: # Received from EnglishFeedbackAgent; stored per transcript
     """
     AI-generated English feedback for a transcript.
+    """
+    id: str  # UUID, Primary Key
+    room_id: str  # Foreign Key
+    participant_id: str  # Foreign Key
+    user_id: str  # Foreign Key (from {{User}})
+
+    # Feedback Type
+    feedback_type: str  # "instant" or "comprehensive"
+
+    # --- Instant Feedback Fields ---
+    # (Populated if feedback_type == "instant")
+    # random insights from any5 points from the comprehensive fields below
+    # Display Message (For UI)
+    display_message: str  # Formatted feedback for modal
+
+    # --- Comprehensive Feedback Fields ---
+    # (Populated if feedback_type == "comprehensive")
+
+    # CEFR Level Summary
+    cefr_speaking: str  # e.g., "A1", "C2"
+    cefr_listening: str  # e.g., "A1", "C2"
+
+    # Listening & Responsiveness
+    listening_activity: str # describe how actively they listen
+    response_effectiveness: str # mention if they respond to others’ points effectively
+    listening_positive_observation: str 
+    listening_improvement_suggestion: str # specific suggestion, e.g., connecting your ideas more closely to others or acknowledging their points before speaking
+
+    # Speaking Quality
+    fluency: str  # e.g., "steady flow", "some pauses"
+    sentence_complexity: str  # e.g., "simple", "medium", "complex"
+    pace: str  # e.g., "smooth", "rushed", "hesitant"
+    filler_examples: str  # Stored as JSON TEXT (e.g., ["um", "like"])
+    grammar: str  # e.g., "mostly accurate", "needs improvement"
+
+    # Vocabulary & Expression
+    vocab_examples: str  # Stored as JSON TEXT (e.g., ["adequate", "perform"])
+    vocab_analysis: str  # e.g., "range", "confidence", "basic usage"
+    vocab_positive_observation: str # positive observation, e.g., tried new words or expressions
+    vocab_improvement_suggestion: str # vocabulary improvement suggestion, e.g., try using more descriptive words or synonyms to make your points stronger.
+
+    # Depth of Understanding & Content
+    understanding_level: str  # e.g., "basic", "fair", "deep"
+    explanation_quality: str  # e.g., "logical", "reflective", "opinion-based"
+    interaction_style: str  # e.g., "compare, build on, or respond"
+    depth_of_understanding_suggestion: str # e.g., suggestion: use examples, explanations, or comparisons
+
+    # Comparative Reflection (Optional)
+    comparative_performance: str # more fluent / more confident / less detailed / more reflective compared to others
+    comparative_suggestion: str # specific suggestion: e.g., summarizing others’ points, asking questions, or elaborating more
+
+    # Summary Feedback
+    summary_strength: str # strength area, e.g., expressing your opinions clearly or staying engaged
+    summary_improvement_area: str # specific improvement area, e.g., reducing fillers, using longer sentences, expanding vocabulary, or deepening reasoning
+    target_cefr_level: str  # e.g., "B2"
+
+
+
+    # AI Agent Info
+    agent_id: str  # EnglishFeedbackAgent instance
+    agent_model: str  # "gemini-1.5-flash" or "bedrock-claude-3"
+    
+    created_at: datetime
+
+```
+
+### Transcript Model
+
+```python
+# server_py/src/database/models/transcript.py
+from datetime import datetime
+from typing import Optional
+
+class Transcript:
+    """
+    Individual speech transcript from a participant for a particular round.
     """
     id: str  # UUID
     session_id: str
     participant_id: str
     user_id: str
     
-    # Feedback Type
-    feedback_type: str  # "instant" (2-3s) or "comprehensive"
+    # Context
+    round_number: int # round number out of the total number of rounds for a room
+    turn_order: int # turn order of the participant within the round
 
- # Grammar Feedback
-    grammar_issues: List[Dict]  # [{
-    #   "original": "I thinks",
-    #   "corrected": "I think",
-    #   "reason": "subject-verb agreement",
-    #   "severity": "high"  # high, medium, low
-    # }]
+    # Content
+    transcript_text: str  # Transcribed speech
+    language: str  # "en"
+    stt_confidence: float  # STT confidence (0.0-1.0)
     
-    # Vocabulary Feedback
-    vocabulary_level: str  # "basic", "intermediate", "advanced"
-    vocabulary_suggestions: List[Dict]  # [{
-    #   "word_used": "good",
-    #   "alternatives": ["excellent", "remarkable", "outstanding"],
-    #   "context": "when praising ideas"
-    # }]
     
-    # Fluency Feedback
-    fluency_issues: List[str]  # ["Long pauses", "Repetitive phrases"]
-    fluency_comments: str  # Detailed comments
+    # Timing
+    started_at: datetime
+    ended_at: datetime
+    duration_seconds: int
     
-    # Improvement Suggestions
-    suggestions: List[str]  # Top 3-5 actionable suggestions
+    # Audio Metadata
+    word_count: int
+    speech_rate: float  # words per minute
     
-    # Positive Feedback
-    strengths: List[str]  # What the user did well
-
-================= NOT IN MVP =====================
-    # CEFR Assessment
-    cefr_level: str  # A0, A1, A2, B1, B2, C1, C2
-    cefr_confidence: float  # 0.0-1.0
+    # Processing Status
+    is_processed: bool  # Has feedback been generated?
+    processed_at: Optional[datetime] # Feedback's created_at time stored here 
     
-    # Detailed Scores (0-10 scale)
-    grammar_score: float
-    vocabulary_score: float
-    fluency_score: float
-    pronunciation_score: Optional[float]  # Future feature
-    coherence_score: Optional[float]  # Future feature
-    overall_score: float  # Average of available scores
-    
-    # Display Message (For UI)
-    display_message: str  # Formatted feedback for modal
-    agent_mention: str  # Gentle mention for AI conversation
-    
-    # AI Agent Info
-    agent_id: str  # EnglishFeedbackAgent instance
-    agent_model: str  # "gemini-1.5-flash" or "bedrock-claude-3"
-    
-    # Processing
-    generation_time_ms: int  # Time to generate feedback
-    created_at: datetime
-
-================= NOT IN MVP =====================
+    # Raw Audio Reference (optional, for future features)
+    audio_file_url: Optional[str]
 ```
-
 
 
 ### 2.3.2 Database Schema Diagram
@@ -508,26 +557,30 @@ class Feedback:
 └─────────────┘    │       │
        │           │       │
        │ 1:N       │ N:1   │
-       |           ▼       │
-       |         ┌─────────────┐
-       |         │   Session   │
-       |         │─────────────│
-       |         │ id (PK)     │
-       |         │ room_name   │
-       |         │ topic_category       
-       |         │ status      │
-       |         │ topic       |
-       |         │max_participants: default = 3
-       |         └─────────────┘
-       │ 
+       ▼           ▼       │
+┌─────────────┐ ┌─────────────┐
+│ Transcript  │ │   Session   │
+│─────────────│ │─────────────│
+│ id (PK)     │ │ id (PK)     │
+│ participant │ │ room_name   │
+│ text        │ │ topic_category       
+│ timestamp   │ │ status      │
+└─────────────┘ │ topic       |
+       │          max_participants: default = 3
+       │        └─────────────┘
+       │ 1:N
        ▼
 ┌─────────────┐
 │  Feedback   │
 │─────────────│
 │ id (PK)     │
+│ transcript  │
+│ cefr_level  │
+│ scores      │
 │ suggestions │
 └─────────────┘
 ```
+
 ### 2.3.3 Data Flow for User Login 
 ```
 1. User sign up (for the first time)
@@ -546,20 +599,20 @@ class Feedback:
    └─> User can create a new room by clicking the 'Create new room' button.
        └─> Create new room button clicked
        └─> Room creation form opened - User becomes the host for the room - Enter room_name, max_participants and select the topic_category for the room. Host's CEFR level is assigned to the room
-       └─> Host mentions his anonymous name for the session
+       └─> Host mentions his anonymous name for the room
        └─> Publish room for others to join
        └─> Other participants join and click 'I'm ready to start!' button.
-       └─> When all participants are ready to start, the session starts.
+       └─> When all participants are ready to start, the room starts.
    └─> User can join an online room published by another user by clicking the one of the available room cards on the screen.
-       └─> User mentions his anonymous name for the session
+       └─> User mentions his anonymous name for the room
        └─> User clicks 'I'm ready to start!' button when mic and network working fine and ready to start.
-       └─> When all participants are ready to start, the session starts. 
+       └─> When all participants are ready to start, the room starts. 
 ```
 
-### 2.3.4 Data Flow for Session
+### 2.3.4 Data Flow for Room
 
 ```
-1. User joins session
+1. User joins room
    └─> Create/Update Participant record
 
 2. User speaks during turn
@@ -571,17 +624,17 @@ class Feedback:
 3. Turn ends
    └─> Update Participant stats (speaking_time, word_count)
 
-4. Session ends
+4. Room ends
    └─> Trigger comprehensive feedback for all transcripts
    └─> Create Feedback records (comprehensive)
    └─> Update Participant ending_cefr_level
-   └─> Update Session status to "completed"
+   └─> Update Room status to "completed"
 
-5. Background job (post-session)
-   └─> Aggregate all session feedback
+5. Background job (post-room)
+   └─> Aggregate all room feedback
    └─> Update User current_cefr_level (if changed)
    └─> Update Progress record with trends and milestones
-   └─> Update User topic_interests based on session topics
+   └─> Update User topic_interests based on room topics
    
 6. Future: Lobby Matching (not MVP)
    └─> Query Users by cefr_level range (±1 level)
@@ -591,15 +644,15 @@ class Feedback:
 
 ### 2.3.4 CEFR Level Definitions (For MVP)
 
-| Level | Name | Description | Expected Scores |
-|-------|------|-------------|-----------------|
-| **A0** | Pre-A1 | Not yet reached A1, complete beginner | Overall < 3.0 |
-| **A1** | Beginner | Basic phrases, simple interactions | Overall 3.0-4.5 |
-| **A2** | Elementary | Simple sentences, common topics | Overall 4.5-5.5 |
-| **B1** | Intermediate | Express opinions, handle common situations | Overall 5.5-7.0 |
-| **B2** | Upper Intermediate | Fluent discussion, complex ideas | Overall 7.0-8.5 |
-| **C1** | Advanced | Precise language, subtle meanings | Overall 8.5-9.5 |
-| **C2** | Proficient | Native-like fluency and accuracy | Overall 9.5-10.0 |
+| Level  | Name               | Description                                | Expected Scores  |
+| ------ | ------------------ | ------------------------------------------ | ---------------- |
+| **A0** | Pre-A1             | Not yet reached A1, complete beginner      | Overall < 3.0    |
+| **A1** | Beginner           | Basic phrases, simple interactions         | Overall 3.0-4.5  |
+| **A2** | Elementary         | Simple sentences, common topics            | Overall 4.5-5.5  |
+| **B1** | Intermediate       | Express opinions, handle common situations | Overall 5.5-7.0  |
+| **B2** | Upper Intermediate | Fluent discussion, complex ideas           | Overall 7.0-8.5  |
+| **C1** | Advanced           | Precise language, subtle meanings          | Overall 8.5-9.5  |
+| **C2** | Proficient         | Native-like fluency and accuracy           | Overall 9.5-10.0 |
 
 **Note**: CEFR level and topic interests are stored for **all users in MVP**. However, **lobby matching by these fields is a FUTURE FEATURE** and not part of the 3-day MVP scope.
 
@@ -1168,7 +1221,7 @@ class AWSStrandsOrchestrator:
                 "improvement_areas": result.get("improvement_areas", []),
                 "strengths": result.get("strengths", [])
             },
-            "session_summary": result.get("summary", ""),
+            "room_summary": result.get("summary", ""),
             "recommendations": result.get("recommendations", [])
         }
     
@@ -1274,7 +1327,7 @@ async def get_comprehensive_feedback(request: ComprehensiveFeedbackRequest):
         statements=request.all_statements,
         instant=False,
         context={
-            "session_id": request.session_id,
+            "room_id": request.room_id,
             "topic": request.topic,
             "duration": request.duration
         }
@@ -1481,7 +1534,7 @@ orchestrator = AWSStrandsOrchestrator(get_agentcore_config())
 │  ┌──────────────────────────────▼───────────────────────────────────┐ │
 │  │                    EFS Volume (Elastic File System)               │ │
 │  │  - Shared persistent storage for Fargate tasks                   │ │
-│  │  - Stores: SQLite DB, Session data, Logs                         │ │
+│  │  - Stores: SQLite DB, Room data, Logs                         │ │
 │  │  - Auto-scaling, pay-per-use                                     │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 │                                                                          │
@@ -1575,18 +1628,18 @@ User B ◄──────────► User C
 
 ### 4.3 Cost Estimation (MVP - 3 Months)
 
-| Service | Usage | Monthly Cost |
-|---------|-------|--------------|
-| **AWS Amplify** | Build minutes: 100 mins<br>Hosting: 5 GB storage, 15 GB data transfer | $5-10 |
-| **AWS Fargate** | 0.5 vCPU, 1 GB RAM, 730 hours/month<br>Serverless container orchestration | $15-20 |
-| **Application Load Balancer** | ALB hours + LCU usage | $18-22 |
-| **Data Transfer** | 50 GB/month (free tier covers first 100 GB) | $0-5 |
-| **AWS Bedrock (Claude 3 Sonnet)** | ~10,000 requests/month<br>~1M input tokens, ~200K output tokens | $15-25 |
-| **Amazon Polly** | 1M characters TTS | $4 |
-| **AWS Transcribe** | 100 hours audio | $24 |
-| **CloudWatch** | Basic monitoring + logs | $3 |
-| **Route 53** (Optional) | Hosted zone + queries | $1 |
-| **Total (Estimated)** | | **$101-126/month** |
+| Service                           | Usage                                                                     | Monthly Cost       |
+| --------------------------------- | ------------------------------------------------------------------------- | ------------------ |
+| **AWS Amplify**                   | Build minutes: 100 mins<br>Hosting: 5 GB storage, 15 GB data transfer     | $5-10              |
+| **AWS Fargate**                   | 0.5 vCPU, 1 GB RAM, 730 hours/month<br>Serverless container orchestration | $15-20             |
+| **Application Load Balancer**     | ALB hours + LCU usage                                                     | $18-22             |
+| **Data Transfer**                 | 50 GB/month (free tier covers first 100 GB)                               | $0-5               |
+| **AWS Bedrock (Claude 3 Sonnet)** | ~10,000 requests/month<br>~1M input tokens, ~200K output tokens           | $15-25             |
+| **Amazon Polly**                  | 1M characters TTS                                                         | $4                 |
+| **AWS Transcribe**                | 100 hours audio                                                           | $24                |
+| **CloudWatch**                    | Basic monitoring + logs                                                   | $3                 |
+| **Route 53** (Optional)           | Hosted zone + queries                                                     | $1                 |
+| **Total (Estimated)**             |                                                                           | **$101-126/month** |
 
 **Note**: For MVP, reducing costs during development by:
 - Using Gemini API (free tier) instead of Bedrock
@@ -1662,28 +1715,28 @@ DAY 3: Production
 
 ### 6.1 Technical Risks
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| **WebRTC Fails on Some Browsers** | High | Medium | Test early; Provide browser compatibility list; Use WebRTC polyfills |
-| **AI API Rate Limits** | Medium | Medium | Implement caching; Add retry logic; Use fallback messages |
-| **Database Performance Issues** | Medium | Low | Use SQLite for MVP (simpler); Optimize queries; Add indexes |
-| **Deployment Issues** | High | Medium | DevOps starts Day 1; Use proven stack; Document setup steps |
-| **Speech Recognition Inaccuracy** | Medium | High | Set user expectations; Allow manual transcript editing; Use noise filtering |
+| Risk                              | Impact | Probability | Mitigation                                                                  |
+| --------------------------------- | ------ | ----------- | --------------------------------------------------------------------------- |
+| **WebRTC Fails on Some Browsers** | High   | Medium      | Test early; Provide browser compatibility list; Use WebRTC polyfills        |
+| **AI API Rate Limits**            | Medium | Medium      | Implement caching; Add retry logic; Use fallback messages                   |
+| **Database Performance Issues**   | Medium | Low         | Use SQLite for MVP (simpler); Optimize queries; Add indexes                 |
+| **Deployment Issues**             | High   | Medium      | DevOps starts Day 1; Use proven stack; Document setup steps                 |
+| **Speech Recognition Inaccuracy** | Medium | High        | Set user expectations; Allow manual transcript editing; Use noise filtering |
 
 ### 6.2 Timeline Risks
 
-| Risk | Mitigation |
-|------|------------|
-| **Scope Creep** | Stick to Must-Have features only; Product Lead enforces priorities |
-| **Blocking Dependencies** | Identify critical path early; Parallel work where possible |
-| **Team Member Unavailable** | Document all work; Knowledge sharing in standups |
+| Risk                        | Mitigation                                                         |
+| --------------------------- | ------------------------------------------------------------------ |
+| **Scope Creep**             | Stick to Must-Have features only; Product Lead enforces priorities |
+| **Blocking Dependencies**   | Identify critical path early; Parallel work where possible         |
+| **Team Member Unavailable** | Document all work; Knowledge sharing in standups                   |
 
 ### 6.3 Demo Risks
 
-| Risk | Mitigation |
-|------|------------|
-| **Live Demo Fails** | Record backup video demo; Have staging environment ready; Test demo script 3x |
-| **Internet Connectivity Issues** | Use mobile hotspot backup; Test offline scenarios |
+| Risk                             | Mitigation                                                                    |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| **Live Demo Fails**              | Record backup video demo; Have staging environment ready; Test demo script 3x |
+| **Internet Connectivity Issues** | Use mobile hotspot backup; Test offline scenarios                             |
 
 ---
 
@@ -1730,7 +1783,7 @@ DAY 3: Production
 ### Phase 4 (Month 3+)
 - Mobile app (React Native)
 - Video support
-- Recorded sessions playback
+- Recorded rooms playback
 - AI-generated practice exercises
 
 ---
