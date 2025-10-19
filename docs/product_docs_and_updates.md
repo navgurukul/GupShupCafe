@@ -25,6 +25,94 @@ This document serves as a living changelog for all product and architectural cha
 
 ## Changelog
 
+### [2025-10-19 03:09 UTC] - Documented WebRTC Architecture and Proposed API-First Flow
+**Commit**: Update product_system_design.md with comprehensive WebRTC documentation and action plan
+**Author**: GitHub Copilot
+**Type**: Documentation | Architecture
+
+**Changes**:
+- **Added Section 11: Current WebRTC Architecture & Proposed API-First Flow** to `docs/Architectural Conversations/product_system_design.md`:
+  - **11.1 Current WebRTC Design and Sequence of Events**: 
+    - Detailed overview of peer-to-peer WebRTC architecture
+    - Visual architecture diagram showing P2P audio flow
+    - Complete sequence of events from login to audio streaming (15 detailed phases)
+    - Reference to existing PlantUML diagram (`06-sequence-webrtc-audio.puml`)
+    - Comprehensive socket events table with all WebRTC signaling events
+  
+  - **11.2 Proposed Action Plan: API-First Flow with Strategic Socket Usage**:
+    - Motivation for hybrid REST API + Socket.io approach
+    - Hybrid architecture diagram showing REST APIs for state, sockets for real-time events
+    - Detailed flow from user login to room start using APIs (5 phases with code examples)
+    - New API endpoints specification:
+      - `GET /api/rooms?status=waiting` - Browse available rooms
+      - `POST /api/rooms` - Create room with metadata
+      - `POST /api/participants` - Join room as participant
+      - `GET /api/rooms/:roomId/participants` - List room participants
+      - `PATCH /api/participants/:id` - Update participant status (ready, etc.)
+      - `POST /api/rooms/:roomId/start` - Start room (transition to IN_PROGRESS)
+    - Analysis of socket events vs API calls trade-offs
+    - Implementation strategy: API calls as source of truth, socket events for real-time notifications
+    - Code examples showing hybrid client-side approach (fetch on events)
+    - Challenges and trade-offs discussion (race conditions, connection loss, etc.)
+  
+  - **11.3 Audio Transmission During Speaking Turns**:
+    - Turn-based flow diagram from room start to turn rotation
+    - Audio flow to AI agent using transcripts (not raw audio)
+    - Explanation of Web Speech Recognition API for STT on frontend
+    - Future enhancement path for server-side audio recording
+    - Complete audio flow diagram showing P2P WebRTC + transcript relay
+  
+  - **11.4 AI Agent Speaking Turn with TTS**:
+    - Detailed AI agent turn flow (6 phases)
+    - TTS implementation with AWS Polly (production) and Browser TTS (development)
+    - Complete backend service code example (`tts_service.py`)
+    - Socket event handlers for AI turn management
+    - Frontend audio playback implementation
+    - AI agent participant database entry structure
+    - Turn order assignment algorithm interleaving AI with human speakers
+  
+  - **11.5 Summary: Complete Flow Diagram**:
+    - End-to-end flow from login to room completion
+    - 6 phases clearly outlined: Setup (APIs) → Start Room (Hybrid) → WebRTC Setup (Sockets) → Speaking Turns → AI Agent Turn → Room End
+    - All API calls and socket events mapped to phases
+  
+  - **11.6 Implementation Checklist**:
+    - Backend changes needed (new endpoints, TTS service, AI turn handler)
+    - Frontend changes needed (API integration, socket event handling)
+    - Documentation updates required
+
+**Why These Changes**:
+- Addresses the problem statement requirement for comprehensive WebRTC documentation
+- Provides clear analysis of socket events vs API calls trade-offs (answer: hybrid is best)
+- Documents complete flow for room status transitions (WAITING → IN_PROGRESS → COMPLETED)
+- Explains audio transmission architecture during speaking turns
+- Details AI agent TTS integration for AI speaking turns
+- Serves as implementation guide for future development
+
+**Impact**:
+- Developers now have complete reference for WebRTC architecture
+- Clear roadmap for migrating to API-first approach while keeping real-time benefits
+- Action plan addresses ease of implementation trade-offs
+- Reduces onboarding time for new developers
+- Provides basis for future architecture decisions
+
+**Files Modified**:
+- `docs/Architectural Conversations/product_system_design.md` - Added comprehensive Section 11 (~800 lines)
+- `docs/product_docs_and_updates.md` - This changelog entry
+
+**References**:
+- Existing WebRTC sequence diagram: `/docs/diagrams/plan/uml/06-sequence-webrtc-audio.puml`
+- Backend routes: `server_py/src/api/room_routes.py`, `participant_routes.py`, `user_routes.py`
+- Frontend contexts: `client/src/contexts/AudioContext.jsx`, `SocketContext.jsx`
+- Socket handlers: `server_py/src/socket/socket_handlers.py`
+
+**Next Steps**:
+- Implement new API endpoints (`POST /api/rooms/:id/start`, `GET /api/rooms/:id/participants`)
+- Create TTS service implementation (`server_py/src/services/tts_service.py`)
+- Add socket handlers for AI agent turn management
+- Update frontend to use hybrid API + socket approach
+- Add integration tests for new API endpoints
+
 ### [2025-10-19 06:15 UTC] - Implemented MVP Data Models: Feedback and Transcripts, aligned Participant/Room
 **Commit**: Align backend models, services, and routes with MVP data models
 **Author**: GitHub Copilot
