@@ -257,7 +257,7 @@ function LobbyPage() {
 
     console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
     console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
-    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${isInRoomLobby}`);
+    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", IsInRoomLobby: ${isInRoomLobby}`);
     console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
 
     if (roomFromUrl && roomFromUrl.trim() !== '') {
@@ -613,6 +613,13 @@ function LobbyPage() {
   const handleLogout = () => {
     console.log("[Lobby][Debug] Logout clicked");
     logout();
+  };
+
+  // Format time display
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Early return for development debugging
@@ -981,16 +988,10 @@ function LobbyPage() {
               )}
             </div>
           </div>
-        ) : (
-          // In Room View - Navigate to RoomLobbyPage
-          // This should not be rendered since users are redirected to /lobby/:roomId
-          <div className="text-center py-12">
-            <p className="text-gray-600">Redirecting to room lobby...</p>
-          </div>
-        )}
+      </main>
 
-        {/* Share Room Modal */}
-        {showShareModal && (
+      {/* Share Room Modal */}
+      {showShareModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
               <h3 className="text-xl font-bold text-gray-900 mb-4">
@@ -1145,7 +1146,6 @@ function LobbyPage() {
             </div>
           </div>
         )}
-      </main>
     </div>
   );
 }
