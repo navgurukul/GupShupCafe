@@ -1,3 +1,9 @@
+## 2025-10-19 — Rooms API: waiting filter
+
+- Added GET `/api/rooms/waiting` FastAPI route to list rooms with `status='waiting'`.
+- Implemented `list_rooms_by_status(status)` in `server_py/src/services/room_service.py`.
+- Added SQLite index `idx_rooms_status` in `server_py/src/database/database.py` for faster filtered queries.
+
 # Product Documentation & Updates Changelog
 
 This document serves as a living changelog for all product and architectural

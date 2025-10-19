@@ -140,6 +140,11 @@ class Database:
                 )
             """)
 
+            # Helpful indexes
+            await self.db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_rooms_status ON rooms(status)
+            """)
+
             # Transcripts table
             await self.db.execute("""
                 CREATE TABLE IF NOT EXISTS transcripts (

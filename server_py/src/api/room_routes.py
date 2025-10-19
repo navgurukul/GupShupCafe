@@ -28,6 +28,11 @@ async def get_room(room_id: str):
 async def list_rooms():
     return service.list_rooms()
 
+@router.get("/waiting", description="List rooms with status 'waiting'")
+async def list_waiting_rooms():
+    """List only rooms that are currently waiting"""
+    return service.list_rooms_by_status("waiting")
+
 @router.patch("/{room_id}", description="Update room")
 async def update_room(room_id: str, payload: dict):
     resp = service.update_room(room_id, payload)
