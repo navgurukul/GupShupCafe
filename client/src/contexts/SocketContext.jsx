@@ -108,6 +108,10 @@ export function SocketProvider({ children }) {
       metaRef.current.selectedRole = role
       metaRef.current.roomMetadata = roomMetadata
       
+      // Get participant data from localStorage if available
+      const participantData = JSON.parse(localStorage.getItem('participantData') || '{}')
+      const anonymousName = participantData.anonymous_name || user?.name || 'Anonymous'
+      
       const userData = {
         userId: user?.id,
         name: user?.name,

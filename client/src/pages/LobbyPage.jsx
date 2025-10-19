@@ -24,6 +24,7 @@ import {
 
 import { generateAvatarColor } from "../utils/helpers";
 import { fetchWaitingRooms } from "../services/api";
+import { createParticipantForRoom } from "../utils/participantHelpers";
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== "undefined") {
@@ -482,26 +483,14 @@ function LobbyPage() {
           roomData.roomId = sessionResult.data; // Assign generated room ID
 
 
-          // Create participant entry
-          const participantResponse = await fetch(`${apiUrl}/participants/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_id: storedHostData.userId,
-              room_id: sessionResult.data,
-              avatar_color: generateAvatarColor(), // Random color can be assigned here
-              anonymous_name: hostAnonymousName,
-              campusOrLocation: null,
-              joined_at: new Date().toISOString(),
-              starting_cefr_level: storedHostData.currentCefrLevel,
-              ending_cefr_level: storedHostData.currentCefrLevel  // Initially same as starting level
-            }),
+          // Create participant entry using helper function
+          await createParticipantForRoom({
+            userId: storedHostData.userId,
+            roomId: sessionResult.data,
+            anonymousName: hostAnonymousName,
+            currentCefrLevel: storedHostData.currentCefrLevel,
+            campusOrLocation: null
           })
-
-          const participantResult = await participantResponse.json()
-          console.log('[Lobby] Participant created:', participantResult)
         }
       } catch (error) {
         console.error('[Lobby] Error creating session/participant:', error)
@@ -581,29 +570,16 @@ function LobbyPage() {
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
 
     try {
-      // Create participant entry for the user joining this room
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
-      const participantResponse = await fetch(`${apiUrl}/participants/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: storedUserData?.userId,
-          room_id: roomData.roomId,
-          avatar_color: generateAvatarColor(),
-          anonymous_name: joiningAnonymousName,
-          campusOrLocation: null,
-          joined_at: new Date().toISOString(),
-          starting_cefr_level: storedUserData?.currentCefrLevel,
-          ending_cefr_level: storedUserData?.currentCefrLevel,
-        }),
-      });
-
-      const participantResult = await participantResponse.json();
-      console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
+      // Create participant entry for the user joining this room using helper function
+      await createParticipantForRoom({
+        userId: storedUserData?.userId,
+        roomId: roomData.roomId,
+        anonymousName: joiningAnonymousName,
+        currentCefrLevel: storedUserData?.currentCefrLevel,
+        campusOrLocation: null
+      })
     } catch (error) {
-      console.error('[Lobby][Debug] Error creating participant for existing room:', error);
+      console.error('[Lobby][Debug] Error creating participant for existing room:', error)
     }
 
     // Pass room metadata to joinRoom
