@@ -1,25 +1,53 @@
 import uuid
 import sys
 import os
+from datetime import datetime
 
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel, UserOutModel, UserUpdateModel
+from src.models.user_pydantic_models import (
+    LoginModel, SignUpModel, LoginSignUpResponseModel,
+    UserModel, UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+)
 from src.database.db_connection import conn, cursor
 
 class User_services:
     def __init__(self):
         self.conn = conn
         self.cursor = cursor
-        
+
+    def hash_password(self, password: str) -> str:
+        """Hash the password (placeholder function)"""
+        # In production, use a secure hashing algorithm like bcrypt
+        return "hashed_" + password
+    
+    def unhash_password(self, hashed_password: str) -> str:
+        """Unhash the password (placeholder function)"""
+        # In production, use a secure hashing algorithm like bcrypt
+        if hashed_password.startswith("hashed_"):
+            return hashed_password[len("hashed_"):]
+        return ""
+
+    def verify_password(self, old_password_from_user: str, hashed_old_password_from_db: str) -> bool:
+        """Verify a plain password against the hashed password"""
+        return self.unhash_password(hashed_old_password_from_db) == old_password_from_user
+
+    def get_user_password_hash(self, user_id: str) -> str:
+        """Retrieve the hashed password for a user from the database"""
+        self.cursor.execute("SELECT hashed_password FROM users WHERE user_id=?", (user_id,))
+        result = self.cursor.fetchone()
+        if result:
+            return result[0]
+        return ""
+
     def login_user(self, login_model: LoginModel) -> LoginSignUpResponseModel:
         """Service to handle user login"""
         try:
-            self.cursor.execute("SELECT user_id, password FROM users WHERE email=?", (login_model.email,))
+            self.cursor.execute("SELECT user_id, hashed_password FROM users WHERE email=?", (login_model.email,))
             user = self.cursor.fetchone()
-            
-            if user and user[1] == login_model.password:  # user[1] is password
+
+            if user and self.unhash_password(user[1]) == login_model.password:  # user[1] is hashed_password
                 return LoginSignUpResponseModel(
                     status="success",
                     data=user[0],  # user[0] is id
@@ -35,7 +63,7 @@ class User_services:
             return LoginSignUpResponseModel(
                 status="failure",
                 data="",
-                message="Login failed"
+                message=f"Login failed: {str(e)}"
             )
             
     def signup_user(self, signup_model: SignUpModel) -> LoginSignUpResponseModel:
@@ -58,10 +86,15 @@ class User_services:
             
             user_id = uuid.uuid4().hex
             category_str = ','.join(signup_model.topic_categories) if signup_model.topic_categories else ''
+            created_at = datetime.now()
+            last_active = datetime.now()
             if signup_model.name and signup_model.email and signup_model.password:
+                # Hash password before storing (omitted for brevity)
+                hashed_password = self.hash_password(signup_model.password)
+
                 self.cursor.execute(
-                    "INSERT INTO users (user_id, name, email, password, category, cefr_level, created_at, last_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (user_id, signup_model.name, signup_model.email, signup_model.password, category_str, signup_model.current_cefr_level, signup_model.created_at, signup_model.last_active)
+                    "INSERT INTO users (user_id, name, email, hashed_password, topic_categories, current_cefr_level, created_at, last_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (user_id, signup_model.name, signup_model.email, hashed_password, category_str, signup_model.current_cefr_level, created_at, last_active)
                 )
             self.conn.commit()
             
@@ -76,14 +109,14 @@ class User_services:
             return LoginSignUpResponseModel(
                 status="failure",
                 data="",
-                message="Signup failed"
+                message=f"Signup failed: {str(e)}"
             )
     
     def get_user(self, user_id: str) -> dict:
         """Service to get user details"""
         try:
             self.cursor.execute(
-                "SELECT user_id, name, email, category, cefr_level, created_at, last_active FROM users WHERE user_id=?",
+                "SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
                 (user_id,)
             )
             user = self.cursor.fetchone()
@@ -102,7 +135,7 @@ class User_services:
                         "user_id": user[0],
                         "name": user[1],
                         "email": user[2],
-                        # Backward-compatible fields
+                        # Backward-compatible fields (kept for old clients)
                         "category": user[3],
                         "cefr_level": user[4],
                         # New normalized fields aligned with MVP models
@@ -124,47 +157,20 @@ class User_services:
             return {
                 "status": "failure",
                 "data": None,
-                "message": "Failed to retrieve user"
+                "message": "Failed to retrieve user: " + str(e)
             }
 
     def list_users(self) -> dict:
         try:
-            self.cursor.execute("SELECT user_id, name, email, category, cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
+            self.cursor.execute("SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
             rows = self.cursor.fetchall()
             cols = [d[0] for d in self.cursor.description]
             return {"status": "success", "data": [dict(zip(cols, r)) for r in rows], "message": "Users listed"}
         except Exception as e:
             print(f"Error listing users: {e}")
-            return {"status": "failure", "data": [], "message": "Failed to list users"}
+            return {"status": "failure", "data": [], "message": f"Failed to list users: {e}"}
 
-    def update_user(self, user_id: str, update: UserUpdateModel) -> dict:
-        try:
-            fields = []
-            values = []
-            if update.name is not None:
-                fields.append("name=?")
-                values.append(update.name)
-            if update.topic_categories is not None:
-                fields.append("category=?")
-                values.append(','.join(update.topic_categories))
-            if update.current_cefr_level is not None:
-                fields.append("cefr_level=?")
-                values.append(update.current_cefr_level)
-            if update.last_active is not None:
-                fields.append("last_active=?")
-                values.append(update.last_active)
-            if not fields:
-                return {"status": "failure", "data": None, "message": "No fields to update"}
-            values.append(user_id)
-            sql = f"UPDATE users SET {', '.join(fields)} WHERE user_id=?"
-            self.cursor.execute(sql, tuple(values))
-            self.conn.commit()
-            return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "User updated"}
-        except Exception as e:
-            print(f"Error updating user: {e}")
-            self.conn.rollback()
-            return {"status": "failure", "data": None, "message": "Failed to update user"}
-
+    
     def delete_user(self, user_id: str) -> dict:
         try:
             self.cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
@@ -173,7 +179,59 @@ class User_services:
         except Exception as e:
             print(f"Error deleting user: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": "Failed to delete user"}
+            return {"status": "failure", "data": None, "message": f"Failed to delete user: {e}"}
+
+    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
+        """Update user's CEFR level"""
+        try:
+            self.cursor.execute(
+                "UPDATE users SET current_cefr_level=? WHERE user_id=?",
+                (update.current_cefr_level.value, update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "CEFR level updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating CEFR level: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": f"Failed to update CEFR level: {e}"}
+
+    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
+        """Update user's last active timestamp"""
+        try:
+            self.cursor.execute(
+                "UPDATE users SET last_active=? WHERE user_id=?",
+                (update.last_active, update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Last active updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating last active: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": f"Failed to update last active: {e}"}
+
+    def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
+        """Update user's password"""
+        try:
+            if update.old_password == update.new_password:
+                return {"status": "failure", "data": None, "message": "New password must be different from old password"}
+            if not self.verify_password(update.old_password, self.get_user_password_hash(update.user_id)):
+                return {"status": "failure", "data": None, "message": "Old password is incorrect"}
+            self.cursor.execute(
+                "UPDATE users SET hashed_password=? WHERE user_id=?",
+                (self.hash_password(update.new_password), update.user_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Password updated"}
+            return {"status": "failure", "data": None, "message": "User not found"}
+        except Exception as e:
+            print(f"Error updating password: {e}")
+            self.conn.rollback()
+            return {"status": "failure", "data": None, "message": f"Failed to update password: {e}"}
 
 if __name__ == "__main__":
     # Initialize the service
