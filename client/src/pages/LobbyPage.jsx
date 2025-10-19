@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "../contexts/SocketContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useAudio } from "../contexts/AudioContext";
+import URLTest from "../components/URLTest";
 import {
   Users,
   Clock,
@@ -16,6 +17,9 @@ import {
   PenTool,
   Brain,
   Star,
+  Copy,
+  Share2,
+  Check,
 } from "lucide-react";
 
 // Global flag to prevent multiple late join checks (accessible across components)
@@ -151,9 +155,15 @@ function LobbyPage() {
   });
   const [hostAnonymousName, setHostAnonymousName] = useState("");
 
+  // Room sharing state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareableLink, setShareableLink] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [joinedViaLink, setJoinedViaLink] = useState(false);
+
   // Check if we're on room-lobby route
-  const isInRoomLobby = location.pathname === '/room-lobby';
-  
+  const isInRoomLobby = location.pathname === "/room-lobby";
+
   // Auto-set inRoom state based on route
   useEffect(() => {
     if (isInRoomLobby && !inRoom) {
@@ -162,6 +172,142 @@ function LobbyPage() {
       setInRoom(false);
     }
   }, [isInRoomLobby, inRoom]);
+
+  // Handle URL parameters for room joining
+  useEffect(() => {
+    // Get URL parameters from multiple sources to ensure detection
+    const windowSearch = window.location.search;
+    const routerSearch = location.search;
+    const windowHref = window.location.href;
+    
+    // Also try parsing the full URL directly
+    let directUrlParams = null;
+    try {
+      const url = new URL(windowHref);
+      directUrlParams = url.searchParams;
+    } catch (e) {
+      console.log(`[Lobby][Debug] Failed to parse URL: ${e.message}`);
+    }
+    
+    console.log(`[Lobby][Debug] === URL DEBUGGING ===`);
+    console.log(`[Lobby][Debug] Full window.location.href: ${windowHref}`);
+    console.log(`[Lobby][Debug] window.location.search: "${windowSearch}"`);
+    console.log(`[Lobby][Debug] React router location.search: "${routerSearch}"`);
+    console.log(`[Lobby][Debug] location.pathname: "${location.pathname}"`);
+    console.log(`[Lobby][Debug] Direct URL parsing available: ${!!directUrlParams}`);
+    
+    // Try multiple parameter sources
+    const sources = [
+      { name: 'window.location.search', search: windowSearch },
+      { name: 'router location.search', search: routerSearch },
+      { name: 'direct URL parsing', search: directUrlParams ? directUrlParams.toString() : '' }
+    ];
+    
+    let roomFromUrl = null;
+    let roleFromUrl = 'speaker';
+    let workingSource = null;
+    
+    // Try each source until we find room parameters
+    for (const source of sources) {
+      if (source.search) {
+        const testParams = source.name === 'direct URL parsing' 
+          ? directUrlParams 
+          : new URLSearchParams(source.search);
+        const testRoom = testParams.get('room');
+        const testRole = testParams.get('role') || 'speaker';
+        
+        console.log(`[Lobby][Debug] Testing ${source.name}: room="${testRoom}", role="${testRole}"`);
+        
+        if (testRoom && testRoom.trim() !== '') {
+          roomFromUrl = testRoom;
+          roleFromUrl = testRole;
+          workingSource = source.name;
+          console.log(`[Lobby][Debug] ✅ Found parameters using ${source.name}`);
+          break;
+        }
+      }
+    }
+    
+    console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
+    console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
+    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${location.pathname === "/room-lobby"}`);
+    console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
+    
+    if (roomFromUrl && roomFromUrl.trim() !== '') {
+      console.log(`[Lobby][Debug] ✅ Found room in URL: ${roomFromUrl} as ${roleFromUrl}`);
+      console.log(`[Lobby][Debug] Will process room joining...`);
+      
+      // Always update the room state from URL
+      if (roomFromUrl !== roomId) {
+        console.log(`[Lobby][Debug] Setting room ID from "${roomId}" to "${roomFromUrl}"`);
+        setRoomId(roomFromUrl);
+        setSelectedRole(roleFromUrl);
+        setJoinedViaLink(true);
+        setInRoom(true); // Mark as in room immediately
+        
+        // Only navigate if we're not already on room-lobby
+        if (location.pathname !== "/room-lobby") {
+          console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "/room-lobby"`);
+          navigate("/room-lobby", { replace: true });
+        } else {
+          console.log(`[Lobby][Debug] Already on room-lobby page`);
+        }
+      } else {
+        console.log(`[Lobby][Debug] Room ID already matches: "${roomId}"`);
+      }
+      
+      // Join room when socket is ready
+      if (socket && connected) {
+        console.log(`[Lobby][Debug] Socket ready, attempting to join room: ${roomFromUrl}`);
+        setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
+        
+        // Join the room
+        console.log(`[Lobby][Debug] Calling joinRoom("${roomFromUrl}", "${roleFromUrl}")`);
+        joinRoom(roomFromUrl, roleFromUrl);
+        
+        // Show success message after a delay
+        setTimeout(() => {
+          console.log(`[Lobby][Debug] Setting success message`);
+          setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
+        }, 1000);
+      } else {
+        console.log(`[Lobby][Debug] Socket not ready - Socket: ${!!socket}, Connected: ${connected}`);
+        setSystemMessage("Connecting to join shared room...");
+      }
+    } else {
+      console.log(`[Lobby][Debug] ❌ No room found in URL or empty room`);
+      console.log(`[Lobby][Debug] Checked sources:`, sources.map(s => `${s.name}: "${s.search}"`));
+    }
+  }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname]);
+
+  // Separate effect to handle room joining when socket connects
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const roomFromUrl = urlParams.get('room');
+    const roleFromUrl = urlParams.get('role') || 'speaker';
+    
+    console.log(`[Lobby][Debug] Second effect check - Room: ${roomFromUrl}, Socket: ${!!socket}, Connected: ${connected}, InRoom: ${inRoom}`);
+    
+    // If we have room parameters and socket is connected but we haven't joined yet
+    if (roomFromUrl && socket && connected && !inRoom) {
+      console.log(`[Lobby][Debug] Socket connected, joining room: ${roomFromUrl}`);
+      setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
+      
+      // Ensure we're on the right page
+      if (location.pathname !== "/room-lobby") {
+        navigate("/room-lobby", { replace: true });
+      }
+      
+      // Join the room
+      console.log(`[Lobby][Debug] Calling joinRoom with: ${roomFromUrl}, ${roleFromUrl}`);
+      joinRoom(roomFromUrl, roleFromUrl);
+      setInRoom(true);
+      
+      setTimeout(() => {
+        setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
+      }, 1000);
+    }
+  }, [socket, connected, inRoom, joinRoom, location.search, navigate, location.pathname]);
 
   // Predefined rooms
   const predefinedRooms = [
@@ -207,8 +353,53 @@ function LobbyPage() {
     },
   ];
 
+  // Room sharing functions
+  const generateShareableLink = (roomId, role = 'speaker') => {
+    // Use the current window location to ensure correct port
+    const currentOrigin = window.location.origin;
+    // Generate URL that goes directly to room-lobby to avoid routing issues
+    return `${currentOrigin}/room-lobby?room=${roomId}&role=${role}`;
+  };
+
+  const handleShareRoom = (roomId) => {
+    console.log(`[Lobby][Debug] handleShareRoom called with roomId: "${roomId}"`);
+    console.log(`[Lobby][Debug] selectedRole: "${selectedRole}"`);
+    console.log(`[Lobby][Debug] currentRoom:`, currentRoom);
+    
+    const link = generateShareableLink(roomId, selectedRole);
+    console.log(`[Lobby][Debug] Generated link: "${link}"`);
+    
+    setShareableLink(link);
+    setShowShareModal(true);
+    setLinkCopied(false);
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link: ', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareableLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
   // Room management functions
   const handleCreateRoom = () => {
+    console.log(`[Lobby][Debug] === ROOM CREATION START ===`);
+    console.log(`[Lobby][Debug] Room form:`, roomForm);
+    console.log(`[Lobby][Debug] Host anonymous name: "${hostAnonymousName}"`);
+    console.log(`[Lobby][Debug] Selected role: "${selectedRole}"`);
+    
     if (
       roomForm.room_name.trim() &&
       roomForm.topic_category &&
@@ -228,12 +419,25 @@ function LobbyPage() {
         host_anonymous_name: hostAnonymousName.trim(),
         host_id: user?.id,
       };
+      
+      console.log(`[Lobby][Debug] Generated room data:`, roomData);
+      console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.id}"`);
+      
       joinRoom(roomData.id, selectedRole);
       setCurrentRoom(roomData);
       setInRoom(true);
       setShowCreateRoom(false);
       // Navigate to room-lobby
-      navigate('/room-lobby');
+      navigate("/room-lobby");
+      
+      console.log(`[Lobby][Debug] Room creation complete, navigating to room-lobby`);
+      
+      // Automatically show share modal for new room
+      setTimeout(() => {
+        console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.id}"`);
+        handleShareRoom(roomData.id);
+      }, 500);
+      
       // Reset form
       setRoomForm({
         room_name: "",
@@ -242,7 +446,14 @@ function LobbyPage() {
         cefr_level: "",
       });
       setHostAnonymousName("");
+    } else {
+      console.log(`[Lobby][Debug] ❌ Room creation failed - missing required fields`);
+      console.log(`[Lobby][Debug] Room name: "${roomForm.room_name}"`);
+      console.log(`[Lobby][Debug] Topic category: "${roomForm.topic_category}"`);
+      console.log(`[Lobby][Debug] CEFR level: "${roomForm.cefr_level}"`);
+      console.log(`[Lobby][Debug] Host name: "${hostAnonymousName}"`);
     }
+    console.log(`[Lobby][Debug] === ROOM CREATION END ===`);
   };
 
   const handleRoomFormChange = (field, value) => {
@@ -257,7 +468,7 @@ function LobbyPage() {
     setCurrentRoom(room);
     setInRoom(true);
     // Navigate to room-lobby
-    navigate('/room-lobby');
+    navigate("/room-lobby");
   };
 
   const handleLeaveRoom = () => {
@@ -268,7 +479,7 @@ function LobbyPage() {
     setInRoom(false);
     setParticipants([]);
     // Navigate back to main lobby
-    navigate('/lobby');
+    navigate("/lobby");
   };
 
   // Timer for waiting time and late join check
@@ -496,6 +707,9 @@ function LobbyPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* URL Test Component - for debugging */}
+      <URLTest />
+      
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -798,12 +1012,21 @@ function LobbyPage() {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => handleJoinPredefinedRoom(room)}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                        >
-                          Join
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleJoinPredefinedRoom(room)}
+                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                          >
+                            Join
+                          </button>
+                          <button
+                            onClick={() => handleShareRoom(room.id)}
+                            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                            title="Share this room"
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -890,14 +1113,38 @@ function LobbyPage() {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={handleLeaveRoom}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Leave Room
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleShareRoom(currentRoom?.id)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <Share2 size={16} />
+                    <span>Share Room</span>
+                  </button>
+                  <button
+                    onClick={handleLeaveRoom}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Leave Room
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Joined via Link Notification */}
+            {joinedViaLink && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-800 font-medium">
+                    🎉 You've successfully joined this shared room!
+                  </span>
+                </div>
+                <p className="text-green-700 text-sm mt-1 ml-4">
+                  Welcome to the discussion. You can share this room with others using the "Share Room" button above.
+                </p>
+              </div>
+            )}
 
             {/* Participants */}
             <div className="bg-white rounded-xl shadow-lg p-6">
@@ -973,6 +1220,89 @@ function LobbyPage() {
                   </span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Share Room Modal */}
+        {showShareModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                🎉 Room Created! Invite Others
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Share this link with others so they can join your discussion room:
+              </p>
+              
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareableLink}
+                    className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 cursor-pointer break-all"
+                    onClick={(e) => e.target.select()}
+                    title={shareableLink}
+                  />
+                  <button
+                    onClick={copyToClipboard}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      linkCopied
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    {linkCopied ? (
+                      <div className="flex items-center space-x-1">
+                        <Check size={16} />
+                        <span>Copied!</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-1">
+                        <Copy size={16} />
+                        <span>Copy</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800">
+                  <strong>💡 Tip:</strong> Anyone with this link can join your room. Share it via WhatsApp, Email, or any messaging app!
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={async () => {
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: 'Join my GupShup Cafe discussion!',
+                          text: 'Join me for an English conversation practice session',
+                          url: shareableLink,
+                        });
+                      } catch (err) {
+                        console.log('Error sharing:', err);
+                      }
+                    } else {
+                      copyToClipboard();
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+                >
+                  <Share2 size={16} />
+                  <span>Share</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

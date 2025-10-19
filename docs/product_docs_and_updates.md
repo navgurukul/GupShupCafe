@@ -33,6 +33,23 @@ timestamp and informative description.
 
 **Commit Message:** Implement room lobby routing and add suggested anonymous names feature
 
+### [2025-01-27 19:45 UTC] - Implement Room Sharing with URL-based Joining
+**Changes:**
+- Added comprehensive room sharing functionality allowing multiple participants to join via shareable links
+- Implemented URL parameter handling in `LobbyPage.jsx` to auto-join rooms via `?room=roomId&role=speaker` format
+- Created `generateShareableLink()`, `handleShareRoom()`, and `copyToClipboard()` functions for link generation and sharing
+- Added Share Room Modal component with copy-to-clipboard functionality, native Web Share API integration
+- Enhanced UI with Share buttons on room cards and comprehensive sharing interface
+- Added visual feedback for successful room joining via shared links with notification banner
+- Integrated with existing Socket.io infrastructure for seamless participant management
+- Added success states, error handling, and user-friendly messaging for sharing workflow
+
+**Files Modified:**
+- `client/src/pages/LobbyPage.jsx`: Added sharing functions, URL parameter handling, Share Room Modal, notification UI
+- Enhanced participant management system to support URL-based room access
+
+**Commit Message:** Implement room sharing with URL-based joining and comprehensive share UI
+
 ```
 
 **Commit**: <commit_hash_or_message> **Author**: <name_or_role> **Type**:
