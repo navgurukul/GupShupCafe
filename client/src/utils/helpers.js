@@ -30,10 +30,10 @@ export function generateAnonymousName() {
     'Tiger', 'Eagle', 'Dolphin', 'Fox', 'Lion', 'Owl', 'Panda',
     'Wolf', 'Bear', 'Hawk', 'Deer', 'Rabbit', 'Falcon', 'Otter'
   ]
-  
+
   const adjective = adjectives[Math.floor(Math.random() * adjectives.length)]
   const animal = animals[Math.floor(Math.random() * animals.length)]
-  
+
   return `${adjective} ${animal}`
 }
 
@@ -177,6 +177,30 @@ export function isProduction() {
   return import.meta.env.MODE === 'production'
 }
 
+export function createUserData(resultData, formEmail) {
+  let userName = formEmail.split('@')[0] // Default to email prefix
+
+  // Validate user interests
+  if (!Array.isArray(resultData.topic_categories)) {
+    return { userData: null, "error": "Invalid topic categories format" }
+  }
+
+  // Validate CEFR level
+  if (!["A0", "A1", "A2", "B1", "B2", "C1", "C2"].includes(resultData.current_cefr_level)) {
+    return { userData: null, "error": "Invalid CEFR level" }
+  }
+
+  const userData = {
+    userId: resultData.user_id,
+    email: formEmail,
+    name: resultData.name || userName,
+    topicCategories: resultData.topic_categories,
+    currentCefrLevel: resultData.current_cefr_level,
+    lastActive: resultData.last_active,
+  }
+  return {userData, error: null}
+}
+
 export default {
   generateRoomCode,
   generateAnonymousName,
@@ -191,4 +215,5 @@ export default {
   truncate,
   isDevelopment,
   isProduction,
+  createUserData
 }

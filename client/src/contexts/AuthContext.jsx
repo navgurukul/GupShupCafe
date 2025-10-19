@@ -84,7 +84,6 @@ export function AuthProvider({ children }) {
   /**
    * Login function
    * @param {Object} userData - User data (email, name, interests, etc.)
-   * @param {String} anonymousName - Optional anonymous name for the user
    */
   const login = (userData) => {
     dispatch({

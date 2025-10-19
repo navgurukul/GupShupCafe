@@ -29,13 +29,21 @@ class SignUpModel(BaseModel):
 
 # --- Model for Reading from DB ---
 
-class UserModel(SignUpModel):
+class UserModel(BaseModel):
     """Full User model as represented in the database."""
     user_id: str = Field(..., description="User UUID, Primary Key")
     created_at: datetime = Field(..., description="Account creation timestamp")
+    last_active: Optional[datetime] = Field(None, description="Last active timestamp")
 
-    class Config:
-        from_attributes = True
+    email: EmailStr = Field(..., description="User's email address")
+    name: str = Field(..., min_length=2, description="User's full name")
+    # CEFR Progress Tracking
+    current_cefr_level: CEFRLevel = Field(..., description="Current CEFR level: A0...C2")
+
+    # Topic Interests (For Future Lobby Matching)
+    topic_categories: List[str] = Field(..., description="Topic categories of interest")
+
+    
 
 
 
