@@ -19,7 +19,7 @@ async def mock_sio():
     sio.enter_room = AsyncMock()
     sio.leave_room = AsyncMock()
     sio.rooms = MagicMock(return_value=[])
-    sio.get_session = AsyncMock(return_value={})
+    sio.get_room = AsyncMock(return_value={})
     return sio
 
 

@@ -57,10 +57,10 @@ def sample_topic():
 
 
 @pytest.fixture
-def sample_session():
-    """Sample session data for testing"""
+def sample_room():
+    """Sample room data for testing"""
     return {
-        "id": "test-session-123",
+        "id": "test-room-123",
         "roomId": "test-room",
         "topic": {
             "title": "Test Topic",
@@ -79,7 +79,7 @@ def sample_participant():
     """Sample participant data for testing"""
     return {
         "id": "participant-123",
-        "sessionId": "test-session-123",
+        "roomId": "test-room-123",
         "userId": "user-123",
         "anonymousName": "Friendly Fox",
         "campus": "Test Campus",

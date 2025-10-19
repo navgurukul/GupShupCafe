@@ -68,7 +68,7 @@ The server will start on http://localhost:3003
 - `GET /api/topics/category/{category}` - Get topic by category
 
 ### Analytics
-- `GET /api/analytics/sessions` - Get session analytics
+- `GET /api/analytics/rooms` - Get room analytics
 - `GET /api/analytics/topics` - Get topic usage statistics
 - `GET /api/analytics/stats` - Get server statistics
 

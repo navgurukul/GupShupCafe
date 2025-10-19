@@ -19,7 +19,10 @@ from src.api.routes import router as api_router
 from src.database.database import db
 from src.socket.socket_handlers import setup_socket_handlers
 from src.api.user_routes import router as user_router
-from src.api.session_routes import router as session_router
+from src.api.room_routes import router as room_router
+from src.api.participant_routes import router as participant_router
+from src.api.transcript_routes import router as transcript_router
+from src.api.feedback_routes import router as feedback_router
 
 # Configure logging
 logging.basicConfig(
@@ -53,6 +56,7 @@ default_prod_origins = [
 ]
 
 is_production = PYTHON_ENV == "production"
+
 
 # Combine origins
 ALLOWED_ORIGINS = list(set(
@@ -113,7 +117,10 @@ socket_app = socketio.ASGIApp(
 # Mount API routes
 app.include_router(api_router, prefix="/api")
 app.include_router(user_router,prefix="/users",tags=["User Management"])
-app.include_router(session_router, prefix="/sessions", tags=["Session Management"])
+app.include_router(room_router, prefix="/rooms", tags=["Room Management"])
+app.include_router(participant_router, prefix="/participants", tags=["Participant Management"])
+app.include_router(transcript_router, prefix="/transcripts", tags=["Transcripts"])
+app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"]) 
 
 @app.get("/")
 async def root():
@@ -147,8 +154,9 @@ async def startup_event():
     """Initialize the server on startup"""
     try:
         # Initialize database
-        logger.info("Initializing database...")
-        db_path = os.getenv("DATABASE_URL", "./database/gupshup_database.db")
+        logger.info("🗄️ Initializing database...")
+        # Use the same default path as db_connection to keep a single SQLite file
+        db_path = os.getenv("DATABASE_URL", "./data/gupshup-database.db")
         await db.initialize(db_path)
         
         # Setup Socket.io handlers

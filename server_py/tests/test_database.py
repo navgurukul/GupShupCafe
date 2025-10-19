@@ -13,18 +13,18 @@ async def test_database_initialization(test_db):
 
 
 @pytest.mark.asyncio
-async def test_save_session(test_db, sample_session):
-    """Test saving a session"""
-    result = await test_db.save_session(sample_session)
+async def test_save_room(test_db, sample_room):
+    """Test saving a room"""
+    result = await test_db.save_room(sample_room)
     assert result is not None
 
 
 @pytest.mark.asyncio
 async def test_save_participant(test_db, sample_participant):
     """Test saving a participant"""
-    # First save the session
-    session_data = {
-        "id": sample_participant["sessionId"],
+    # First save the room
+    room_data = {
+        "id": sample_participant["roomId"],
         "roomId": "test-room",
         "topic": {"title": "Test", "category": "Test"},
         "participantCount": 1,
@@ -33,7 +33,7 @@ async def test_save_participant(test_db, sample_participant):
         "durationSeconds": None,
         "roundsCompleted": 0
     }
-    await test_db.save_session(session_data)
+    await test_db.save_room(room_data)
     
     # Now save participant
     result = await test_db.save_participant(sample_participant)
@@ -59,15 +59,15 @@ async def test_record_topic_usage(test_db, sample_topic):
 
 
 @pytest.mark.asyncio
-async def test_get_session_analytics(test_db, sample_session):
-    """Test getting session analytics"""
-    # Save a session first
-    await test_db.save_session(sample_session)
+async def test_get_room_analytics(test_db, sample_room):
+    """Test getting room analytics"""
+    # Save a room first
+    await test_db.save_room(sample_room)
     
     # Get analytics
-    sessions = await test_db.get_session_analytics(limit=10)
-    assert len(sessions) > 0
-    assert sessions[0]["id"] == sample_session["id"]
+    rooms = await test_db.get_room_analytics(limit=10)
+    assert len(rooms) > 0
+    assert rooms[0]["room_id"] == sample_room["id"]
 
 
 @pytest.mark.asyncio
@@ -75,27 +75,27 @@ async def test_get_server_stats(test_db):
     """Test getting server statistics"""
     stats = await test_db.get_server_stats()
     
-    assert "totalSessions" in stats
+    assert "totalRooms" in stats
     assert "totalParticipants" in stats
-    assert "avgSessionDuration" in stats
-    assert "avgParticipantsPerSession" in stats
+    assert "avgRoomDuration" in stats
+    assert "avgParticipantsPerRoom" in stats
     assert "topCategories" in stats
 
 
 @pytest.mark.asyncio
-async def test_update_session_end(test_db, sample_session):
-    """Test updating session end data"""
-    # Save a session first
-    await test_db.save_session(sample_session)
+async def test_update_room_end(test_db, sample_room):
+    """Test updating room end data"""
+    # Save a room first
+    await test_db.save_room(sample_room)
     
     # Update end data
     update_data = {
-        "id": sample_session["id"],
+        "id": sample_room["id"],
         "endedAt": datetime.now().isoformat(),
         "durationSeconds": 120,
         "roundsCompleted": 2,
         "participantCount": 3
     }
     
-    result = await test_db.update_session_end(update_data)
+    result = await test_db.update_room_end(update_data)
     assert result == 1  # One row updated

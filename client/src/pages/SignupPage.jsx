@@ -129,24 +129,48 @@ function SignupPage() {
     }
     
     try {
-      // Simulate API call - replace with actual registration
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Call backend API for user registration
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+      const response = await fetch(`${apiUrl}/users/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          category: selectedCategories
+        }),
+      })
       
-      // For demo purposes, automatically create user account
-      const userData = {
-        ...formData,
-        interests: selectedCategories,
-        id: Date.now().toString()
+      const result = await response.json()
+      
+      if (result.status === 'success') {
+        // Create user data with the ID returned from backend
+        const userData = {
+          id: result.data,
+          name: formData.name,
+          email: formData.email,
+          interests: selectedCategories
+        }
+        
+        // Generate a random anonymous name
+        const adjectives = ['Happy', 'Clever', 'Brave', 'Wise', 'Kind', 'Swift', 'Bright', 'Noble']
+        const animals = ['Tiger', 'Eagle', 'Dolphin', 'Fox', 'Owl', 'Lion', 'Hawk', 'Wolf']
+        const anonymousName = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${animals[Math.floor(Math.random() * animals.length)]}`
+        
+        // Login with the new user data and anonymous name
+        login(userData, anonymousName)
+        
+        // Navigate to lobby
+        navigate('/lobby')
+      } else {
+        setErrors({ submit: result.message || 'Registration failed. Please try again.' })
       }
-      
-      // Login with the new user data
-      login(userData)
-      
-      // Navigate to lobby
-      navigate('/lobby')
     } catch (error) {
       console.error('Signup error:', error)
-      setErrors({ submit: 'Registration failed. Please try again.' })
+      setErrors({ submit: 'Registration failed. Please check your connection and try again.' })
     } finally {
       setIsSubmitting(false)
     }
