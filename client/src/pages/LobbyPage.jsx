@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { generateAvatarColor } from "../utils/helpers";
+import { fetchWaitingRooms } from "../services/api";
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== "undefined") {
@@ -166,6 +167,10 @@ function LobbyPage() {
   // Check if we're on room-lobby route
   const isInRoomLobby = location.pathname === "/room-lobby";
 
+  // Waiting rooms from backend
+  const [waitingRooms, setWaitingRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+
   // Auto-set inRoom state based on route
   useEffect(() => {
     if (isInRoomLobby && !inRoom) {
@@ -174,6 +179,33 @@ function LobbyPage() {
       setInRoom(false);
     }
   }, [isInRoomLobby, inRoom]);
+
+  // Fetch waiting rooms from backend
+  useEffect(() => {
+    const loadWaitingRooms = async () => {
+      try {
+        setRoomsLoading(true);
+        console.log('[Lobby][Debug] Fetching waiting rooms from backend...');
+        const rooms = await fetchWaitingRooms();
+        console.log('[Lobby][Debug] Received waiting rooms:', rooms);
+        setWaitingRooms(rooms);
+      } catch (error) {
+        console.error('[Lobby][Debug] Error fetching waiting rooms:', error);
+        setWaitingRooms([]);
+      } finally {
+        setRoomsLoading(false);
+      }
+    };
+
+    // Only fetch if not in a room
+    if (!inRoom) {
+      loadWaitingRooms();
+      
+      // Refresh room list every 10 seconds
+      const interval = setInterval(loadWaitingRooms, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [inRoom]);
 
   // Handle URL parameters for room joining
   useEffect(() => {
@@ -311,7 +343,7 @@ function LobbyPage() {
     }
   }, [socket, connected, inRoom, joinRoom, location.search, navigate, location.pathname]);
 
-  // Predefined rooms
+  // Predefined rooms (kept for backward compatibility and as examples)
   const predefinedRooms = [
     {
       id: "education-b1",
@@ -354,6 +386,49 @@ function LobbyPage() {
       max_participants: 4,
     },
   ];
+
+  // Map backend room data to frontend format
+  const mapBackendRoomToFrontend = (backendRoom) => {
+    // Map topic category to icon and color
+    const categoryMap = {
+      education: { icon: BookOpen, color: "bg-blue-500" },
+      scienceAndTechnology: { icon: Atom, color: "bg-green-500" },
+      literature: { icon: PenTool, color: "bg-purple-500" },
+      currentAffairs: { icon: Brain, color: "bg-red-500" },
+      politics: { icon: Users, color: "bg-yellow-500" },
+      environment: { icon: Users, color: "bg-emerald-500" },
+      healthcare: { icon: Users, color: "bg-pink-500" },
+      business: { icon: Users, color: "bg-orange-500" },
+      sports: { icon: Users, color: "bg-indigo-500" },
+      entertainment: { icon: Users, color: "bg-violet-500" },
+      philosophy: { icon: Users, color: "bg-gray-500" },
+      history: { icon: Users, color: "bg-amber-500" },
+    };
+
+    const categoryInfo = categoryMap[backendRoom.topic_category] || { icon: Users, color: "bg-gray-500" };
+
+    return {
+      id: backendRoom.room_id,
+      name: backendRoom.room_name,
+      icon: categoryInfo.icon,
+      color: categoryInfo.color,
+      description: backendRoom.topic_title || `Room for ${backendRoom.topic_category}`,
+      cefr_level: backendRoom.cefr_level,
+      topic_category: backendRoom.topic_category,
+      max_participants: backendRoom.max_participants,
+      participant_count: backendRoom.participant_count || 0,
+      status: backendRoom.status,
+      created_at: backendRoom.created_at,
+      isBackendRoom: true, // Flag to distinguish from predefined rooms
+    };
+  };
+
+  // Combine backend rooms with predefined rooms (backend rooms take priority)
+  const allRooms = React.useMemo(() => {
+    const backendMapped = waitingRooms.map(mapBackendRoomToFrontend);
+    // Only show predefined rooms if no backend rooms are available
+    return backendMapped.length > 0 ? backendMapped : predefinedRooms;
+  }, [waitingRooms]);
 
   // Room sharing functions
   const generateShareableLink = (roomId, role = 'speaker') => {
@@ -412,15 +487,13 @@ function LobbyPage() {
       const storedHostData = JSON.parse(localStorage.getItem('userData')); // User is the host for this new room
 
       const roomData = {
-
         room_name: roomForm.room_name.trim(),
         max_participants: roomForm.max_participants,
         topic_title: '',
         topic_category: roomForm.topic_category,
-        cefr_level: roomForm.cefr_level,
+        cefr_level: roomForm.cefr_level.trim(),
         rounds_completed: 0,
         created_at: new Date().toISOString(),
-        cefr_level: roomForm.cefr_level.trim(),
         created_by: storedHostData.userId,
         status: 'waiting'
       }
@@ -524,6 +597,56 @@ function LobbyPage() {
   };
 
   const handleJoinPredefinedRoom = async (room) => {
+    console.log('[Lobby][Debug] Joining room:', room);
+
+    // If this is a backend room (already exists in DB), skip creation
+    if (room.isBackendRoom) {
+      console.log('[Lobby][Debug] Joining existing backend room:', room.id);
+      
+      // Load user data from localStorage
+      const storedHostData = JSON.parse(localStorage.getItem('userData'));
+      
+      try {
+        // Create participant entry for the user joining this room
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+        const participantResponse = await fetch(`${apiUrl}/participants/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: storedHostData?.userId || user?.id || 'guest',
+            room_id: room.id,
+            avatar_color: generateAvatarColor(),
+            anonymous_name: anonymousName,
+            campusOrLocation: null,
+            joined_at: new Date().toISOString(),
+            starting_cefr_level: storedHostData?.currentCefrLevel || 'B1',
+            ending_cefr_level: storedHostData?.currentCefrLevel || 'B1',
+          }),
+        });
+
+        const participantResult = await participantResponse.json();
+        console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
+      } catch (error) {
+        console.error('[Lobby][Debug] Error creating participant for existing room:', error);
+      }
+
+      // Pass room metadata to joinRoom
+      joinRoom(room.id, selectedRole, {
+        name: room.name,
+        room_name: room.name,
+        topic_category: room.topic_category,
+        cefr_level: room.cefr_level,
+        max_participants: room.max_participants
+      });
+      setCurrentRoom(room);
+      setInRoom(true);
+      navigate('/room-lobby');
+      return;
+    }
+
+    // Otherwise, create a new room for predefined rooms (backward compatibility)
     try {
       // Create session in the database for predefined room
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
@@ -1070,82 +1193,108 @@ function LobbyPage() {
             {/* Existing Rooms */}
             <div className="space-y-4">
               <h3 className="text-2xl font-bold text-gray-900 text-center">
-                Existing Rooms
+                Available Rooms
               </h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {predefinedRooms.map((room) => {
-                  const IconComponent = room.icon;
-                  const cefrLevel = cefrLevels.find(
-                    (level) => level.id === room.cefr_level
-                  );
-                  const topicCategory = topicCategories.find(
-                    (cat) => cat.id === room.topic_category
-                  );
+              
+              {roomsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading rooms...</p>
+                </div>
+              ) : allRooms.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                  <p className="text-gray-600 text-lg">No rooms available at the moment</p>
+                  <p className="text-gray-500 text-sm mt-2">Be the first to create one!</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {allRooms.map((room) => {
+                    const IconComponent = room.icon;
+                    const cefrLevel = cefrLevels.find(
+                      (level) => level.id === room.cefr_level
+                    );
+                    const topicCategory = topicCategories.find(
+                      (cat) => cat.id === room.topic_category
+                    );
 
-                  return (
-                    <div
-                      key={room.id}
-                      className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                    >
-                      <div className="text-center space-y-4">
-                        <div
-                          className={`w-16 h-16 ${room.color} rounded-full mx-auto flex items-center justify-center`}
-                        >
-                          <IconComponent className="w-8 h-8 text-white" />
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">
-                            {room.name}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-2">
-                            {room.description}
-                          </p>
-                        </div>
+                    return (
+                      <div
+                        key={room.id}
+                        className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                      >
+                        <div className="text-center space-y-4">
+                          <div
+                            className={`w-16 h-16 ${room.color} rounded-full mx-auto flex items-center justify-center`}
+                          >
+                            <IconComponent className="w-8 h-8 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-semibold text-gray-900">
+                              {room.name}
+                            </h4>
+                            <p className="text-sm text-gray-600 mt-2">
+                              {room.description}
+                            </p>
+                          </div>
 
-                        {/* Room Details */}
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap justify-center gap-2">
-                            {cefrLevel && (
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevel.color} flex items-center`}
-                              >
-                                <Star className="w-3 h-3 mr-1" />
-                                {cefrLevel.id}
-                              </span>
-                            )}
-                            {topicCategory && (
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategory.color}`}
-                              >
-                                {topicCategory.label}
-                              </span>
+                          {/* Room Details */}
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {cefrLevel && (
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevel.color} flex items-center`}
+                                >
+                                  <Star className="w-3 h-3 mr-1" />
+                                  {cefrLevel.id}
+                                </span>
+                              )}
+                              {topicCategory && (
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategory.color}`}
+                                >
+                                  {topicCategory.label}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {room.participant_count !== undefined && (
+                                <span className="mr-2">
+                                  {room.participant_count} / {room.max_participants} joined
+                                </span>
+                              )}
+                              {!room.participant_count && (
+                                <span>Max: {room.max_participants} participants</span>
+                              )}
+                            </div>
+                            {room.isBackendRoom && (
+                              <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full inline-block">
+                                Active Room
+                              </div>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            Max: {room.max_participants} participants
-                          </div>
-                        </div>
 
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleJoinPredefinedRoom(room)}
-                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                          >
-                            Join
-                          </button>
-                          <button
-                            onClick={() => handleShareRoom(room.id)}
-                            className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                            title="Share this room"
-                          >
-                            <Share2 size={16} />
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleJoinPredefinedRoom(room)}
+                              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            >
+                              Join
+                            </button>
+                            <button
+                              onClick={() => handleShareRoom(room.id)}
+                              className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+                              title="Share this room"
+                            >
+                              <Share2 size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         ) : (
