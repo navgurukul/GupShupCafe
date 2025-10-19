@@ -164,8 +164,8 @@ function LobbyPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [joinedViaLink, setJoinedViaLink] = useState(false);
 
-  // Check if we're on room-lobby route
-  const isInRoomLobby = location.pathname === "/room-lobby";
+  // Check if we're on a room-specific lobby route (any /lobby/:roomId)
+  const isInRoomLobby = location.pathname.startsWith("/lobby/") && location.pathname !== "/lobby";
 
   // Waiting rooms from backend
   const [waitingRooms, setWaitingRooms] = useState([]);
@@ -264,7 +264,7 @@ function LobbyPage() {
 
     console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
     console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
-    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${location.pathname === "/room-lobby"}`);
+    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${isInRoomLobby}`);
     console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
 
     if (roomFromUrl && roomFromUrl.trim() !== '') {
@@ -279,12 +279,13 @@ function LobbyPage() {
         setJoinedViaLink(true);
         setInRoom(true); // Mark as in room immediately
 
-        // Only navigate if we're not already on room-lobby
-        if (location.pathname !== "/room-lobby") {
-          console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "/room-lobby"`);
-          navigate("/room-lobby", { replace: true });
+        // Navigate to the new room-specific lobby route
+        const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
+        if (location.pathname + location.search !== targetPath) {
+          console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "${targetPath}"`);
+          navigate(targetPath, { replace: true });
         } else {
-          console.log(`[Lobby][Debug] Already on room-lobby page`);
+          console.log(`[Lobby][Debug] Already on correct room lobby page`);
         }
       } else {
         console.log(`[Lobby][Debug] Room ID already matches: "${roomId}"`);
@@ -312,7 +313,7 @@ function LobbyPage() {
       console.log(`[Lobby][Debug] ❌ No room found in URL or empty room`);
       console.log(`[Lobby][Debug] Checked sources:`, sources.map(s => `${s.name}: "${s.search}"`));
     }
-  }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname]);
+  }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname, isInRoomLobby]);
 
   // Separate effect to handle room joining when socket connects
   useEffect(() => {
@@ -327,9 +328,10 @@ function LobbyPage() {
       console.log(`[Lobby][Debug] Socket connected, joining room: ${roomFromUrl}`);
       setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
 
-      // Ensure we're on the right page
-      if (location.pathname !== "/room-lobby") {
-        navigate("/room-lobby", { replace: true });
+      // Ensure we're on the right page - navigate to room-specific lobby
+      const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
+      if (location.pathname + location.search !== targetPath) {
+        navigate(targetPath, { replace: true });
       }
 
       // Join the room
@@ -431,11 +433,11 @@ function LobbyPage() {
   }, [waitingRooms]);
 
   // Room sharing functions
-  const generateShareableLink = (roomId, role = 'speaker') => {
+  const generateShareableLink = (roomIdParam, role = 'speaker') => {
     // Use the current window location to ensure correct port
     const currentOrigin = window.location.origin;
-    // Generate URL that goes directly to room-lobby to avoid routing issues
-    return `${currentOrigin}/room-lobby?room=${roomId}&role=${role}`;
+    // Generate URL with room-specific path
+    return `${currentOrigin}/lobby/${roomIdParam}?role=${role}`;
   };
 
   const handleShareRoom = (roomId) => {
@@ -560,10 +562,10 @@ function LobbyPage() {
       setInRoom(true)
       setShowCreateRoom(false)
 
-      // Navigate to room-lobby
-      navigate('/room-lobby');
+      // Navigate to room-specific lobby
+      navigate(`/lobby/${roomData.id}?role=${selectedRole}`);
 
-      console.log(`[Lobby][Debug] Room creation complete, navigating to room-lobby`);
+      console.log(`[Lobby][Debug] Room creation complete, navigating to /lobby/${roomData.id}`);
 
 
       // Automatically show share modal for new room
@@ -642,7 +644,7 @@ function LobbyPage() {
       });
       setCurrentRoom(room);
       setInRoom(true);
-      navigate('/room-lobby');
+      navigate(`/lobby/${room.id}?role=${selectedRole}`);
       return;
     }
 
@@ -708,8 +710,8 @@ function LobbyPage() {
     setCurrentRoom(room)
     setInRoom(true)
 
-    // Navigate to room-lobby
-    navigate('/room-lobby');
+    // Navigate to room-specific lobby
+    navigate(`/lobby/${room.id}?role=${selectedRole}`);
   }
 
   const handleLeaveRoom = () => {
