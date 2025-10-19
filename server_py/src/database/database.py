@@ -30,6 +30,11 @@ class Database:
         self.db.row_factory = aiosqlite.Row
         
         print(f"📊 Connected to SQLite database at {db_path}")
+
+        # Enforce foreign key constraints for this connection
+        await self.db.execute("PRAGMA foreign_keys = ON;")
+        await self.db.commit() # Commit the PRAGMA
+
         
         # Create tables
         await self._create_tables()
@@ -62,7 +67,7 @@ class Database:
                     room_name TEXT,
                     
                     -- Room Configuration
-                    topic TEXT NOT NULL,
+                    topic_title TEXT NOT NULL,
                     topic_category TEXT NOT NULL,
                     max_participants INTEGER DEFAULT 6,
                     speaking_time_per_turn INTEGER DEFAULT 60,

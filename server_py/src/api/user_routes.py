@@ -4,7 +4,10 @@ RESTful endpoints for the application
 """
 from fastapi import APIRouter, HTTPException
 from ..services.user_services import User_services
-from ..models.user_pydantic_models import LoginModel, SignUpModel, LoginSignUpResponseModel, UserUpdateModel
+from ..models.user_pydantic_models import (
+    LoginModel, SignUpModel, LoginSignUpResponseModel,
+    UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+)
 router = APIRouter()
 
 user_service = User_services()
@@ -31,13 +34,27 @@ async def get_user(user_id: str):
 async def list_users():
     return user_service.list_users()
 
-@router.patch("/{user_id}", description="Update user")
-async def update_user(user_id: str, payload: UserUpdateModel):
-    resp = user_service.update_user(user_id, payload)
+@router.delete("/{user_id}", description="Delete user")
+async def delete_user(user_id: str):
+    return user_service.delete_user(user_id)
+
+@router.patch("/cefr-level", description="Update user's CEFR level")
+async def update_cefr_level(payload: UpdateUserCEFRModel):
+    resp = user_service.update_user_cefr_level(payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
-@router.delete("/{user_id}", description="Delete user")
-async def delete_user(user_id: str):
-    return user_service.delete_user(user_id)
+@router.patch("/last-active", description="Update user's last active timestamp")
+async def update_last_active(payload: UpdateUserLastActiveModel):
+    resp = user_service.update_user_last_active(payload)
+    if resp["status"] == "failure":
+        raise HTTPException(status_code=400, detail=resp["message"])
+    return resp
+
+@router.patch("/password", description="Update user's password")
+async def update_password(payload: UpdateUserPasswordModel):
+    resp = user_service.update_user_password(payload)
+    if resp["status"] == "failure":
+        raise HTTPException(status_code=400, detail=resp["message"])
+    return resp
