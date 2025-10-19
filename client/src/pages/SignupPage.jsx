@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { User, Mail, Lock, Eye, EyeOff, MessageSquare, Tag } from 'lucide-react'
 
+import { createUserData } from '../utils/helpers'
+
 const categories = [
   { id: 'currentAffairs', label: 'Current Affairs', color: 'bg-red-100 text-red-800' },
   { id: 'scienceAndTechnology', label: 'Science & Technology', color: 'bg-blue-100 text-blue-800' },
@@ -25,13 +27,13 @@ const categories = [
 function SignupPage() {
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: ''
   })
-  
+
   const [selectedCategories, setSelectedCategories] = useState([])
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
@@ -53,7 +55,7 @@ function SignupPage() {
       ...prev,
       [name]: value
     }))
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -67,12 +69,12 @@ function SignupPage() {
    * Toggle interest category selection
    */
   const toggleCategory = (categoryId) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(categoryId)
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     )
-    
+
     // Clear category error when user selects one
     if (errors.categories) {
       setErrors(prev => ({
@@ -87,29 +89,29 @@ function SignupPage() {
    */
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required'
     } else if (formData.name.length < 2) {
       newErrors.name = 'Name must be at least 2 characters'
     }
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address'
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters'
     }
-    
+
     if (selectedCategories.length === 0) {
       newErrors.categories = 'Please select at least one interest category'
     }
-    
+
     return newErrors
   }
 
@@ -119,15 +121,15 @@ function SignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
+
     const newErrors = validateForm()
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       setIsSubmitting(false)
       return
     }
-    
+
     try {
       // Call backend API for user registration
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
@@ -140,31 +142,41 @@ function SignupPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          category: selectedCategories
+          current_cefr_level: "A0", // Initial CEFR level
+          topic_categories: selectedCategories
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (result.status === 'success') {
-        // Create user data with the ID returned from backend
-        const userData = {
-          id: result.data,
-          name: formData.name,
-          email: formData.email,
-          interests: selectedCategories
+        // Fetch user details to get name and interests
+        const userResponse = await fetch(`${apiUrl}/users/${result.data}`)  // result.data contains user ID
+
+        if (userResponse.ok) {
+          const userResult = await userResponse.json()
+          if (userResult.status === 'success' && userResult.data) {
+
+            // Create user data with the ID returned from backend
+            const { userData, error } = createUserData(userResult.data, formData.email)
+
+            if (error) {
+              setErrors({ submit: error })
+              return
+            }
+
+            // Login with the new user data
+            login(userData)
+
+            // Save userData to localStorage
+            localStorage.setItem('userData', JSON.stringify(userData))
+
+            // Navigate to lobby
+            navigate('/lobby')
+          } else {
+            setErrors({ submit: 'Failed to retrieve user details after login.' })
+          }
         }
-        
-        // Generate a random anonymous name
-        const adjectives = ['Happy', 'Clever', 'Brave', 'Wise', 'Kind', 'Swift', 'Bright', 'Noble']
-        const animals = ['Tiger', 'Eagle', 'Dolphin', 'Fox', 'Owl', 'Lion', 'Hawk', 'Wolf']
-        const anonymousName = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${animals[Math.floor(Math.random() * animals.length)]}`
-        
-        // Login with the new user data and anonymous name
-        login(userData, anonymousName)
-        
-        // Navigate to lobby
-        navigate('/lobby')
       } else {
         setErrors({ submit: result.message || 'Registration failed. Please try again.' })
       }
@@ -279,11 +291,10 @@ function SignupPage() {
                   key={category.id}
                   type="button"
                   onClick={() => toggleCategory(category.id)}
-                  className={`p-3 text-sm rounded-lg border-2 transition-all duration-200 ${
-                    selectedCategories.includes(category.id)
-                      ? `${category.color} border-current shadow-md transform scale-105`
-                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                  }`}
+                  className={`p-3 text-sm rounded-lg border-2 transition-all duration-200 ${selectedCategories.includes(category.id)
+                    ? `${category.color} border-current shadow-md transform scale-105`
+                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                    }`}
                 >
                   {category.label}
                 </button>

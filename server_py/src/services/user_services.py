@@ -112,7 +112,7 @@ class User_services:
                 message=f"Signup failed: {str(e)}"
             )
     
-    def get_user(self, user_id: str) -> dict:
+    def get_user(self, user_id: str) -> UserModel:
         """Service to get user details"""
         try:
             self.cursor.execute(
@@ -129,21 +129,18 @@ class User_services:
                 # Normalize CEFR level to string A0..C2 if integer stored
                 cefr_value = user[4]
                 current_cefr_level = str(cefr_value)
-                return {
+                return{
                     "status": "success",
-                    "data": {
-                        "user_id": user[0],
-                        "name": user[1],
-                        "email": user[2],
-                        # Backward-compatible fields (kept for old clients)
-                        "category": user[3],
-                        "cefr_level": user[4],
-                        # New normalized fields aligned with MVP models
-                        "topic_categories": topic_categories,
-                        "current_cefr_level": current_cefr_level,
-                        "created_at": user[5],
-                        "last_active": user[6],
-                    },
+                    "data": UserModel(
+                        user_id=user[0],
+                        name=user[1],
+                        email=user[2],
+                        cefr_level=user[4],
+                        topic_categories=topic_categories,
+                        current_cefr_level=current_cefr_level,
+                        created_at=user[5],
+                        last_active=user[6],
+                    ),
                     "message": "User found"
                 }
             else:

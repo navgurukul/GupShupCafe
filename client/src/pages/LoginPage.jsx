@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { Mail, Lock, MessageSquare, Eye, EyeOff, Users, Brain } from 'lucide-react'
-
+import { createUserData } from '../utils/helpers'
 /**
  * Login Page Component
  * Handles user authentication with email and password
@@ -11,12 +11,12 @@ import { Mail, Lock, MessageSquare, Eye, EyeOff, Users, Brain } from 'lucide-rea
 function LoginPage() {
   const navigate = useNavigate()
   const { login, isAuthenticated } = useAuth()
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
-  
+
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -37,7 +37,7 @@ function LoginPage() {
       ...prev,
       [name]: value
     }))
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -52,19 +52,19 @@ function LoginPage() {
    */
   const validateForm = () => {
     const newErrors = {}
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required'
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address'
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters'
     }
-    
+
     return newErrors
   }
 
@@ -74,15 +74,15 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
+
     const newErrors = validateForm()
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       setIsSubmitting(false)
       return
     }
-    
+
     try {
       // Call backend API for user login
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
@@ -96,43 +96,39 @@ function LoginPage() {
           password: formData.password,
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (result.status === 'success') {
         // Fetch user details to get name and interests
-        const userResponse = await fetch(`${apiUrl}/users/${result.data}`)
-        let userName = formData.email.split('@')[0] // Default to email prefix
-        let userInterests = []
-        
+        const userResponse = await fetch(`${apiUrl}/users/${result.data}`)  // result.data contains user ID
+
         if (userResponse.ok) {
           const userResult = await userResponse.json()
           if (userResult.status === 'success' && userResult.data) {
-            userName = userResult.data.name || userName
-            userInterests = userResult.data.category ? 
-              (Array.isArray(userResult.data.category) ? userResult.data.category : userResult.data.category.split(',')) 
-              : []
+
+            // Create user data with the ID returned from backend
+            const { userData, error } = createUserData(userResult.data, formData.email)
+
+            if (error) {
+              setErrors({ submit: error })
+              return
+            }
+
+            // Login with the user data
+            login(userData)
+
+            // Save userData to localStorage
+            localStorage.setItem('userData', JSON.stringify(userData))
+
+            // Navigate to lobby
+            navigate('/lobby')
+          } else {
+            setErrors({ submit: 'Failed to retrieve user details after login.' })
           }
         }
-        
-        // Create user data with the ID returned from backend
-        const userData = {
-          id: result.data,
-          email: formData.email,
-          name: userName,
-          interests: userInterests
-        }
-        
-        // Generate a random anonymous name
-        const adjectives = ['Happy', 'Clever', 'Brave', 'Wise', 'Kind', 'Swift', 'Bright', 'Noble']
-        const animals = ['Tiger', 'Eagle', 'Dolphin', 'Fox', 'Owl', 'Lion', 'Hawk', 'Wolf']
-        const anonymousName = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${animals[Math.floor(Math.random() * animals.length)]}`
-        
-        // Login with the user data and anonymous name
-        login(userData, anonymousName)
-        
-        // Navigate to lobby
-        navigate('/lobby')
+
+
       } else {
         setErrors({ submit: result.message || 'Login failed. Please check your credentials.' })
       }

@@ -40,7 +40,10 @@ class Participant_service:
             is_ready_int = 1 if participant_model.is_ready else 0
             is_speaking_int = 1 if participant_model.is_speaking else 0
             is_muted_int = 1 if participant_model.is_muted else 0
-            
+
+            # Set ending_cefr_level to starting_cefr_level if not provided
+            ending_cefr_level = participant_model.ending_cefr_level if participant_model.ending_cefr_level else participant_model.starting_cefr_level
+
             self.cursor.execute(
                 """INSERT INTO participants 
                 (participant_id, user_id, room_id, anonymous_name, avatar_color,
@@ -61,7 +64,7 @@ class Participant_service:
                     is_muted_int,
                     participant_model.socket_id,
                     participant_model.starting_cefr_level,
-                    participant_model.ending_cefr_level,
+                    ending_cefr_level,
                     participant_model.joined_at,
                     participant_model.left_at,
                     participant_model.campusOrLocation,

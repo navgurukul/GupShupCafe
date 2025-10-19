@@ -22,6 +22,8 @@ import {
   Check,
 } from "lucide-react";
 
+import { generateAvatarColor } from "../utils/helpers";
+
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== "undefined") {
   window.lateJoinCheckInProgress = window.lateJoinCheckInProgress || false;
@@ -179,7 +181,7 @@ function LobbyPage() {
     const windowSearch = window.location.search;
     const routerSearch = location.search;
     const windowHref = window.location.href;
-    
+
     // Also try parsing the full URL directly
     let directUrlParams = null;
     try {
@@ -188,36 +190,36 @@ function LobbyPage() {
     } catch (e) {
       console.log(`[Lobby][Debug] Failed to parse URL: ${e.message}`);
     }
-    
+
     console.log(`[Lobby][Debug] === URL DEBUGGING ===`);
     console.log(`[Lobby][Debug] Full window.location.href: ${windowHref}`);
     console.log(`[Lobby][Debug] window.location.search: "${windowSearch}"`);
     console.log(`[Lobby][Debug] React router location.search: "${routerSearch}"`);
     console.log(`[Lobby][Debug] location.pathname: "${location.pathname}"`);
     console.log(`[Lobby][Debug] Direct URL parsing available: ${!!directUrlParams}`);
-    
+
     // Try multiple parameter sources
     const sources = [
       { name: 'window.location.search', search: windowSearch },
       { name: 'router location.search', search: routerSearch },
       { name: 'direct URL parsing', search: directUrlParams ? directUrlParams.toString() : '' }
     ];
-    
+
     let roomFromUrl = null;
     let roleFromUrl = 'speaker';
     let workingSource = null;
-    
+
     // Try each source until we find room parameters
     for (const source of sources) {
       if (source.search) {
-        const testParams = source.name === 'direct URL parsing' 
-          ? directUrlParams 
+        const testParams = source.name === 'direct URL parsing'
+          ? directUrlParams
           : new URLSearchParams(source.search);
         const testRoom = testParams.get('room');
         const testRole = testParams.get('role') || 'speaker';
-        
+
         console.log(`[Lobby][Debug] Testing ${source.name}: room="${testRoom}", role="${testRole}"`);
-        
+
         if (testRoom && testRoom.trim() !== '') {
           roomFromUrl = testRoom;
           roleFromUrl = testRole;
@@ -227,16 +229,16 @@ function LobbyPage() {
         }
       }
     }
-    
+
     console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
     console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
     console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${location.pathname === "/room-lobby"}`);
     console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
-    
+
     if (roomFromUrl && roomFromUrl.trim() !== '') {
       console.log(`[Lobby][Debug] ✅ Found room in URL: ${roomFromUrl} as ${roleFromUrl}`);
       console.log(`[Lobby][Debug] Will process room joining...`);
-      
+
       // Always update the room state from URL
       if (roomFromUrl !== roomId) {
         console.log(`[Lobby][Debug] Setting room ID from "${roomId}" to "${roomFromUrl}"`);
@@ -244,7 +246,7 @@ function LobbyPage() {
         setSelectedRole(roleFromUrl);
         setJoinedViaLink(true);
         setInRoom(true); // Mark as in room immediately
-        
+
         // Only navigate if we're not already on room-lobby
         if (location.pathname !== "/room-lobby") {
           console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "/room-lobby"`);
@@ -255,16 +257,16 @@ function LobbyPage() {
       } else {
         console.log(`[Lobby][Debug] Room ID already matches: "${roomId}"`);
       }
-      
+
       // Join room when socket is ready
       if (socket && connected) {
         console.log(`[Lobby][Debug] Socket ready, attempting to join room: ${roomFromUrl}`);
         setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-        
+
         // Join the room
         console.log(`[Lobby][Debug] Calling joinRoom("${roomFromUrl}", "${roleFromUrl}")`);
         joinRoom(roomFromUrl, roleFromUrl);
-        
+
         // Show success message after a delay
         setTimeout(() => {
           console.log(`[Lobby][Debug] Setting success message`);
@@ -285,24 +287,24 @@ function LobbyPage() {
     const urlParams = new URLSearchParams(location.search);
     const roomFromUrl = urlParams.get('room');
     const roleFromUrl = urlParams.get('role') || 'speaker';
-    
+
     console.log(`[Lobby][Debug] Second effect check - Room: ${roomFromUrl}, Socket: ${!!socket}, Connected: ${connected}, InRoom: ${inRoom}`);
-    
+
     // If we have room parameters and socket is connected but we haven't joined yet
     if (roomFromUrl && socket && connected && !inRoom) {
       console.log(`[Lobby][Debug] Socket connected, joining room: ${roomFromUrl}`);
       setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-      
+
       // Ensure we're on the right page
       if (location.pathname !== "/room-lobby") {
         navigate("/room-lobby", { replace: true });
       }
-      
+
       // Join the room
       console.log(`[Lobby][Debug] Calling joinRoom with: ${roomFromUrl}, ${roleFromUrl}`);
       joinRoom(roomFromUrl, roleFromUrl);
       setInRoom(true);
-      
+
       setTimeout(() => {
         setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
       }, 1000);
@@ -365,10 +367,10 @@ function LobbyPage() {
     console.log(`[Lobby][Debug] handleShareRoom called with roomId: "${roomId}"`);
     console.log(`[Lobby][Debug] selectedRole: "${selectedRole}"`);
     console.log(`[Lobby][Debug] currentRoom:`, currentRoom);
-    
+
     const link = generateShareableLink(roomId, selectedRole);
     console.log(`[Lobby][Debug] Generated link: "${link}"`);
-    
+
     setShareableLink(link);
     setShowShareModal(true);
     setLinkCopied(false);
@@ -394,86 +396,85 @@ function LobbyPage() {
   };
 
   // Room management functions
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     console.log(`[Lobby][Debug] === ROOM CREATION START ===`);
     console.log(`[Lobby][Debug] Room form:`, roomForm);
     console.log(`[Lobby][Debug] Host anonymous name: "${hostAnonymousName}"`);
     console.log(`[Lobby][Debug] Selected role: "${selectedRole}"`);
-    
+
     if (
       roomForm.room_name.trim() &&
       roomForm.topic_category &&
       roomForm.cefr_level &&
       hostAnonymousName.trim()
     ) {
+      // Load user data from localStorage
+      const storedHostData = JSON.parse(localStorage.getItem('userData')); // User is the host for this new room
+
       const roomData = {
-        id: `${roomForm.room_name
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, "-")}-${Date.now()}`,
-        name: roomForm.room_name.trim(),
-        isCustom: true,
+
+        room_name: roomForm.room_name.trim(),
         max_participants: roomForm.max_participants,
+        topic_title: '',
         topic_category: roomForm.topic_category,
         cefr_level: roomForm.cefr_level,
-        host_anonymous_name: hostAnonymousName.trim(),
-        host_id: user?.id
+        rounds_completed: 0,
+        created_at: new Date().toISOString(),
+        cefr_level: roomForm.cefr_level.trim(),
+        created_by: storedHostData.userId,
+        status: 'waiting'
       }
-      
+
       try {
         // Create session in the database
+        console.log(`[Lobby][Debug] Creating session in database for room:`, roomData);
+        console.log(`[Lobby][Debug] Host for the room ${roomData.room_name} is ${storedHostData.userId}`)
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-        const sessionResponse = await fetch(`${apiUrl}/sessions/session`, {
+        const sessionResponse = await fetch(`${apiUrl}/rooms/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            room_name: roomData.name,
-            room_topic: '', // Will be generated later
-            topic_category: roomData.topic_category,
-            started_at: new Date().toISOString(),
-            ended_at: new Date().toISOString(),
-            rounds_completed: 0,
-            created_at: new Date().toISOString(),
-            cefr_level: parseInt(roomData.cefr_level.charAt(0)) // Extract numeric value from CEFR level (A1->0, B1->1, C1->2)
-          }),
+          body: JSON.stringify(roomData),
         })
-        
+
         const sessionResult = await sessionResponse.json()
         console.log('[Lobby] Session created:', sessionResult)
-        
+
         // Store session_id for later use
         if (sessionResult.status === 'success') {
           sessionStorage.setItem('current_session_id', sessionResult.data)
-          
+
+
           // Create participant entry
-          const participantResponse = await fetch(`${apiUrl}/participants/participant`, {
+          const participantResponse = await fetch(`${apiUrl}/participants/`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              user_id: user?.id || 'guest',
-              session_id: sessionResult.data,
-              anonymous_name: anonymousName,
-              campus: null,
-              location: null,
-              joined_at: new Date().toISOString()
+              user_id: storedHostData.userId,
+              room_id: sessionResult.data,
+              avatar_color: generateAvatarColor(), // Random color can be assigned here
+              anonymous_name: hostAnonymousName,
+              campusOrLocation: null,
+              joined_at: new Date().toISOString(),
+              starting_cefr_level: storedHostData.currentCefrLevel,
+              ending_cefr_level: storedHostData.currentCefrLevel  // Initially same as starting level
             }),
           })
-          
+
           const participantResult = await participantResponse.json()
           console.log('[Lobby] Participant created:', participantResult)
         }
       } catch (error) {
         console.error('[Lobby] Error creating session/participant:', error)
       }
-    
-    
+
+
       console.log(`[Lobby][Debug] Generated room data:`, roomData);
       console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.id}"`);
-      
+
       // Pass room metadata as third parameter to joinRoom
       joinRoom(roomData.id, selectedRole, {
         name: roomData.name,
@@ -488,10 +489,10 @@ function LobbyPage() {
 
       // Navigate to room-lobby
       navigate('/room-lobby');
-    
+
       console.log(`[Lobby][Debug] Room creation complete, navigating to room-lobby`);
-      
-      
+
+
       // Automatically show share modal for new room
       setTimeout(() => {
         console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.id}"`);
@@ -526,7 +527,7 @@ function LobbyPage() {
     try {
       // Create session in the database for predefined room
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-      const sessionResponse = await fetch(`${apiUrl}/sessions/session`, {
+      const sessionResponse = await fetch(`${apiUrl}/rooms/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -542,16 +543,16 @@ function LobbyPage() {
           cefr_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
         }),
       })
-      
+
       const sessionResult = await sessionResponse.json()
       console.log('[Lobby] Predefined room session created:', sessionResult)
-      
+
       // Store session_id for later use
       if (sessionResult.status === 'success') {
         sessionStorage.setItem('current_session_id', sessionResult.data)
-        
+
         // Create participant entry
-        const participantResponse = await fetch(`${apiUrl}/participants/participant`, {
+        const participantResponse = await fetch(`${apiUrl}/participants/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -565,14 +566,14 @@ function LobbyPage() {
             joined_at: new Date().toISOString()
           }),
         })
-        
+
         const participantResult = await participantResponse.json()
         console.log('[Lobby] Participant created for predefined room:', participantResult)
       }
     } catch (error) {
       console.error('[Lobby] Error creating session/participant for predefined room:', error)
     }
-    
+
     // Pass room metadata as third parameter to joinRoom
     joinRoom(room.id, selectedRole, {
       name: room.name,
@@ -826,7 +827,7 @@ function LobbyPage() {
     <div className="min-h-screen flex flex-col">
       {/* URL Test Component - for debugging */}
       <URLTest />
-      
+
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -843,14 +844,12 @@ function LobbyPage() {
           <div className="flex items-center space-x-3">
             {/* Connection Status */}
             <div
-              className={`flex items-center space-x-1 text-sm ${
-                connected ? "text-green-600" : "text-red-600"
-              }`}
+              className={`flex items-center space-x-1 text-sm ${connected ? "text-green-600" : "text-red-600"
+                }`}
             >
               <div
-                className={`w-2 h-2 rounded-full ${
-                  connected ? "bg-green-600" : "bg-red-600"
-                }`}
+                className={`w-2 h-2 rounded-full ${connected ? "bg-green-600" : "bg-red-600"
+                  }`}
               ></div>
               <span>{connected ? "Connected" : "Disconnected"}</span>
             </div>
@@ -965,11 +964,10 @@ function LobbyPage() {
                                 category.id
                               )
                             }
-                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${
-                              roomForm.topic_category === category.id
-                                ? `${category.color} border-current`
-                                : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
-                            }`}
+                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${roomForm.topic_category === category.id
+                              ? `${category.color} border-current`
+                              : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                              }`}
                           >
                             {category.label}
                           </button>
@@ -990,11 +988,10 @@ function LobbyPage() {
                             onClick={() =>
                               handleRoomFormChange("cefr_level", level.id)
                             }
-                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${
-                              roomForm.cefr_level === level.id
-                                ? `${level.color} border-current`
-                                : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
-                            }`}
+                            className={`px-3 py-2 text-xs font-medium rounded-full border transition-colors ${roomForm.cefr_level === level.id
+                              ? `${level.color} border-current`
+                              : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                              }`}
                             title={level.description}
                           >
                             {level.label}
@@ -1160,10 +1157,9 @@ function LobbyPage() {
                 <div className="flex items-center space-x-4">
                   {currentRoom?.icon && !currentRoom?.isCustom && (
                     <div
-                      className={`w-12 h-12 ${
-                        predefinedRooms.find((r) => r.id === currentRoom.id)
-                          ?.color
-                      } rounded-full flex items-center justify-center`}
+                      className={`w-12 h-12 ${predefinedRooms.find((r) => r.id === currentRoom.id)
+                        ?.color
+                        } rounded-full flex items-center justify-center`}
                     >
                       {React.createElement(
                         predefinedRooms.find((r) => r.id === currentRoom.id)
@@ -1185,18 +1181,17 @@ function LobbyPage() {
                       {currentRoom?.isCustom
                         ? "Custom Room"
                         : predefinedRooms.find((r) => r.id === currentRoom.id)
-                            ?.description}
+                          ?.description}
                     </p>
 
                     {/* Room Details */}
                     <div className="flex flex-wrap gap-2 mt-2">
                       {currentRoom?.cefr_level && (
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            cefrLevels.find(
-                              (level) => level.id === currentRoom.cefr_level
-                            )?.color
-                          } flex items-center`}
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevels.find(
+                            (level) => level.id === currentRoom.cefr_level
+                          )?.color
+                            } flex items-center`}
                         >
                           <Star className="w-3 h-3 mr-1" />
                           {currentRoom.cefr_level}
@@ -1204,11 +1199,10 @@ function LobbyPage() {
                       )}
                       {currentRoom?.topic_category && (
                         <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            topicCategories.find(
-                              (cat) => cat.id === currentRoom.topic_category
-                            )?.color
-                          }`}
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategories.find(
+                            (cat) => cat.id === currentRoom.topic_category
+                          )?.color
+                            }`}
                         >
                           {
                             topicCategories.find(
@@ -1285,11 +1279,10 @@ function LobbyPage() {
                         </p>
                         <div className="flex items-center space-x-2">
                           <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              participant.role === "speaker"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-blue-100 text-blue-800"
-                            }`}
+                            className={`text-xs px-2 py-1 rounded-full font-medium ${participant.role === "speaker"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-blue-100 text-blue-800"
+                              }`}
                           >
                             {participant.role === "speaker" ? "🎤" : "👂"}
                           </span>
@@ -1351,7 +1344,7 @@ function LobbyPage() {
               <p className="text-gray-600 mb-4">
                 Share this link with others so they can join your discussion room:
               </p>
-              
+
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
                 <div className="flex items-center space-x-2">
                   <input
@@ -1364,11 +1357,10 @@ function LobbyPage() {
                   />
                   <button
                     onClick={copyToClipboard}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      linkCopied
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    }`}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${linkCopied
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
                   >
                     {linkCopied ? (
                       <div className="flex items-center space-x-1">
