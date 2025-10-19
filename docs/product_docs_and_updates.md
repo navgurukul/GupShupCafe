@@ -1,3 +1,62 @@
+## 2025-10-19 17:45 UTC — Join Room Modal with Anonymous Name Input
+
+**Date**: 2025-10-19 17:45 UTC  
+**Type**: Feature | UX Enhancement  
+**Commit Message**: Add anonymous name input modal for joining rooms with backdrop blur
+
+**Changes:**
+- Added modal dialog that appears when user clicks "Join" button on any room
+- Modal displays over the room lobby page with blurred background (`backdrop-blur-sm`)
+- User must enter an anonymous name before joining the room
+- Quick suggestion buttons for commonly used anonymous names
+- Navigation happens immediately to `/lobby/:roomId` but modal overlay prevents interaction
+- After submitting anonymous name, user is registered as participant in backend
+- Anonymous name is used for participant creation via `/participants/` API endpoint
+
+**Technical Details:**
+- New state variables: `showJoinModal`, `pendingRoomData`, `joiningAnonymousName`
+- `handleJoinRoom()` now shows modal and navigates to room URL immediately
+- New `handleJoinSubmit()` function completes the join process after name entry
+- Modal includes:
+  - Text input with placeholder and auto-focus
+  - Six quick suggestion buttons (ThoughtfulMind, KindPerson, etc.)
+  - Cancel button (navigates back to `/lobby`)
+  - Submit button (disabled until name entered)
+  - Enter key support for quick submission
+- Backdrop uses `bg-black bg-opacity-50 backdrop-blur-sm` for visual clarity
+- Anonymous name is sent to backend participant creation API
+
+**User Flow:**
+1. User browses available rooms in main lobby
+2. User clicks "Join" button on desired room
+3. URL changes to `/lobby/:roomId` (content blurred)
+4. Modal appears asking for anonymous name
+5. User enters name or selects suggestion
+6. User clicks "Join Room" or presses Enter
+7. Backend creates participant record with anonymous name
+8. Modal closes and room lobby content becomes interactive
+9. User sees their anonymous name displayed in participant list
+
+**Impact:**
+- Better privacy control - users choose their display name per session
+- Cleaner UX - anonymous name input at the point of joining
+- Consistent with room creation flow which also asks for anonymous name
+- Anonymous name stored with participant record in database
+
+**Files Modified:**
+- `client/src/pages/LobbyPage.jsx` - Added modal state, refactored join logic
+
+**Testing:**
+- ✅ Modal appears on clicking Join button
+- ✅ Navigation to room URL works correctly
+- ✅ Backdrop blur effect applied
+- ✅ Suggested names clickable and populate input
+- ✅ Submit button disabled until name entered
+- ✅ Cancel navigates back to main lobby
+- ✅ Anonymous name sent to backend participant API
+
+---
+
 ## 2025-10-19 14:10 UTC — Room Lobby Routing Update: Dynamic Room URLs
 
 **Date**: 2025-10-19 14:10 UTC  

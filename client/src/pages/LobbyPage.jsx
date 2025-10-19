@@ -164,6 +164,11 @@ function LobbyPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [joinedViaLink, setJoinedViaLink] = useState(false);
 
+  // Join room modal state
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [pendingRoomData, setPendingRoomData] = useState(null);
+  const [joiningAnonymousName, setJoiningAnonymousName] = useState("");
+
   // Check if we're on a room-specific lobby route (any /lobby/:roomId)
   const isInRoomLobby = location.pathname.startsWith("/lobby/") && location.pathname !== "/lobby";
 
@@ -200,7 +205,7 @@ function LobbyPage() {
     // Only fetch if not in a room
     if (!inRoom) {
       loadWaitingRooms();
-      
+
       // Refresh room list every 10 seconds
       const interval = setInterval(loadWaitingRooms, 10000);
       return () => clearInterval(interval);
@@ -345,50 +350,6 @@ function LobbyPage() {
     }
   }, [socket, connected, inRoom, joinRoom, location.search, navigate, location.pathname]);
 
-  // Predefined rooms (kept for backward compatibility and as examples)
-  const predefinedRooms = [
-    {
-      id: "education-b1",
-      name: "Education",
-      icon: BookOpen,
-      color: "bg-blue-500",
-      description: "Discuss educational topics and learning methodologies",
-      cefr_level: "B1",
-      topic_category: "education",
-      max_participants: 6,
-    },
-    {
-      id: "science-technology-b2",
-      name: "Science & Technology",
-      icon: Atom,
-      color: "bg-green-500",
-      description: "Explore the latest in science and tech innovations",
-      cefr_level: "B2",
-      topic_category: "scienceAndTechnology",
-      max_participants: 8,
-    },
-    {
-      id: "literature-c1",
-      name: "Literature",
-      icon: PenTool,
-      color: "bg-purple-500",
-      description: "Share thoughts on books, poetry, and creative writing",
-      cefr_level: "C1",
-      topic_category: "literature",
-      max_participants: 5,
-    },
-    {
-      id: "generative-ai-c2",
-      name: "Generative AI",
-      icon: Brain,
-      color: "bg-orange-500",
-      description: "Discuss AI, machine learning, and future technology",
-      cefr_level: "C2",
-      topic_category: "scienceAndTechnology",
-      max_participants: 4,
-    },
-  ];
-
   // Map backend room data to frontend format
   const mapBackendRoomToFrontend = (backendRoom) => {
     // Map topic category to icon and color
@@ -410,8 +371,8 @@ function LobbyPage() {
     const categoryInfo = categoryMap[backendRoom.topic_category] || { icon: Users, color: "bg-gray-500" };
 
     return {
-      id: backendRoom.room_id,
-      name: backendRoom.room_name,
+      roomId: backendRoom.room_id,
+      room_name: backendRoom.room_name,
       icon: categoryInfo.icon,
       color: categoryInfo.color,
       description: backendRoom.topic_title || `Room for ${backendRoom.topic_category}`,
@@ -420,16 +381,15 @@ function LobbyPage() {
       max_participants: backendRoom.max_participants,
       participant_count: backendRoom.participant_count || 0,
       status: backendRoom.status,
-      created_at: backendRoom.created_at,
-      isBackendRoom: true, // Flag to distinguish from predefined rooms
+      created_at: backendRoom.created_at
     };
   };
 
   // Combine backend rooms with predefined rooms (backend rooms take priority)
-  const allRooms = React.useMemo(() => {
+  const allWaitingRooms = React.useMemo(() => {
     const backendMapped = waitingRooms.map(mapBackendRoomToFrontend);
     // Only show predefined rooms if no backend rooms are available
-    return backendMapped.length > 0 ? backendMapped : predefinedRooms;
+    return backendMapped;
   }, [waitingRooms]);
 
   // Room sharing functions
@@ -519,6 +479,7 @@ function LobbyPage() {
         // Store session_id for later use
         if (sessionResult.status === 'success') {
           sessionStorage.setItem('current_session_id', sessionResult.data)
+          roomData.roomId = sessionResult.data; // Assign generated room ID
 
 
           // Create participant entry
@@ -548,10 +509,10 @@ function LobbyPage() {
 
 
       console.log(`[Lobby][Debug] Generated room data:`, roomData);
-      console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.id}"`);
+      console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.roomId}"`);
 
       // Pass room metadata as third parameter to joinRoom
-      joinRoom(roomData.id, selectedRole, {
+      joinRoom(roomData.roomId, selectedRole, {
         name: roomData.name,
         room_name: roomData.name,
         topic_category: roomData.topic_category,
@@ -563,15 +524,15 @@ function LobbyPage() {
       setShowCreateRoom(false)
 
       // Navigate to room-specific lobby
-      navigate(`/lobby/${roomData.id}?role=${selectedRole}`);
+      navigate(`/lobby/${roomData.roomId}?role=${selectedRole}`);
 
-      console.log(`[Lobby][Debug] Room creation complete, navigating to /lobby/${roomData.id}`);
+      console.log(`[Lobby][Debug] Room creation complete, navigating to /lobby/${roomData.roomId}`);
 
 
       // Automatically show share modal for new room
       setTimeout(() => {
-        console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.id}"`);
-        handleShareRoom(roomData.id);
+        console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.roomId}"`);
+        handleShareRoom(roomData.roomId);
       }, 500);
       // Reset form
       setRoomForm({
@@ -598,125 +559,77 @@ function LobbyPage() {
     }));
   };
 
-  const handleJoinPredefinedRoom = async (room) => {
-    console.log('[Lobby][Debug] Joining room:', room);
+  const handleJoinRoom = async (roomData) => {
+    console.log('[Lobby][Debug] Joining room:', roomData);
+
+    // Store the room data and show modal for anonymous name
+    setPendingRoomData(roomData);
+    setJoiningAnonymousName(""); // Reset the name field
+    setShowJoinModal(true);
+  }
+
+  // New function to handle the actual join after name submission
+  const handleJoinSubmit = async () => {
+    if (!joiningAnonymousName.trim() || !pendingRoomData) return;
+
+    const roomData = pendingRoomData;
 
     // If this is a backend room (already exists in DB), skip creation
-    if (room.isBackendRoom) {
-      console.log('[Lobby][Debug] Joining existing backend room:', room.id);
-      
-      // Load user data from localStorage
-      const storedHostData = JSON.parse(localStorage.getItem('userData'));
-      
-      try {
-        // Create participant entry for the user joining this room
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
-        const participantResponse = await fetch(`${apiUrl}/participants/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: storedHostData?.userId || user?.id || 'guest',
-            room_id: room.id,
-            avatar_color: generateAvatarColor(),
-            anonymous_name: anonymousName,
-            campusOrLocation: null,
-            joined_at: new Date().toISOString(),
-            starting_cefr_level: storedHostData?.currentCefrLevel || 'B1',
-            ending_cefr_level: storedHostData?.currentCefrLevel || 'B1',
-          }),
-        });
+    console.log('[Lobby][Debug] Completing join for room:', roomData.roomId);
 
-        const participantResult = await participantResponse.json();
-        console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
-      } catch (error) {
-        console.error('[Lobby][Debug] Error creating participant for existing room:', error);
-      }
+    // Load user data from localStorage
+    const storedUserData = JSON.parse(localStorage.getItem('userData'));
 
-      // Pass room metadata to joinRoom
-      joinRoom(room.id, selectedRole, {
-        name: room.name,
-        room_name: room.name,
-        topic_category: room.topic_category,
-        cefr_level: room.cefr_level,
-        max_participants: room.max_participants
-      });
-      setCurrentRoom(room);
-      setInRoom(true);
-      navigate(`/lobby/${room.id}?role=${selectedRole}`);
-      return;
-    }
-
-    // Otherwise, create a new room for predefined rooms (backward compatibility)
     try {
-      // Create session in the database for predefined room
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-      const sessionResponse = await fetch(`${apiUrl}/rooms/join`, {
+      // Create participant entry for the user joining this room
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
+      const participantResponse = await fetch(`${apiUrl}/participants/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          room_name: room.name,
-          room_topic: '', // Will be generated later
-          topic_category: room.topic_category,
-          started_at: new Date().toISOString(),
-          ended_at: new Date().toISOString(),
-          rounds_completed: 0,
-          created_at: new Date().toISOString(),
-          cefr_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
+          user_id: storedUserData?.userId,
+          room_id: roomData.roomId,
+          avatar_color: generateAvatarColor(),
+          anonymous_name: joiningAnonymousName,
+          campusOrLocation: null,
+          joined_at: new Date().toISOString(),
+          starting_cefr_level: storedUserData?.currentCefrLevel,
+          ending_cefr_level: storedUserData?.currentCefrLevel,
         }),
-      })
+      });
 
-      const sessionResult = await sessionResponse.json()
-      console.log('[Lobby] Predefined room session created:', sessionResult)
-
-      // Store session_id for later use
-      if (sessionResult.status === 'success') {
-        sessionStorage.setItem('current_session_id', sessionResult.data)
-
-        // Create participant entry
-        const participantResponse = await fetch(`${apiUrl}/participants/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: user?.id || 'guest',
-            session_id: sessionResult.data,
-            anonymous_name: anonymousName,
-            campus: null,
-            location: null,
-            joined_at: new Date().toISOString()
-          }),
-        })
-
-        const participantResult = await participantResponse.json()
-        console.log('[Lobby] Participant created for predefined room:', participantResult)
-      }
+      const participantResult = await participantResponse.json();
+      console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
     } catch (error) {
-      console.error('[Lobby] Error creating session/participant for predefined room:', error)
+      console.error('[Lobby][Debug] Error creating participant for existing room:', error);
     }
 
-    // Pass room metadata as third parameter to joinRoom
-    joinRoom(room.id, selectedRole, {
-      name: room.name,
-      room_name: room.name,
-      topic_category: room.topic_category,
-      cefr_level: room.cefr_level,
-      max_participants: room.max_participants
-    })
-    setCurrentRoom(room)
-    setInRoom(true)
+    // Pass room metadata to joinRoom
+    // joinRoom(roomData.roomId, selectedRole, {
+    //   name: roomData.name,
+    //   room_name: roomData.name,
+    //   topic_category: roomData.topic_category,
+    //   cefr_level: roomData.cefr_level,
+    //   max_participants: roomData.max_participants
+    // });
+    setCurrentRoom(roomData);
+    setInRoom(true);
+    
+    // Close modal and clear pending data
+    setShowJoinModal(false);
+    setPendingRoomData(null);
+    setJoiningAnonymousName("");
 
-    // Navigate to room-specific lobby
-    navigate(`/lobby/${room.id}?role=${selectedRole}`);
+    // Navigate to the room URL immediately (but show modal overlay)
+    navigate(`/lobby/${roomData.roomId}?role=${selectedRole}`);
+
   }
 
   const handleLeaveRoom = () => {
     if (socket) {
-      socket.emit("leave-room", { roomId: currentRoom?.id });
+      socket.emit("leave-room", { roomId: currentRoom?.roomId });
     }
     setCurrentRoom(null);
     setInRoom(false);
@@ -819,7 +732,7 @@ function LobbyPage() {
           name: p.anonymousName,
           role: p.role,
           isReady: p.isReady,
-          id: p.id,
+          id: p.participantId,
           socketId: p.socketId,
         }))
       );
@@ -1197,13 +1110,13 @@ function LobbyPage() {
               <h3 className="text-2xl font-bold text-gray-900 text-center">
                 Available Rooms
               </h3>
-              
+
               {roomsLoading ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600">Loading rooms...</p>
                 </div>
-              ) : allRooms.length === 0 ? (
+              ) : allWaitingRooms.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl">
                   <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-600 text-lg">No rooms available at the moment</p>
@@ -1211,7 +1124,7 @@ function LobbyPage() {
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {allRooms.map((room) => {
+                  {allWaitingRooms.map((room) => {
                     const IconComponent = room.icon;
                     const cefrLevel = cefrLevels.find(
                       (level) => level.id === room.cefr_level
@@ -1222,7 +1135,7 @@ function LobbyPage() {
 
                     return (
                       <div
-                        key={room.id}
+                        key={room.roomId}
                         className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                       >
                         <div className="text-center space-y-4">
@@ -1269,22 +1182,17 @@ function LobbyPage() {
                                 <span>Max: {room.max_participants} participants</span>
                               )}
                             </div>
-                            {room.isBackendRoom && (
-                              <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full inline-block">
-                                Active Room
-                              </div>
-                            )}
                           </div>
 
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => handleJoinPredefinedRoom(room)}
+                              onClick={() => handleJoinRoom(room)}
                               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                             >
                               Join
                             </button>
                             <button
-                              onClick={() => handleShareRoom(room.id)}
+                              onClick={() => handleShareRoom(room.roomId)}
                               className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                               title="Share this room"
                             >
@@ -1308,12 +1216,12 @@ function LobbyPage() {
                 <div className="flex items-center space-x-4">
                   {currentRoom?.icon && !currentRoom?.isCustom && (
                     <div
-                      className={`w-12 h-12 ${predefinedRooms.find((r) => r.id === currentRoom.id)
+                      className={`w-12 h-12 ${allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
                         ?.color
                         } rounded-full flex items-center justify-center`}
                     >
                       {React.createElement(
-                        predefinedRooms.find((r) => r.id === currentRoom.id)
+                        allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
                           ?.icon,
                         { className: "w-6 h-6 text-white" }
                       )}
@@ -1331,7 +1239,7 @@ function LobbyPage() {
                     <p className="text-gray-600">
                       {currentRoom?.isCustom
                         ? "Custom Room"
-                        : predefinedRooms.find((r) => r.id === currentRoom.id)
+                        : allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
                           ?.description}
                     </p>
 
@@ -1340,7 +1248,7 @@ function LobbyPage() {
                       {currentRoom?.cefr_level && (
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevels.find(
-                            (level) => level.id === currentRoom.cefr_level
+                            (level) => level.roomId === currentRoom.cefr_level
                           )?.color
                             } flex items-center`}
                         >
@@ -1377,7 +1285,7 @@ function LobbyPage() {
                 </div>
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => handleShareRoom(currentRoom?.id)}
+                    onClick={() => handleShareRoom(currentRoom?.roomId)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                   >
                     <Share2 size={16} />
@@ -1418,7 +1326,7 @@ function LobbyPage() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {participants.map((participant) => (
                     <div
-                      key={participant.id}
+                      key={participant.participantId}
                       className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg"
                     >
                       <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
@@ -1463,7 +1371,7 @@ function LobbyPage() {
                     if (socket && currentRoom) {
                       console.log(
                         "[Lobby][Debug] Signaling ready for room:",
-                        currentRoom.id
+                        currentRoom.roomId
                       );
                       signalReady();
                       setIsReady(true);
@@ -1561,6 +1469,81 @@ function LobbyPage() {
                 >
                   <Share2 size={16} />
                   <span>Share</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Join Room Modal - Anonymous Name Input */}
+        {showJoinModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                👋 Join the Discussion
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Choose an anonymous name for this session. This name will be visible to other participants.
+              </p>
+
+              {/* Anonymous Name Input */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Anonymous Name for this Session
+                </label>
+                <input
+                  type="text"
+                  value={joiningAnonymousName}
+                  onChange={(e) => setJoiningAnonymousName(e.target.value)}
+                  placeholder="Enter your anonymous display name..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && joiningAnonymousName.trim()) {
+                      handleJoinSubmit();
+                    }
+                  }}
+                  autoFocus
+                />
+
+                {/* Quick Suggestions */}
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2">
+                    Quick suggestions:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedNames.map((name, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setJoiningAnonymousName(name)}
+                        className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-blue-100 hover:text-blue-800 transition-colors border border-gray-200"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setPendingRoomData(null);
+                    setJoiningAnonymousName("");
+                    // Navigate back to main lobby
+                    navigate('/lobby');
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleJoinSubmit}
+                  disabled={!joiningAnonymousName.trim()}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  Join Room
                 </button>
               </div>
             </div>
