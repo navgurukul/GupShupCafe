@@ -1,3 +1,46 @@
+## 2025-10-19 — Join Room Feature Integration with Backend API
+
+**Date**: 2025-10-19 09:15 UTC
+**Type**: Feature | Integration
+**Commit Message**: Integrate Join Room feature with backend API
+
+**Changes:**
+- Integrated frontend LobbyPage with backend waiting rooms API to dynamically display available rooms
+- Added `fetchWaitingRooms()` function in `client/src/services/api.js` to fetch rooms from `GET /rooms/waiting` endpoint
+- Updated `client/src/pages/LobbyPage.jsx` to replace static `predefinedRooms` array with dynamic data from backend
+- Implemented `mapBackendRoomToFrontend()` helper to transform backend room data to frontend format
+- Added auto-refresh mechanism (every 10 seconds) to keep room list up-to-date
+- Enhanced UI with loading states, empty states, and participant count display (e.g., "2 / 6 joined")
+- Added "Active Room" badge to distinguish backend rooms from fallback rooms
+- Updated `handleJoinPredefinedRoom()` to support both backend rooms (existing in DB) and predefined rooms (backward compatibility)
+- Implemented intelligent room detection: backend rooms skip creation step, predefined rooms use legacy flow
+- Preserved existing WebRTC and Socket.io integration for seamless room joining
+
+**Technical Details:**
+- Leveraged existing `GET /rooms/waiting` route from `server_py/src/api/room_routes.py`
+- Used existing `list_rooms_by_status()` service method - no backend changes required
+- Backend rooms identified by `isBackendRoom: true` flag
+- Category-to-icon mapping for visual consistency across room types
+- Graceful error handling with empty array fallback
+
+**Impact:**
+- Users can now see and join actual waiting rooms created by other users
+- Real-time room availability without page refresh
+- Better user experience with participant counts and room status indicators
+- Seamless integration between create room and join room flows
+- Maintains backward compatibility with predefined rooms
+
+**Files Modified:**
+- `client/src/services/api.js` - Added `fetchWaitingRooms()` function
+- `client/src/pages/LobbyPage.jsx` - Dynamic room fetching, mapping, and display logic
+
+**Testing:**
+- ✅ LobbyPage.jsx passes ESLint with no errors
+- ✅ API service follows existing patterns
+- ✅ Backend tests pass (13/14 in test_new_routes_services.py)
+
+---
+
 ## 2025-10-19 — Rooms API: waiting filter
 
 - Added GET `/api/rooms/waiting` FastAPI route to list rooms with `status='waiting'`.
