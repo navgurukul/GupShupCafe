@@ -35,6 +35,12 @@ function App() {
                   </ProtectedRoute>
                 } />
                 
+                <Route path="/room-lobby" element={
+                  <ProtectedRoute>
+                    <LobbyPage />
+                  </ProtectedRoute>
+                } />
+                
                 <Route path="/roundtable" element={
                   <ProtectedRoute>
                     <RoundtablePage />

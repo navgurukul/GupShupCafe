@@ -160,20 +160,20 @@ async def startup_event():
         await db.initialize(db_path)
         
         # Setup Socket.io handlers
-        logger.info("🔌 Setting up Socket.io handlers...")
+        logger.info("Setting up Socket.io handlers...")
         await setup_socket_handlers(sio)
         
-        logger.info(f"🚀 Server starting on port {PORT}")
-        logger.info(f"📡 Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
+        logger.info(f"Server starting on port {PORT}")
+        logger.info(f"Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
         if os.getenv("CORS_ORIGIN") and not os.getenv("ALLOWED_ORIGINS"):
-            logger.info("ℹ️ Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
-        logger.info(f"🌐 Environment: {PYTHON_ENV}")
-        logger.info(f"📊 Health check: http://localhost:{PORT}/health")
+            logger.info("Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
+        logger.info(f"Environment: {PYTHON_ENV}")
+        logger.info(f"Health check: http://localhost:{PORT}/health")
         logger.info("")
-        logger.info("✅ AI Roundtable Discussion Server is ready!")
+        logger.info("AI Roundtable Discussion Server is ready!")
         
     except Exception as error:
-        print(f"❌ Failed to start server: {str(error)}")
+        print(f"Failed to start server: {str(error)}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
@@ -184,7 +184,7 @@ async def shutdown_event():
     """Clean up on server shutdown"""
     print("🛑 Shutting down gracefully...")
     await db.close()
-    print("✅ Server closed")
+    print("Server closed")
 
 
 if __name__ == "__main__":

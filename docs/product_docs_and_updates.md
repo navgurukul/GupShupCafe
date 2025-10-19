@@ -1,6 +1,9 @@
 # Product Documentation & Updates Changelog
 
-This document serves as a living changelog for all product and architectural changes made to the Gup-Shup Café platform. Every significant code update, architectural decision, or feature change should be documented here with a timestamp and informative description.
+This document serves as a living changelog for all product and architectural
+changes made to the Gup-Shup Café platform. Every significant code update,
+architectural decision, or feature change should be documented here with a
+timestamp and informative description.
 
 ---
 
@@ -8,18 +11,44 @@ This document serves as a living changelog for all product and architectural cha
 
 ```
 ### [YYYY-MM-DD HH:MM UTC] - Brief Title
-**Commit**: <commit_hash_or_message>
-**Author**: <name_or_role>
-**Type**: [Architecture | Feature | Bugfix | Documentation | Refactor | Performance]
+
+### [2025-10-18 16:30 UTC] - Limit Max Participants to 6
+**Changes:**
+- Updated frontend dropdown in `LobbyPage.jsx` to show only 2-6 participants instead of 2-10
+- Modified backend default MAX_PARTICIPANTS from 8 to 6 in `routes.py`
+- Updated environment example files (server/.env.example, server_py/.env.example) and production config
+- Added validation constraints in `CreateRoomModel` to enforce 2-6 participants range
+- Ensures consistent capacity limits across client and backend systems
+
+**Commit Message:** Cap max room participants at 6, remove options for 7-10 from UI and enforce server-side validation
+
+### [2025-10-18 17:00 UTC] - Add Route Navigation for Room Lobby
+**Changes:**
+- Added new `/room-lobby` route in `App.jsx` for room waiting area
+- Updated `LobbyPage.jsx` to navigate to `/room-lobby` when creating or joining rooms
+- Added navigation back to `/lobby` when leaving rooms
+- Implemented route detection to automatically show correct view based on URL
+- Added suggested anonymous names feature with 6 professional name options
+- Improved user experience with clear URL structure: `/lobby` → `/room-lobby` → `/roundtable`
+
+**Commit Message:** Implement room lobby routing and add suggested anonymous names feature
+
+```
+
+**Commit**: <commit_hash_or_message> **Author**: <name_or_role> **Type**:
+[Architecture | Feature | Bugfix | Documentation | Refactor | Performance]
 
 **Changes**:
+
 - Detailed description of what changed
 - Why the change was made
 - Impact on the system
 
 **Files Modified**:
+
 - List of key files changed
-```
+
+````
 
 ---
 
@@ -499,8 +528,8 @@ pytest tests/test_new_routes_services.py -v
 
 ### [2025-10-18 14:30 UTC] - MCP Tools Integration with Strands SDK
 
-**Commit**: `Integrate MCP (Model Context Protocol) tools with agents using Strands SDK patterns`  
-**Author**: GitHub Copilot + Vinit Gore  
+**Commit**: `Integrate MCP (Model Context Protocol) tools with agents using Strands SDK patterns`
+**Author**: GitHub Copilot + Vinit Gore
 **Type**: Architecture | Feature | Integration
 
 **Changes**:
@@ -515,7 +544,7 @@ pytest tests/test_new_routes_services.py -v
      - Port 8000, endpoint: `http://localhost:8000/mcp/`
      - Tools: topic_selector, get_next_speaker, validate_turn, initialize_room, analyze_discussion_pulse
      - Supports debate/discussion room management
-  
+
   2. **Grammar Tools** (`server_py/src/mcp/grammar_tools.py`)
      - Port 8001, endpoint: `http://localhost:8001/mcp/`
      - Tools: check_grammar, analyze_vocabulary, detect_fillers, analyze_sentence_structure
@@ -566,8 +595,8 @@ pytest tests/test_new_routes_services.py -v
 
 ### [2025-10-17 18:45 UTC] - Strands Agent Framework Integration with Pluggable LLM Architecture
 
-**Commit**: `Integrate Strands SDK and Bedrock AgentCore for agent-based architecture with model flexibility`  
-**Author**: GitHub Copilot + Vinit Gore  
+**Commit**: `Integrate Strands SDK and Bedrock AgentCore for agent-based architecture with model flexibility`
+**Author**: GitHub Copilot + Vinit Gore
 **Type**: Architecture | Feature | Refactor
 
 **Changes**:
@@ -575,7 +604,7 @@ pytest tests/test_new_routes_services.py -v
   - Replaced custom LLM interface with Strands Agent framework
   - Agents now use Strands' built-in tool system and conversation management
   - Leverages Strands' multi-model support (Gemini, Bedrock, OpenAI, etc.)
-  
+
 - **Created StrandsModelAdapter layer** (`server_py/src/llm/strands_model_adapter.py`)
   - Unified interface for creating Strands-compatible models
   - Supports switching between Gemini and Bedrock via environment variable `LLM_PROVIDER`
@@ -630,20 +659,27 @@ export GEMINI_API_KEY=your_key_here
 export LLM_PROVIDER=bedrock
 export AWS_REGION=us-east-1
 export BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
-```
+````
 
 **Files Modified**:
-- `server_py/requirements.txt` - Added Strands and Bedrock AgentCore dependencies
+
+- `server_py/requirements.txt` - Added Strands and Bedrock AgentCore
+  dependencies
 - `server_py/src/llm/strands_model_adapter.py` - NEW: Model adapter layer
-- `server_py/src/agents/english_feedback_agent.py` - Refactored to use Strands Agent
-- `server_py/src/agents/debate_facilitator_agent.py` - Refactored to use Strands Agent  
-- `server_py/src/agents/aws_strands_orchestrator.py` - Simplified with Strands integration
+- `server_py/src/agents/english_feedback_agent.py` - Refactored to use Strands
+  Agent
+- `server_py/src/agents/debate_facilitator_agent.py` - Refactored to use Strands
+  Agent
+- `server_py/src/agents/aws_strands_orchestrator.py` - Simplified with Strands
+  integration
 - `server_py/src/llm/ai_service_manager.py` - Updated for Strands compatibility
 - `docs/product_docs_and_updates.md` - This documentation
 
 **Migration Notes**:
+
 - Existing code using `AIServiceManager.get_llm()` will continue to work
-- Old `LLMInterface` methods (chat, analyze_english) are deprecated but functional
+- Old `LLMInterface` methods (chat, analyze_english) are deprecated but
+  functional
 - New code should use Strands Agent instances directly via `get_model()`
 - CEFR level determination now happens in agent prompts, not in code logic
 
@@ -651,37 +687,42 @@ export BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
 
 ### [2025-10-17 07:30 UTC] - LLM and Agents Module Testing & Independent Execution
 
-**Commit**: `Add comprehensive tests and __main__ entry points for llm and agents modules`  
+**Commit**:
+`Add comprehensive tests and __main__ entry points for llm and agents modules`  
 **Author**: GitHub Copilot  
 **Type**: Testing | Feature | Documentation
 
 **Changes**:
+
 - **Created comprehensive test suite for LLM module** (`tests/test_llm.py`)
-  - 29 test cases covering LLMInterface, GeminiLLM, BedrockLLM, and AIServiceManager
-  - Tests for initialization, configuration, provider switching, and singleton pattern
+  - 29 test cases covering LLMInterface, GeminiLLM, BedrockLLM, and
+    AIServiceManager
+  - Tests for initialization, configuration, provider switching, and singleton
+    pattern
   - Mock-based tests for fast execution without external API dependencies
   - Integration tests for cross-provider functionality
-  
-- **Created comprehensive test suite for Agents module** (`tests/test_agents.py`)
-  - 36 test cases covering EnglishFeedbackAgent, DebateFacilitatorAgent, and AWSStrandsOrchestrator
+- **Created comprehensive test suite for Agents module**
+  (`tests/test_agents.py`)
+  - 36 test cases covering EnglishFeedbackAgent, DebateFacilitatorAgent, and
+    AWSStrandsOrchestrator
   - Tests for CEFR level determination (all 6 levels: A1-C2)
   - Tests for English analysis (grammar, vocabulary, fluency)
   - Tests for discussion facilitation and orchestration
   - Error handling and integration tests
-  
-- **Added independent execution capability to LLM module** (`src/llm/__main__.py`)
+- **Added independent execution capability to LLM module**
+  (`src/llm/__main__.py`)
   - Supports 5 modes: default, manager, gemini, bedrock, interactive
   - Interactive mode allows real-time testing of LLM providers
   - Commands for provider switching and English text analysis
   - Comprehensive demonstrations of all LLM functionality
-  
-- **Added independent execution capability to Agents module** (`src/agents/__main__.py`)
+- **Added independent execution capability to Agents module**
+  (`src/agents/__main__.py`)
   - Supports 5 modes: default, english, facilitator, orchestrator, interactive
   - Interactive mode for testing agents with natural commands
   - Demonstrates English feedback, facilitation, and orchestration
   - Real-time analysis and feedback generation
-  
-- **Created detailed documentation** (`docs/Miscellaneous/llm_and_agents_testing_guide.md`)
+- **Created detailed documentation**
+  (`docs/Miscellaneous/llm_and_agents_testing_guide.md`)
   - Complete guide for running tests and using independent execution
   - Environment variable configuration
   - Interactive mode usage examples
@@ -689,6 +730,7 @@ export BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
   - Integration with CI/CD guidelines
 
 **Files Modified**:
+
 - `server_py/tests/test_llm.py` (new, 11,923 chars)
 - `server_py/tests/test_agents.py` (new, 18,883 chars)
 - `server_py/src/llm/__main__.py` (new, 8,199 chars)
@@ -696,12 +738,14 @@ export BEDROCK_MODEL_ID=us.amazon.nova-pro-v1:0
 - `docs/Miscellaneous/llm_and_agents_testing_guide.md` (new, 9,410 chars)
 
 **Testing Impact**:
+
 - Total test count increased from 71 to 136 tests (65 new tests)
 - All tests passing (132 passed, 4 skipped)
 - Test execution time: ~0.76 seconds
 - No breaking changes to existing functionality
 
 **Usage Examples**:
+
 ```bash
 # Run new tests
 python -m pytest tests/test_llm.py tests/test_agents.py -v
@@ -722,12 +766,13 @@ python -m src.agents orchestrator
 **Type**: Architecture | Deployment | Documentation
 
 **Changes**:
-- **Created Multi-Stage Dockerfile** for production deployment combining React frontend and Python backend
+
+- **Created Multi-Stage Dockerfile** for production deployment combining React
+  frontend and Python backend
   - Stage 1: Builds React app with Vite (Node.js 18 Alpine)
   - Stage 2: Prepares Python dependencies (Python 3.11 slim)
   - Stage 3: Final production image with frontend static files served by backend
   - Includes health checks, non-root user, and optimized layer caching
-  
 - **AWS ECR Deployment Script** (`deploy-aws.sh`)
   - Authenticates Docker to AWS ECR
   - Creates ECR repository if not exists
@@ -735,7 +780,6 @@ python -m src.agents orchestrator
   - Updates ECS task definition with new image
   - Triggers rolling deployment on Fargate service
   - Waits for service stabilization
-  
 - **AWS Fargate Initial Setup Script** (`setup-fargate.sh`)
   - Creates ECS cluster and CloudWatch log groups
   - Sets up IAM roles for task execution
@@ -743,7 +787,6 @@ python -m src.agents orchestrator
   - Registers ECS task definition with resource limits
   - Creates Fargate service with network configuration
   - Configures health checks and logging
-  
 - **Comprehensive Deployment Guide** (`docs/AWS_DEPLOYMENT.md`)
   - Prerequisites and architecture overview
   - Step-by-step setup and deployment instructions
@@ -753,7 +796,6 @@ python -m src.agents orchestrator
   - Monitoring and troubleshooting guides
   - Cost optimization tips
   - CI/CD integration examples
-  
 - **Docker Optimization**
   - Created `.dockerignore` to reduce build context size
   - Multi-stage build reduces final image size
@@ -761,6 +803,7 @@ python -m src.agents orchestrator
   - Single container deployment simplifies infrastructure
 
 **Technical Details**:
+
 - **Container Resources**: 0.5 vCPU, 1GB RAM (configurable)
 - **Networking**: awsvpc mode with public IP assignment
 - **Port**: Exposes 3003 for HTTP traffic
@@ -769,6 +812,7 @@ python -m src.agents orchestrator
 - **Security**: Runs as non-root user (UID 1000)
 
 **Architecture**:
+
 ```
 React Frontend (Vite) → Static Build → Docker Image
 Python Backend (FastAPI) → Dependencies → Docker Image
@@ -781,6 +825,7 @@ Python Backend (FastAPI) → Dependencies → Docker Image
 ```
 
 **Files Created**:
+
 - `Dockerfile` - Multi-stage production build
 - `.dockerignore` - Build optimization
 - `deploy-aws.sh` - ECR push and Fargate deployment script
@@ -788,10 +833,12 @@ Python Backend (FastAPI) → Dependencies → Docker Image
 - `docs/AWS_DEPLOYMENT.md` - Comprehensive deployment guide
 
 **Scripts Made Executable**:
+
 - `deploy-aws.sh`
 - `setup-fargate.sh`
 
 **Impact**:
+
 - Enables production deployment to AWS Fargate
 - Provides automated CI/CD-ready deployment pipeline
 - Reduces operational overhead with serverless containers
@@ -799,6 +846,7 @@ Python Backend (FastAPI) → Dependencies → Docker Image
 - Ensures consistent deployments across environments
 
 **Usage**:
+
 ```bash
 # Initial setup (first time)
 AWS_ACCOUNT_ID=123456789012 VPC_ID=vpc-xxx SUBNET_IDS=subnet-xxx,subnet-yyy ./setup-fargate.sh
@@ -816,34 +864,48 @@ AWS_ACCOUNT_ID=123456789012 ./deploy-aws.sh
 **Type**: Bugfix (Critical)
 
 **Changes**:
-- **Fixed lobby page participants not showing** - The real root cause was that auth data from client connection was never saved to the session
-- Modified `connect` event handler in `socket_handlers.py` to save auth data using `sio.save_session()`
-- This ensures that when `join_room` is called, it can retrieve the user's authentication information
+
+- **Fixed lobby page participants not showing** - The real root cause was that
+  auth data from client connection was never saved to the session
+- Modified `connect` event handler in `socket_handlers.py` to save auth data
+  using `sio.save_session()`
+- This ensures that when `join_room` is called, it can retrieve the user's
+  authentication information
 
 **Root Cause Analysis**:
-1. Client sends auth data (`userId`, `name`, `campus`, `location`, `anonymousName`) during socket connection
-2. Server's `connect` handler received the auth data but never saved it to the session
-3. When `join_room` was called later, it tried to get the session with `await sio.get_session(sid)`
-4. Since auth data was never saved, the session was empty, causing the fallback logic to fail
-5. Result: User data was incomplete/invalid, preventing participant from being added to room
+
+1. Client sends auth data (`userId`, `name`, `campus`, `location`,
+   `anonymousName`) during socket connection
+2. Server's `connect` handler received the auth data but never saved it to the
+   session
+3. When `join_room` was called later, it tried to get the session with
+   `await sio.get_session(sid)`
+4. Since auth data was never saved, the session was empty, causing the fallback
+   logic to fail
+5. Result: User data was incomplete/invalid, preventing participant from being
+   added to room
 
 **Fix**:
+
 ```python
 @sio.event
 async def connect(sid, environ, auth):
     """Handle client connection"""
     print(f"[Backend] Socket connected: {sid}")
     print(f"[Backend] Handshake auth: {auth}")
-    
+
     # Save auth data to session so it can be retrieved in join_room
     if auth:
         await sio.save_session(sid, {'auth': auth})
 ```
 
 **Files Modified**:
-- `server_py/src/socket/socket_handlers.py` - Added session save in connect handler
+
+- `server_py/src/socket/socket_handlers.py` - Added session save in connect
+  handler
 
 **Testing**:
+
 - All 67 tests pass (4 skipped)
 - Verified session data is now available in join_room handler
 
@@ -854,24 +916,37 @@ async def connect(sid, environ, auth):
 **Type**: Bugfix
 
 **Changes**:
-- **Fixed lobby page connection issue** where the page was stuck at 'Waiting' status and 'Connecting to lobby' state
-- Modified `user_ready` event handler in `socket_handlers.py` to handle cases where client emits the event without data
-- The handler now extracts user information from the room using socket ID instead of requiring it in the data parameter
+
+- **Fixed lobby page connection issue** where the page was stuck at 'Waiting'
+  status and 'Connecting to lobby' state
+- Modified `user_ready` event handler in `socket_handlers.py` to handle cases
+  where client emits the event without data
+- The handler now extracts user information from the room using socket ID
+  instead of requiring it in the data parameter
 - Maintains backward compatibility with clients that do send data
 - Added comprehensive test coverage for the user_ready event handler
 
 **Root Cause**:
-- Client's `SocketContext.jsx` emits `'user-ready'` event without any data (line 137)
-- Python backend's `user_ready` handler expected `data.get("userId")` which would fail when data is None
-- This prevented users from being marked as ready, blocking the lobby from proceeding
+
+- Client's `SocketContext.jsx` emits `'user-ready'` event without any data
+  (line 137)
+- Python backend's `user_ready` handler expected `data.get("userId")` which
+  would fail when data is None
+- This prevented users from being marked as ready, blocking the lobby from
+  proceeding
 
 **Files Modified**:
-- `server_py/src/socket/socket_handlers.py` - Fixed user_ready handler to accept optional data parameter
-- `server_py/tests/test_socket_handlers.py` - Added 5 new test cases for user_ready event
+
+- `server_py/src/socket/socket_handlers.py` - Fixed user_ready handler to accept
+  optional data parameter
+- `server_py/tests/test_socket_handlers.py` - Added 5 new test cases for
+  user_ready event
 
 **Testing**:
+
 - All 67 tests pass (including 5 new tests for socket handlers)
-- Tested scenarios: no data, with data, setting ready to false, no room found, discussion start trigger
+- Tested scenarios: no data, with data, setting ready to false, no room found,
+  discussion start trigger
 
 ### [2025-10-16 17:40 UTC] - Frontend-Backend Integration: Socket Event Handlers & Timer Management
 
@@ -880,17 +955,22 @@ async def connect(sid, environ, auth):
 **Type**: Feature | Integration | Architecture
 
 **Changes**:
-- **Implemented Complete Socket.io Event Flow** per UML Communication Diagram (`14-communication-diagram-events.puml`):
-  
+
+- **Implemented Complete Socket.io Event Flow** per UML Communication Diagram
+  (`14-communication-diagram-events.puml`):
+
   **Backend Event Handlers Added**:
-  - `webrtc-offer`, `webrtc-answer`, `webrtc-ice-candidate`: Relay WebRTC signaling between peers
+
+  - `webrtc-offer`, `webrtc-answer`, `webrtc-ice-candidate`: Relay WebRTC
+    signaling between peers
   - `speech-transcript`: Save transcripts to database with session tracking
   - `end-turn`: Handle manual turn ending with timer cancellation
   - `next-speaker`: Alias for end-turn (manual progression)
   - `leave-room`: Proper cleanup when user leaves
   - `ready-for-webrtc`: Notify peers when client is ready for connections
-  
+
   **Backend Event Emissions Fixed**:
+
   - `participant-joined`: Emit when user joins (not just participants-update)
   - `participant-left`: Emit with proper participant details
   - `turn-started`: Include speaker details and timer duration
@@ -900,6 +980,7 @@ async def connect(sid, environ, auth):
   - `timer-warning`: Alert when 10 seconds remaining
 
 - **Implemented Async Timer Management System**:
+
   - Created `TimerManager` class (`server_py/src/socket/timer_manager.py`)
   - Async task-based timers using `asyncio.create_task()`
   - Automatic turn progression when timer expires
@@ -908,12 +989,14 @@ async def connect(sid, environ, auth):
   - Integrated with `check_and_start_discussion()` and `end_turn()` handlers
 
 - **Fixed Backend Model Usage**:
+
   - Updated `disconnect` handler to use `Room` model methods
   - Updated `join_room` handler to use `Room` model methods
   - Fixed `check_and_start_discussion` to properly use Room/Participant objects
   - Ensured all handlers serialize objects correctly for emission
 
 - **Enhanced Frontend Event Listeners** (`client/src/pages/RoundtablePage.jsx`):
+
   - `turn-started`: Update current speaker and timer, enable/disable mic
   - `turn-ended`: Prepare for next speaker
   - `timer-warning`: Show countdown warning notification
@@ -928,28 +1011,36 @@ async def connect(sid, environ, auth):
   - Auto-dismissing notifications
 
 **Why**:
-- Align implementation with UML sequence diagrams (`05-sequence-user-join-discussion.puml`)
+
+- Align implementation with UML sequence diagrams
+  (`05-sequence-user-join-discussion.puml`)
 - Ensure proper real-time synchronization between frontend and backend
 - Implement turn-based discussion flow as designed
 - Provide visual feedback for timer and turn progression
 - Match event naming conventions from UML diagrams
 
 **Impact**:
+
 - ✅ Complete socket event flow implemented per UML specs
 - ✅ Turn-based discussion lifecycle fully functional
 - ✅ Automatic timer management with warnings
 - ✅ Proper WebRTC signaling relay (ready for audio testing)
 - ✅ Speech transcript persistence enabled
 - ✅ Frontend responds to all backend events
-- ⏳ Ready for LLM feedback integration (`english-feedback`, `session-summary` events)
+- ⏳ Ready for LLM feedback integration (`english-feedback`, `session-summary`
+  events)
 - ⏳ Needs end-to-end integration testing
 
 **Files Modified**:
+
 - `server_py/src/socket/timer_manager.py` (new): Async timer management
-- `server_py/src/socket/socket_handlers.py`: Added 7 new event handlers, fixed 3 existing
-- `client/src/pages/RoundtablePage.jsx`: Added 6 new event listeners, system notifications
+- `server_py/src/socket/socket_handlers.py`: Added 7 new event handlers, fixed 3
+  existing
+- `client/src/pages/RoundtablePage.jsx`: Added 6 new event listeners, system
+  notifications
 
 **Technical Details**:
+
 - Timer uses `asyncio.create_task()` for non-blocking countdown
 - Timer callbacks: `on_tick`, `on_warning` (10s), `on_complete`
 - Proper task cancellation to prevent memory leaks
@@ -957,6 +1048,7 @@ async def connect(sid, environ, auth):
 - Turn progression: current_speaker_index → advance_turn() → emit turn-started
 
 **Next Steps**:
+
 1. Test WebRTC audio signaling flow end-to-end
 2. Verify speech transcription saves to database
 3. Integrate LLM agents for `english-feedback` and `session-summary` events
@@ -965,6 +1057,7 @@ async def connect(sid, environ, auth):
 6. Update API documentation with new socket events
 
 **Testing Checklist**:
+
 - [ ] User join and participants-update works
 - [ ] Ready check and discussion start works
 - [ ] First speaker receives turn-started
@@ -981,44 +1074,56 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-16 16:30 UTC] - Backend Refactor: Implemented UML-Based Architecture
 
-**Commit**: `Implement data models and LLM infrastructure based on UML diagrams`  
+**Commit**:
+`Implement data models and LLM infrastructure based on UML diagrams`  
 **Author**: GitHub Copilot  
 **Type**: Refactor | Architecture
 
 **Changes**:
+
 - **Implemented proper data models** following the UML class diagram:
+
   - Created `RoomStatus` and `ParticipantRole` enums for type safety
   - Implemented `Participant` class replacing dictionary-based participant data
   - Implemented `Room` class with full state management and turn-based logic
   - Added `to_dict()` and `from_dict()` methods for API compatibility
 
 - **Refactored RoomManager** to use proper classes:
+
   - Changed from `Dict[str, Dict]` to `Dict[str, Room]`
   - All methods updated to work with Room and Participant objects
   - Improved type safety and code clarity
   - Maintained backward compatibility via serialization methods
 
 - **Implemented LLM Infrastructure** (Strategy + Factory patterns):
+
   - Created `LLMInterface` abstract base class
   - Implemented `GeminiLLM` (Google Gemini provider with placeholder)
   - Implemented `BedrockLLM` (AWS Bedrock provider with placeholder)
   - Created `AIServiceManager` factory for managing LLM providers
 
 - **Implemented AI Agents** (Orchestrator pattern):
-  - `EnglishFeedbackAgent`: Analyzes English proficiency with CEFR levels (A1-C2)
+
+  - `EnglishFeedbackAgent`: Analyzes English proficiency with CEFR levels
+    (A1-C2)
   - `DebateFacilitatorAgent`: Manages discussion flow and provides guidance
-  - `AWSStrandsOrchestrator`: Coordinates multiple agents for comprehensive feedback
+  - `AWSStrandsOrchestrator`: Coordinates multiple agents for comprehensive
+    feedback
 
 - **Updated Tests**: All 62 tests passing, 4 skipped (analytics)
-- **Updated API Routes**: `get_room_state()` endpoint works with new Room objects
+- **Updated API Routes**: `get_room_state()` endpoint works with new Room
+  objects
 
 **Why**:
-- Match the planned architecture defined in UML diagrams (`docs/diagrams/plan/uml/`)
+
+- Match the planned architecture defined in UML diagrams
+  (`docs/diagrams/plan/uml/`)
 - Improve code maintainability with proper OOP structure
 - Enable future AI-powered features (English feedback, facilitation)
 - Better type safety and IDE support
 
 **Impact**:
+
 - ✅ All existing functionality preserved
 - ✅ API responses maintain same structure (backward compatible)
 - ✅ Foundation laid for LLM-powered features
@@ -1026,15 +1131,19 @@ async def connect(sid, environ, auth):
 - ✅ Follows SOLID principles and design patterns
 
 **Files Modified**:
+
 - `server_py/src/models/` (new): enums.py, participant.py, room.py
-- `server_py/src/llm/` (new): llm_interface.py, gemini_llm.py, bedrock_llm.py, ai_service_manager.py
-- `server_py/src/agents/` (new): english_feedback_agent.py, debate_facilitator_agent.py, aws_strands_orchestrator.py
+- `server_py/src/llm/` (new): llm_interface.py, gemini_llm.py, bedrock_llm.py,
+  ai_service_manager.py
+- `server_py/src/agents/` (new): english_feedback_agent.py,
+  debate_facilitator_agent.py, aws_strands_orchestrator.py
 - `server_py/src/socket/room_manager.py` (refactored)
 - `server_py/src/api/routes.py` (updated)
 - `server_py/tests/test_room_manager.py` (updated)
 - `docs/Miscellaneous/BACKEND_REFACTOR_SUMMARY.md` (new)
 
 **Next Steps**:
+
 - Integrate LLM agents with socket handlers for real-time feedback
 - Implement actual Gemini and Bedrock API integrations
 - Add comprehensive tests for LLM components
@@ -1043,28 +1152,37 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-16 15:08 UTC] - Migrated UML Diagrams to WSD Format (PlantUML 1.2025.3)
 
-**Commit**: `Migrate all PlantUML diagrams from .puml to .wsd format for PlantUML 1.2025.3`  
+**Commit**:
+`Migrate all PlantUML diagrams from .puml to .wsd format for PlantUML 1.2025.3`  
 **Author**: Copilot (addressing @Vinit-source feedback)  
 **Type**: Documentation | Migration
 
 **Changes**:
+
 - **Migrated all 14 PlantUML files** from `.puml` to `.wsd` format:
+
   - Renamed 01-component-diagram.puml → 01-component-diagram.wsd
   - Renamed 02-deployment-diagram.puml → 02-deployment-diagram.wsd
   - Renamed 03-class-diagram-backend.puml → 03-class-diagram-backend.wsd
   - Renamed 04-class-diagram-frontend.puml → 04-class-diagram-frontend.wsd
-  - Renamed 05-sequence-user-join-discussion.puml → 05-sequence-user-join-discussion.wsd
+  - Renamed 05-sequence-user-join-discussion.puml →
+    05-sequence-user-join-discussion.wsd
   - Renamed 06-sequence-webrtc-audio.puml → 06-sequence-webrtc-audio.wsd
-  - Renamed 07-sequence-llm-agent-interaction.puml → 07-sequence-llm-agent-interaction.wsd
-  - Renamed 08-sequence-english-feedback-flow.puml → 08-sequence-english-feedback-flow.wsd
-  - Renamed 09-activity-discussion-lifecycle.puml → 09-activity-discussion-lifecycle.wsd
+  - Renamed 07-sequence-llm-agent-interaction.puml →
+    07-sequence-llm-agent-interaction.wsd
+  - Renamed 08-sequence-english-feedback-flow.puml →
+    08-sequence-english-feedback-flow.wsd
+  - Renamed 09-activity-discussion-lifecycle.puml →
+    09-activity-discussion-lifecycle.wsd
   - Renamed 10-state-room-management.puml → 10-state-room-management.wsd
   - Renamed 11-usecase-diagram.puml → 11-usecase-diagram.wsd
   - Renamed 12-er-diagram-database.puml → 12-er-diagram-database.wsd
   - Renamed 13-package-diagram-frontend.puml → 13-package-diagram-frontend.wsd
-  - Renamed 14-communication-diagram-events.puml → 14-communication-diagram-events.wsd
+  - Renamed 14-communication-diagram-events.puml →
+    14-communication-diagram-events.wsd
 
 - **Updated all documentation references**:
+
   - Updated README.md to reference .wsd files
   - Updated IMPLEMENTATION_SUMMARY.md
   - Updated product_docs_and_updates.md (this file)
@@ -1076,20 +1194,25 @@ async def connect(sid, environ, auth):
   - All diagrams compatible with PlantUML 1.2025.3
 
 **Impact**:
+
 - **Standard Format**: `.wsd` is the standard PlantUML file extension
 - **Version Clarity**: Explicitly specifies PlantUML 1.2025.3 for consistency
 - **Better Compatibility**: WSD format recognized by more tools and IDEs
-- **Maintained Functionality**: All diagram content unchanged, only file extension updated
+- **Maintained Functionality**: All diagram content unchanged, only file
+  extension updated
 
 **Files Renamed** (14 files):
+
 - All `.puml` files in `docs/diagrams/plan/uml/` → `.wsd`
 
 **Files Modified** (3 files):
+
 - `docs/diagrams/plan/uml/README.md`
 - `docs/diagrams/plan/IMPLEMENTATION_SUMMARY.md`
 - `docs/product_docs_and_updates.md`
 
 **Technical Details**:
+
 - **PlantUML Version**: 1.2025.3 (explicitly specified)
 - **File Format**: .wsd (standard PlantUML extension)
 - **Syntax**: Modern PlantUML with `!theme plain` directive
@@ -1099,11 +1222,13 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-16 14:47 UTC] - Updated UML Diagrams to Latest PlantUML Version
 
-**Commit**: `Update all UML diagrams to use latest PlantUML syntax and features`  
+**Commit**:
+`Update all UML diagrams to use latest PlantUML syntax and features`  
 **Author**: Copilot (addressing @Vinit-source feedback)  
 **Type**: Documentation | Enhancement
 
 **Changes**:
+
 - **Updated all 14 PlantUML diagrams** to use latest PlantUML version syntax:
   - Replaced deprecated `!define` macros with modern alternatives
   - Added `!theme plain` directive for consistent theming
@@ -1112,19 +1237,17 @@ async def connect(sid, environ, auth):
   - Added custom font settings (Arial) for better readability
   - Enhanced arrow colors and thickness for better visibility
   - Improved stereotype-based styling for component categorization
-  
 - **Modern Color Schemes**:
   - Frontend components: Blue tones (#E3F2FD background, #1976D2 border)
   - Backend components: Green tones (#E8F5E9 background, #388E3C border)
   - AI/LLM components: Yellow tones (#FFF9C4 background, #F57C00 border)
   - Infrastructure: Grey tones (#ECEFF1 background, #546E7A border)
-  
 - **Enhanced Styling Features**:
   - `skinparam shadowing false` - Cleaner, flat design
   - `skinparam defaultFontName Arial` - Better readability
   - `skinparam defaultFontSize 11` - Optimal viewing size
-  - Stereotype-based coloring using `<<frontend>>`, `<<backend>>`, `<<ai>>`, `<<infrastructure>>`
-  
+  - Stereotype-based coloring using `<<frontend>>`, `<<backend>>`, `<<ai>>`,
+    `<<infrastructure>>`
 - **Updated README.md** with:
   - Information about latest PlantUML version usage
   - Details on modern features implemented
@@ -1132,13 +1255,16 @@ async def connect(sid, environ, auth):
   - Enhanced color scheme documentation
 
 **Impact**:
-- **Better Visual Quality**: Modern color schemes provide better contrast and readability
+
+- **Better Visual Quality**: Modern color schemes provide better contrast and
+  readability
 - **Consistency**: All diagrams now use consistent styling approach
 - **Maintainability**: Latest syntax is more maintainable and future-proof
 - **Professional Look**: Cleaner, modern appearance without shadows
 - **Better Rendering**: Improved compatibility with latest PlantUML renderers
 
 **Files Modified**:
+
 - `docs/diagrams/plan/uml/01-component-diagram.wsd`
 - `docs/diagrams/plan/uml/02-deployment-diagram.wsd`
 - `docs/diagrams/plan/uml/03-class-diagram-backend.wsd`
@@ -1156,6 +1282,7 @@ async def connect(sid, environ, auth):
 - `docs/diagrams/plan/uml/README.md`
 
 **Technical Details**:
+
 - **PlantUML Version**: Latest (uses modern `!theme` directive)
 - **Deprecated Features Removed**: `!define` macros replaced with inline styling
 - **Color Format**: Hex colors for precise control (#RRGGBB)
@@ -1165,34 +1292,47 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-16 12:45 UTC] - Updated to AWS Fargate & Created MVP Plan UML Diagrams
 
-**Commit**: `Update EC2 to AWS Fargate and create comprehensive MVP plan UML diagrams`  
+**Commit**:
+`Update EC2 to AWS Fargate and create comprehensive MVP plan UML diagrams`  
 **Author**: Copilot  
 **Type**: Architecture | Documentation
 
 **Changes**:
-- **Updated product_system_design.md**: Replaced all EC2 references with AWS Fargate
+
+- **Updated product_system_design.md**: Replaced all EC2 references with AWS
+  Fargate
   - Changed deployment architecture from EC2 instances to Fargate containers
-  - Updated from EBS (Elastic Block Storage) to EFS (Elastic File System) for persistent storage
+  - Updated from EBS (Elastic Block Storage) to EFS (Elastic File System) for
+    persistent storage
   - Removed SSH access requirement (no longer needed with containers)
   - Updated security group configuration (ALB only access)
   - Modified cost estimates: $25-35/month for MVP with Fargate
   - Added Application Load Balancer (ALB) details for routing
   - Updated CloudWatch monitoring for Fargate metrics
   - Changed DNS routing to point to ALB instead of Elastic IP
-  
 - **Created 14 comprehensive PlantUML diagrams** in `docs/diagrams/plan/uml/`:
-  1. **Component Diagram**: System architecture with server_py and AWS Strands Multi-Agent System
+
+  1. **Component Diagram**: System architecture with server_py and AWS Strands
+     Multi-Agent System
   2. **Deployment Diagram**: AWS Fargate/ECS, ALB, EFS, VPC, and cloud services
-  3. **Class Diagram - Backend**: FastAPI, RoomManager, LLM agents, database service
-  4. **Class Diagram - Frontend**: React components, contexts, hooks, and data models
-  5. **Sequence Diagram - User Join & Discussion**: Complete user flow from login to summary
-  6. **Sequence Diagram - WebRTC Audio**: P2P audio connection setup and management
-  7. **Sequence Diagram - LLM Agent Interaction**: AWS Strands orchestration and feedback
-  8. **Sequence Diagram - English Feedback Flow**: Real-time feedback modal (2-3s target)
-  9. **Activity Diagram - Discussion Lifecycle**: Full activity flow with rounds and turns
+  3. **Class Diagram - Backend**: FastAPI, RoomManager, LLM agents, database
+     service
+  4. **Class Diagram - Frontend**: React components, contexts, hooks, and data
+     models
+  5. **Sequence Diagram - User Join & Discussion**: Complete user flow from
+     login to summary
+  6. **Sequence Diagram - WebRTC Audio**: P2P audio connection setup and
+     management
+  7. **Sequence Diagram - LLM Agent Interaction**: AWS Strands orchestration and
+     feedback
+  8. **Sequence Diagram - English Feedback Flow**: Real-time feedback modal
+     (2-3s target)
+  9. **Activity Diagram - Discussion Lifecycle**: Full activity flow with rounds
+     and turns
   10. **State Diagram - Room Management**: Room state machine and transitions
   11. **Use Case Diagram**: 60+ MVP use cases with actor interactions
-  12. **ER Diagram - Database Schema**: Complete SQLite schema with relationships
+  12. **ER Diagram - Database Schema**: Complete SQLite schema with
+      relationships
   13. **Package Diagram - Frontend**: React code organization and dependencies
   14. **Communication Diagram - Events**: Socket.io real-time event flow
 
@@ -1204,18 +1344,17 @@ async def connect(sid, environ, auth):
   - Diagram statistics and maintenance guidelines
 
 **Impact**:
+
 - **Infrastructure**: Migration path from EC2 to serverless Fargate containers
   - Better scalability with auto-scaling based on CPU/memory
   - Reduced operational overhead (no server management)
   - Simplified deployment with ECS task definitions
   - Shared storage via EFS for SQLite database
-  
 - **Architecture Documentation**: Complete visual documentation of MVP plan
   - 14 detailed UML diagrams covering all architectural aspects
   - Focus on server_py (Python FastAPI) as primary backend
   - AWS Strands Multi-Agent System for LLM functionality
   - Clear separation between MVP and post-MVP features
-  
 - **Developer Experience**:
   - Visual reference for implementation
   - Better understanding of system interactions
@@ -1223,6 +1362,7 @@ async def connect(sid, environ, auth):
   - Easy to update and maintain
 
 **Files Modified**:
+
 - `docs/Architectural Conversations/product_system_design.md`
 - `docs/diagrams/plan/uml/01-component-diagram.wsd`
 - `docs/diagrams/plan/uml/02-deployment-diagram.wsd`
@@ -1242,7 +1382,9 @@ async def connect(sid, environ, auth):
 - `docs/product_docs_and_updates.md` (this file)
 
 **Technical Details**:
+
 - **Fargate Configuration**:
+
   - Task CPU: 0.5 vCPU (scalable)
   - Task Memory: 1 GB
   - Container Port: 3003
@@ -1250,6 +1392,7 @@ async def connect(sid, environ, auth):
   - Auto-scaling: 1-4 tasks based on CPU
 
 - **EFS Configuration**:
+
   - Mount path: /mnt/efs
   - SQLite database location: /mnt/efs/data/roundtable.db
   - Shared across all Fargate tasks
@@ -1262,6 +1405,7 @@ async def connect(sid, environ, auth):
   - SSL/TLS via ACM
 
 **Next Steps**:
+
 - Generate diagram images (PNG/SVG) for documentation
 - Implement Dockerfile for Fargate deployment
 - Create ECS task definition
@@ -1272,13 +1416,16 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-15 19:06 UTC] - Added Data Models and Architecture Clarifications
 
-**Commit**: `docs: add comprehensive data models and clarify architecture connections`  
+**Commit**:
+`docs: add comprehensive data models and clarify architecture connections`  
 **Author**: Copilot (addressing @Vinit-source feedback)  
 **Type**: Documentation | Architecture
 
 **Changes**:
+
 - **Added Section 2.3: Complete Data Models** (400+ lines)
-  - User Model with CEFR progress tracking (A0-C2 levels, including A0 for pre-beginners)
+  - User Model with CEFR progress tracking (A0-C2 levels, including A0 for
+    pre-beginners)
   - Session Model for discussion management
   - Participant Model for real-time state
   - Transcript Model for speech records
@@ -1302,14 +1449,19 @@ async def connect(sid, environ, auth):
   - Expanded data persistence scope
 
 **Key Features of Data Models**:
-1. **CEFR Progress Tracking**: Complete A0-C2 scale with A0 for beginners not yet at A1
+
+1. **CEFR Progress Tracking**: Complete A0-C2 scale with A0 for beginners not
+   yet at A1
 2. **Topic Interests**: Stored for future lobby matching (not MVP feature)
-3. **Comprehensive Feedback Storage**: Grammar, vocabulary, fluency with detailed issues and suggestions
+3. **Comprehensive Feedback Storage**: Grammar, vocabulary, fluency with
+   detailed issues and suggestions
 4. **Progress Aggregation**: Trends, milestones, and improvement areas
 5. **Real-Time State**: Socket IDs, speaking status, connection quality
-6. **Future-Ready**: Data model supports lobby matching feature for future versions
+6. **Future-Ready**: Data model supports lobby matching feature for future
+   versions
 
 **CEFR Levels Defined**:
+
 - A0: Pre-A1, complete beginner (Overall < 3.0)
 - A1: Beginner (3.0-4.5)
 - A2: Elementary (4.5-5.5)
@@ -1319,12 +1471,14 @@ async def connect(sid, environ, auth):
 - C2: Proficient (9.5-10.0)
 
 **Architecture Clarifications**:
+
 - AWS Strands Multi-Agent System connects directly to Server Layer
 - FastAPI endpoints call orchestrator methods
 - Private Socket.io channels deliver feedback to individual users
 - Database stores all feedback and progress for longitudinal analysis
 
 **Files Modified**:
+
 - `docs/Architectural Conversations/product_system_design.md`
   - Added Section 2.3: Data Models (6 subsections, 400+ lines)
   - Updated Section 2.1: Client Layer (added User Data display)
@@ -1332,13 +1486,17 @@ async def connect(sid, environ, auth):
   - Clarified AWS Strands → Server connection in diagram
 
 **Impact**:
+
 - **Clear Data Structure**: Complete data models guide implementation
 - **CEFR Progress Tracking**: Users can see their English improvement over time
 - **Future-Ready Architecture**: Data model supports lobby matching when needed
-- **Privacy by Design**: Feedback model supports private delivery to individual users
-- **Comprehensive Analytics**: Progress model enables detailed improvement tracking
+- **Privacy by Design**: Feedback model supports private delivery to individual
+  users
+- **Comprehensive Analytics**: Progress model enables detailed improvement
+  tracking
 
 **Next Steps for Implementation**:
+
 - Day 1: Implement User and Session models with SQLite/MongoDB
 - Day 1: Add CEFR level calculation logic to EnglishFeedbackAgent
 - Day 2: Implement Feedback storage with instant and comprehensive modes
@@ -1349,18 +1507,20 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-15 17:50 UTC] - Added AWS Strands Multi-Agent System & AgentCore Integration
 
-**Commit**: `feat: integrate AWS Strands multi-agent system with AgentCore deployment`  
+**Commit**:
+`feat: integrate AWS Strands multi-agent system with AgentCore deployment`  
 **Author**: Copilot (addressing @Vinit-source feedback)  
 **Type**: Architecture | Documentation
 
 **Changes**:
+
 - **Added AWS Strands Multi-Agent System** as core innovation for MVP
   - EnglishFeedbackAgent: Real-time grammar, vocabulary, fluency analysis
   - Debate Facilitator Agent: Turn management and discussion flow
   - Multi-Agent Orchestrator: Coordinates agents and feedback delivery
 - **Added AWS AgentCore wrapper** for production deployment
   - Runtime environment configuration
-  - Identity and permissions management  
+  - Identity and permissions management
   - Internet access for LLM APIs
   - Logging and monitoring integration
 - **Enhanced English Feedback Modal** (separate from SpeechToText tab)
@@ -1370,52 +1530,71 @@ async def connect(sid, environ, auth):
   - Agent gently mentions feedback in conversation
 - **Updated architecture diagrams** to show multi-agent flow
 - **Added code examples** from requirements:
+
   ```python
   # Instant feedback (2-3s)
   orchestrator.get_english_feedback(recent_statements, instant=True)
-  
+
   # Comprehensive feedback
   orchestrator.get_english_feedback(all_statements, instant=False)
   ```
+
 - **Added example feedback output**:
+
   ```
   [Alice]: I thinks AI will replace many jobs.
-  
+
   📝 Grammar Feedback:
   ⚠ Suggestion: "I thinks" should be "I think" (subject-verb agreement).
   The rest of your statement is clear and well-structured.
   ```
 
 **Key Architectural Updates**:
-1. **Multi-Agent Orchestration**: AWS Strands coordinates specialized agents for better feedback quality
-2. **Two Feedback Modes**: 
+
+1. **Multi-Agent Orchestration**: AWS Strands coordinates specialized agents for
+   better feedback quality
+2. **Two Feedback Modes**:
    - Instant (2-3s): Quick analysis during speaking for real-time UI
    - Comprehensive: Detailed analysis with progress tracking at end
-3. **Private Feedback Channel**: English Feedback Modal separate from public SpeechToText
-4. **Gentle Agent Mentions**: AI agent subtly mentions feedback in conversation without being intrusive
-5. **AgentCore Deployment**: Production-ready wrapper with runtime, identity, and access management
+3. **Private Feedback Channel**: English Feedback Modal separate from public
+   SpeechToText
+4. **Gentle Agent Mentions**: AI agent subtly mentions feedback in conversation
+   without being intrusive
+5. **AgentCore Deployment**: Production-ready wrapper with runtime, identity,
+   and access management
 
 **Files Modified**:
+
 - `docs/Architectural Conversations/product_system_design.md`
-  - Updated Section 1.1: MVP Feature Prioritization (added AWS Strands, AgentCore, English Feedback Modal)
-  - Updated Section 2.1: High-Level System Architecture (added multi-agent layer in diagram)
-  - Updated Section 2.2: Data Flow Sequence (detailed multi-agent interaction with example)
+  - Updated Section 1.1: MVP Feature Prioritization (added AWS Strands,
+    AgentCore, English Feedback Modal)
+  - Updated Section 2.1: High-Level System Architecture (added multi-agent layer
+    in diagram)
+  - Updated Section 2.2: Data Flow Sequence (detailed multi-agent interaction
+    with example)
   - Updated Section 3.1: Design Principles (added multi-agent orchestration)
   - Updated Section 3.2: Architecture (added AWS Strands orchestrator diagram)
   - Added Section 3.6: AWS Strands Multi-Agent Orchestrator (470+ lines)
-    - 3.6.1: Orchestrator Implementation (Python class with instant/comprehensive modes)
+    - 3.6.1: Orchestrator Implementation (Python class with
+      instant/comprehensive modes)
     - 3.6.2: English Feedback Modal (React component)
     - 3.6.3: Integration with AWS AgentCore (deployment configuration)
-  - Updated Section 4.1: AWS Cloud Architecture (added AgentCore in infrastructure diagram)
+  - Updated Section 4.1: AWS Cloud Architecture (added AgentCore in
+    infrastructure diagram)
 
 **Impact**:
-- **Enhanced AI Capabilities**: Multi-agent system provides more accurate, context-aware feedback
-- **Better UX**: Instant feedback (2-3s) keeps users engaged without disrupting flow
+
+- **Enhanced AI Capabilities**: Multi-agent system provides more accurate,
+  context-aware feedback
+- **Better UX**: Instant feedback (2-3s) keeps users engaged without disrupting
+  flow
 - **Production Ready**: AgentCore wrapper ensures enterprise-grade deployment
 - **Privacy**: English Feedback Modal shows private feedback only to speaker
-- **Scalability**: Agent orchestration pattern scales to additional agents (e.g., pronunciation, coherence)
+- **Scalability**: Agent orchestration pattern scales to additional agents
+  (e.g., pronunciation, coherence)
 
 **Next Steps for Implementation**:
+
 - Day 1: Set up AWS AgentCore environment and IAM roles
 - Day 1: Implement AWSStrandsOrchestrator class with instant/comprehensive modes
 - Day 1: Create EnglishFeedbackAgent with CEFR analysis
@@ -1427,12 +1606,15 @@ async def connect(sid, environ, auth):
 
 ### [2025-10-15 17:06 UTC] - MVP System Architecture & 3-Day Hackathon Plan
 
-**Commit**: `Initial analysis and planning for MVP system architecture documentation`  
+**Commit**:
+`Initial analysis and planning for MVP system architecture documentation`  
 **Author**: AWS AI Agent Hackathon Team  
 **Type**: Architecture | Documentation
 
 **Changes**:
-- Created comprehensive MVP system architecture document for AWS AI Agent Hackathon 2025
+
+- Created comprehensive MVP system architecture document for AWS AI Agent
+  Hackathon 2025
 - Defined 3-day sprint plan with task distribution for 5-member team
 - Designed pluggable AI service layer with OpenAI-compatible interface
 - Created ASCII art diagrams for:
@@ -1442,7 +1624,8 @@ async def connect(sid, environ, auth):
   - Team task dependencies and critical path
 - Prioritized MVP features (Must-Have vs Should-Have vs Won't-Have)
 - Defined success metrics and risk mitigation strategies
-- Documented cost estimates for AWS infrastructure ($5-15/month MVP, $84-104/month production)
+- Documented cost estimates for AWS infrastructure ($5-15/month MVP,
+  $84-104/month production)
 - Created detailed team task breakdowns for:
   - Product Lead (Full-Stack + AI)
   - Frontend Developer
@@ -1451,35 +1634,46 @@ async def connect(sid, environ, auth):
   - AWS DevOps Specialist
 
 **Key Architectural Decisions**:
-1. **Pluggable AI Design**: Abstract interfaces for STT, LLM, and TTS allow easy switching between providers
+
+1. **Pluggable AI Design**: Abstract interfaces for STT, LLM, and TTS allow easy
+   switching between providers
    - Development: Gemini + Web Speech API (free)
    - Production: AWS Bedrock (Claude 3) + AWS Transcribe + AWS Polly
-2. **OpenAI Message Format**: LLM interface standardized on OpenAI format for maximum compatibility
+2. **OpenAI Message Format**: LLM interface standardized on OpenAI format for
+   maximum compatibility
 3. **WebRTC P2P Audio**: Direct peer-to-peer audio streaming reduces server load
 4. **AWS Cloud Architecture**: Amplify (frontend) + EC2 (backend) + Bedrock (AI)
-5. **CEFR Framework**: Core AI feedback based on Common European Framework of Reference for Languages
+5. **CEFR Framework**: Core AI feedback based on Common European Framework of
+   Reference for Languages
 
 **Core MVP Loop Defined**:
+
 ```
-User joins room → Speaks in discussion → AI transcribes (STT) 
-→ LLM analyzes English quality → Provides CEFR feedback 
+User joins room → Speaks in discussion → AI transcribes (STT)
+→ LLM analyzes English quality → Provides CEFR feedback
 → TTS speaks feedback → User improves → Repeat
 ```
 
 **Files Created**:
-- `docs/Architectural Conversations/product_system_design.md` - Main architecture document (46KB)
+
+- `docs/Architectural Conversations/product_system_design.md` - Main
+  architecture document (46KB)
 - `docs/product_docs_and_updates.md` - This changelog file
 
 **Files Modified**:
-- `.github/copilot-instructions.md` - Added requirement to track all updates in this changelog
+
+- `.github/copilot-instructions.md` - Added requirement to track all updates in
+  this changelog
 
 **Impact**:
+
 - Provides clear technical roadmap for 3-day hackathon
 - Establishes architectural patterns for AI service integration
 - Defines success criteria for MVP demo
 - Ensures team alignment on priorities and dependencies
 
 **Next Steps**:
+
 - Day 1: Foundation setup (EC2, AI service layer, feedback UI components)
 - Day 2: Integration (Full AI feedback loop, Amplify deployment)
 - Day 3: Polish, testing, production deployment with Bedrock
@@ -1488,17 +1682,21 @@ User joins room → Speaks in discussion → AI transcribes (STT)
 
 ## Instructions for Future Updates
 
-When making significant changes to the codebase, please add an entry to this changelog following this format:
+When making significant changes to the codebase, please add an entry to this
+changelog following this format:
 
 1. **Date & Time**: Use UTC timezone in YYYY-MM-DD HH:MM format
 2. **Title**: Short, descriptive title (50 chars max)
 3. **Commit Message**: The actual git commit message
-4. **Type**: One or more of: Architecture, Feature, Bugfix, Documentation, Refactor, Performance
+4. **Type**: One or more of: Architecture, Feature, Bugfix, Documentation,
+   Refactor, Performance
 5. **Changes**: Bullet points describing what changed and why
-6. **Files Modified**: List key files (not every single file, just important ones)
+6. **Files Modified**: List key files (not every single file, just important
+   ones)
 7. **Impact**: How this affects the system, users, or team
 
 **Example Entry**:
+
 ```markdown
 ### [2025-10-16 14:30 UTC] - Implemented Gemini LLM Integration
 
@@ -1507,17 +1705,20 @@ When making significant changes to the codebase, please add an entry to this cha
 **Type**: Feature
 
 **Changes**:
+
 - Implemented GeminiLLM class with OpenAI-compatible interface
 - Created CEFR analysis prompt for English feedback
 - Added /api/ai/analyze endpoint to FastAPI backend
 - Integrated with room manager for real-time feedback
 
 **Files Modified**:
+
 - server_py/src/ai/gemini_llm.py (new)
 - server_py/src/api/routes.py
 - server_py/requirements.txt
 
 **Impact**:
+
 - Users now receive instant AI feedback on English speaking quality
 - CEFR levels (A1-C2) are assigned based on grammar, vocabulary, fluency
 - Foundation for switching to Bedrock in production
@@ -1538,11 +1739,16 @@ When making significant changes to the codebase, please add an entry to this cha
 **Status**: ✅ COMPLETED
 
 ### Summary
-Reorganized the entire client folder structure to align with the UML diagrams (04-class-diagram-frontend.puml and 13-package-diagram-frontend.puml). This brings the codebase in sync with the documented architecture and improves maintainability.
+
+Reorganized the entire client folder structure to align with the UML diagrams
+(04-class-diagram-frontend.puml and 13-package-diagram-frontend.puml). This
+brings the codebase in sync with the documented architecture and improves
+maintainability.
 
 ### Changes Made
 
 #### 1. Folder Structure Additions
+
 - Created `client/src/hooks/` - Custom React hooks
 - Created `client/src/services/` - API and service layer
 - Created `client/src/types/` - Type definitions (JSDoc)
@@ -1552,25 +1758,29 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
 - Created `client/src/components/common/` - Common/shared components
 
 #### 2. Component Reorganization
+
 **Moved to `components/ui/`:**
+
 - `RoundtableView.jsx`
 - `SpeakerTimer.jsx`
 - `TopicDisplay.jsx`
 - `AudioLevelBar.jsx` (renamed from `LiveAudioLevelBar.jsx`)
 
 **Moved to `components/feedback/`:**
+
 - `SpeechToTextPanel.jsx` (renamed from `SpeechToText.jsx`)
 - `EnglishFeedbackModal.jsx` (new component)
 
 **Moved to `components/common/`:**
+
 - `ProtectedRoute.jsx`
 
 #### 3. New Components Created
+
 - **ParticipantCard.jsx**: Individual participant display component
   - Extracts participant rendering logic from RoundtableView
   - Handles avatar, ready status, speaking indicators
   - Displays audio level bars for remote streams
-  
 - **EnglishFeedbackModal.jsx**: English language feedback modal
   - Displays CEFR level with color-coded badge
   - Shows grammar issues with corrections
@@ -1579,6 +1789,7 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
   - Private feedback (only visible to speaker)
 
 #### 4. Custom Hooks Created
+
 - **useAuth.js**: Re-exports `useAuth` from AuthContext
 - **useSocket.js**: Re-exports `useSocket` from SocketContext
 - **useAudio.js**: Re-exports `useAudio` from AudioContext
@@ -1588,13 +1799,16 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
   - Provides unified interface for room state management
 
 #### 5. Service Layer Created
+
 - **api.js**: HTTP API service
+
   - Generic `get()` and `post()` methods
   - `fetchTopics()`, `fetchAnalytics()`, `createRoom()`, `fetchActiveRooms()`
   - Centralized error handling
   - Environment-aware base URL configuration
 
 - **webrtc.js**: WebRTC service
+
   - `createPeerConnection()` with optimal audio settings
   - `createOffer()`, `handleOffer()`, `handleAnswer()`
   - `handleICECandidate()`, `closePeerConnection()`
@@ -1608,6 +1822,7 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
   - Web Speech API wrapper
 
 #### 6. Type Definitions Created (JSDoc)
+
 - **User.js**: User type definition
 - **Participant.js**: Participant type definition
 - **RoomState.js**: Room state type definition
@@ -1615,17 +1830,21 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
 - **Transcript.js**: Transcript type definition
 
 #### 7. Utilities Created
+
 - **constants.js**: Application constants
+
   - API, WebRTC, Audio, Discussion configurations
   - Socket events, UI config, error/success messages
   - CEFR levels, feedback thresholds
 
 - **helpers.js**: Helper functions
+
   - `generateRoomCode()`, `generateAnonymousName()`, `generateAvatarColor()`
   - `debounce()`, `throttle()`, `deepClone()`
   - `isEmpty()`, `getInitials()`, `capitalize()`, `truncate()`
 
 - **formatters.js**: Data formatting functions
+
   - `formatTime()`, `formatDate()`, `formatDateTime()`, `formatRelativeTime()`
   - `formatNumber()`, `formatPercentage()`, `formatCEFRLevel()`
   - `formatDuration()`, `formatFileSize()`, `formatScore()`
@@ -1636,18 +1855,23 @@ Reorganized the entire client folder structure to align with the UML diagrams (0
   - `validateParticipantCount()`, `validateRoundCount()`, `sanitizeInput()`
 
 #### 8. Import Updates
+
 Updated imports across all files:
-- **Pages**: LoginPage, LobbyPage, RoundtablePage, AudioTestPage, BroadcastTestPage
+
+- **Pages**: LoginPage, LobbyPage, RoundtablePage, AudioTestPage,
+  BroadcastTestPage
 - **Components**: All components updated to use new paths
 - **Tests**: Updated test imports to match new structure
 - **App.jsx**: Updated ProtectedRoute import
 
 #### 9. Component Refactoring
+
 - **RoundtableView**: Now uses `ParticipantCard` component
 - **Removed inline participant rendering logic**
 - **Improved component composition**
 
 ### Testing Results
+
 - ✅ **Linting**: All linting checks passed
 - ✅ **Build**: Production build successful
 - ⚠️ **Tests**: 32 passing, 32 failing
@@ -1656,11 +1880,14 @@ Updated imports across all files:
   - No new test failures introduced by refactoring
 
 ### Architecture Alignment
+
 The client folder now matches the UML diagrams:
+
 - **04-class-diagram-frontend.puml**: All components, hooks, and types present
 - **13-package-diagram-frontend.puml**: Folder structure matches exactly
 
 ### Benefits
+
 1. **Better Organization**: Clear separation of concerns
 2. **Improved Maintainability**: Easier to locate and update code
 3. **Type Safety**: JSDoc type definitions provide better IDE support
@@ -1670,6 +1897,7 @@ The client folder now matches the UML diagrams:
 7. **Scalability**: Easier to add new features following established patterns
 
 ### File Statistics
+
 - **New Files**: 25
 - **Modified Files**: 10
 - **Renamed Files**: 6
@@ -1677,6 +1905,7 @@ The client folder now matches the UML diagrams:
 - **Total Lines Removed**: ~87
 
 ### Next Steps
+
 - [ ] Fix pre-existing test failures (form validation, auth)
 - [ ] Add tests for new components (ParticipantCard, EnglishFeedbackModal)
 - [ ] Add tests for new hooks (useRoomState)

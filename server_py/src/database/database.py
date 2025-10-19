@@ -250,7 +250,7 @@ class Database:
             
             await self.db.commit()
         
-        print("✅ Database tables created/verified")
+        print("Database tables created/verified")
 
     async def save_room(self, room_data: Dict[str, Any]) -> int:
         """Save a discussion room"""
@@ -448,7 +448,7 @@ class Database:
         """Close database connection"""
         if self.db:
             await self.db.close()
-            print("📊 Database connection closed")
+            print("Database connection closed")
 
 
 # Singleton instance
