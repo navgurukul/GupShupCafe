@@ -1,3 +1,51 @@
+## 2025-10-19 14:10 UTC — Room Lobby Routing Update: Dynamic Room URLs
+
+**Date**: 2025-10-19 14:10 UTC  
+**Type**: Feature | Enhancement | Routing  
+**Commit Message**: Link RoomLobbyPage to Join/Publish buttons with dynamic room-specific routes
+
+**Changes:**
+- Replaced static `/room-lobby` route with dynamic `/lobby/:roomId` pattern for room-specific URLs
+- Updated `RoomLobbyPage.jsx` to use `useParams` for extracting room ID from URL path
+- Added share room functionality with modal dialog in RoomLobbyPage
+- Updated all navigation in `LobbyPage.jsx` to use new URL format: `/lobby/{roomId}?role={role}`
+- Modified `App.jsx` routing to map `/lobby/:roomId` to `RoomLobbyPage` component
+- Updated shareable link generation to use path-based room IDs instead of query parameters
+- Created comprehensive test suite for `RoomLobbyPage` with 6 passing tests
+- Updated existing `LobbyPage` tests to expect new URL format
+
+**Technical Details:**
+- Room ID now in URL path (e.g., `/lobby/room-123`) instead of query param (`?room=room-123`)
+- Role remains as query parameter for flexibility (e.g., `?role=speaker`)
+- Share button added to RoomLobbyPage header with copy-to-clipboard functionality
+- Room-specific URLs enable direct bookmarking and sharing
+- Better RESTful URL structure and clearer separation of concerns
+- No database or backend changes required
+
+**Impact:**
+- Users can now share direct links to specific rooms with `/lobby/{roomId}` format
+- Better URL structure enables room bookmarking and analytics
+- Clearer separation between room discovery (`/lobby`) and room waiting area (`/lobby/:roomId`)
+- Improved user experience with dedicated share functionality in room lobby
+
+**Files Modified:**
+- `client/src/pages/RoomLobbyPage.jsx` - Dynamic room ID extraction, share modal
+- `client/src/pages/LobbyPage.jsx` - Updated navigation to new URL format
+- `client/src/App.jsx` - Updated routing configuration
+- `client/src/tests/pages/RoomLobbyPage.test.jsx` - New test suite (6/6 passing)
+- `client/src/tests/pages/LobbyPage.test.jsx` - Updated test assertions
+
+**Testing:**
+- ✅ All RoomLobbyPage tests passing (6/6)
+- ✅ Build successful with no compilation errors
+- ✅ No new lint errors introduced
+- ✅ Room sharing and navigation verified
+
+**Documentation:**
+- Added detailed migration guide in `docs/Miscellaneous/room-lobby-routing-update.md`
+
+---
+
 ## 2025-10-19 — Join Room Feature Integration with Backend API
 
 **Date**: 2025-10-19 09:15 UTC
