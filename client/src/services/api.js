@@ -140,8 +140,9 @@ export async function fetchActiveRooms() {
  */
 export async function fetchWaitingRooms() {
   try {
-    const response = await get('/rooms/waiting')
+    const response = await get('/rooms')
     if (response.status === 'success') {
+      response.data = response.data.filter(room => room.status === 'waiting')
       return response.data || []
     }
     return []
