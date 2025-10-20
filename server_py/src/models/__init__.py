@@ -42,6 +42,20 @@ from .transcript_pydantic_models import (
     UpdateTranscriptProcessingModel,
     UpdateTranscriptAudioURLModel
 )
+from .agent_pydantic_models import (
+    CreateAgentModel,
+    CreateAgentResponseModel,
+    AgentModel,
+    AgentUpdateModel,
+    AgentTranscriptProcessingModel,
+    AgentFeedbackGenerationModel,
+    AgentResponseModel,
+    AgentInteractionStatsModel,
+    AgentHealthModel,
+    AgentStatus,
+    AgentType,
+    AgentModelSource
+)
 from .enums import CEFRLevel, ParticipantRole
 
 # Aliases for backward compatibility
@@ -85,6 +99,19 @@ __all__ = [
     "TranscriptOut",
     "UpdateTranscriptProcessingModel",
     "UpdateTranscriptAudioURLModel",
+    # Agent Models
+    "CreateAgentModel",
+    "CreateAgentResponseModel",
+    "AgentModel",
+    "AgentUpdateModel",
+    "AgentTranscriptProcessingModel",
+    "AgentFeedbackGenerationModel",
+    "AgentResponseModel",
+    "AgentInteractionStatsModel",
+    "AgentHealthModel",
+    "AgentStatus",
+    "AgentType",
+    "AgentModelSource",
     # Enums
     "CEFRLevel",
 ]

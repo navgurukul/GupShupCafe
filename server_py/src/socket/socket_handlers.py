@@ -8,11 +8,38 @@ from typing import Dict, Any
 from datetime import datetime
 import uuid
 import os
+import asyncio
 
 from .room_manager import room_manager
 from .timer_manager import timer_manager
 from ..ai.topic_generator import generate_discussion_topic
 from ..database.database import db
+
+
+async def process_transcript_for_english_feedback(room_id: str, transcript_id: str):
+    """
+    Process transcript with English feedback agent (async background task)
+    """
+    try:
+        from ..services.agent_service import agent_service
+        
+        # Get English feedback agent for this room
+        agents = await agent_service.get_agents_by_room(room_id)
+        english_agent = next((a for a in agents if a.agent_type == "english"), None)
+        
+        if english_agent:
+            # Process transcript for instant feedback
+            await agent_service.process_transcript_for_feedback(
+                english_agent.agent_id, 
+                transcript_id, 
+                "instant"
+            )
+            print(f"[Backend] Generated instant feedback for transcript {transcript_id}")
+        else:
+            print(f"[Backend] No English agent found for room {room_id}")
+            
+    except Exception as e:
+        print(f"Error processing transcript for feedback: {str(e)}")
 
 
 async def setup_socket_handlers(sio: socketio.AsyncServer):
@@ -682,6 +709,155 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         except Exception as e:
             print(f"Error handling ready-for-webrtc: {str(e)}")
 
+    @sio.event
+    async def transcript_received(sid, data):
+        """Handle speech transcript from participant and trigger agent processing"""
+        try:
+            transcript_text = data.get("text", "")
+            participant_id = data.get("participantId")
+            round_number = data.get("round", 1)
+            turn_order = data.get("turnOrder", 0)
+            
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                print(f"[Backend] No room found for transcript from {sid}")
+                return
+            
+            # Get room from room manager
+            room = room_manager.get_room(room_id)
+            user = room.get_participant_by_socket(sid)
+            
+            if not user:
+                print(f"[Backend] No user found for socket {sid}")
+                return
+            
+            # Save transcript to database
+            transcript_id = str(uuid.uuid4())
+            transcript_data = {
+                "transcript_id": transcript_id,
+                "room_id": room_id,
+                "participant_id": participant_id or user.id,
+                "user_id": user.id,
+                "round_number": round_number,
+                "turn_order": turn_order,
+                "transcript_text": transcript_text,
+                "language": "en",
+                "stt_confidence": data.get("confidence", 0.9),
+                "started_at": data.get("startedAt", datetime.now().isoformat()),
+                "ended_at": data.get("endedAt", datetime.now().isoformat()),
+                "duration_seconds": data.get("duration", 0),
+                "word_count": len(transcript_text.split()),
+                "speech_rate": len(transcript_text.split()) / max(data.get("duration", 1), 1),
+                "is_processed": 0
+            }
+            
+            await db.save_transcript(transcript_data)
+            print(f"[Backend] Saved transcript for {user.anonymous_name}: {transcript_text[:50]}...")
+            
+            # Trigger English feedback agent processing (async)
+            asyncio.create_task(process_transcript_for_english_feedback(room_id, transcript_id))
+            
+            # Emit transcript saved confirmation
+            await sio.emit("transcript-saved", {
+                "transcriptId": transcript_id,
+                "participantId": participant_id or user.id
+            }, room=sid)
+            
+        except Exception as e:
+            print(f"Error handling transcript-received: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    @sio.event
+    async def request_facilitator_response(sid, data):
+        """Handle request for facilitator to speak (TTS)"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                return
+            
+            print(f"[Backend] Facilitator response requested for room {room_id}")
+            
+            # Get recent transcripts and feedback for context
+            recent_transcripts = await db.get_recent_transcripts(room_id, limit=5)
+            feedback_summaries = await db.get_feedback_by_room(room_id, "instant")
+            
+            # Generate facilitator response
+            from ..services.agent_service import agent_service
+            facilitator_text = await agent_service.generate_facilitator_turn_response(
+                room_id, recent_transcripts, feedback_summaries
+            )
+            
+            # Emit facilitator response for TTS
+            await sio.emit("facilitator-speaking", {
+                "text": facilitator_text,
+                "timestamp": datetime.now().isoformat()
+            }, room=room_id)
+            
+            print(f"[Backend] Facilitator response: {facilitator_text[:100]}...")
+            
+        except Exception as e:
+            print(f"Error handling request-facilitator-response: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    @sio.event
+    async def get_instant_feedback(sid, data):
+        """Handle request for instant feedback for a participant"""
+        try:
+            participant_id = data.get("participantId")
+            
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                return
+            
+            # Get recent feedback for this participant
+            feedback_list = await db.get_feedback_by_room(room_id, "instant")
+            participant_feedback = [
+                f for f in feedback_list 
+                if f.get("participant_id") == participant_id
+            ]
+            
+            if participant_feedback:
+                latest_feedback = participant_feedback[0]  # Most recent
+                await sio.emit("instant-feedback", {
+                    "participantId": participant_id,
+                    "feedback": latest_feedback.get("display_message"),
+                    "timestamp": latest_feedback.get("created_at")
+                }, room=sid)
+            else:
+                await sio.emit("instant-feedback", {
+                    "participantId": participant_id,
+                    "feedback": "Keep up the great work!",
+                    "timestamp": datetime.now().isoformat()
+                }, room=sid)
+            
+        except Exception as e:
+            print(f"Error handling get-instant-feedback: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
 
 async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, active_rooms: Dict[str, str]):
     """
@@ -711,6 +887,14 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             # Create room
             room_id = str(uuid.uuid4())
             active_rooms[room_id] = room_id
+            
+            # Create agents for this room
+            from ..services.agent_service import agent_service
+            try:
+                agent_ids = await agent_service.create_room_agents(room_id, topic)
+                print(f"[Backend] Created agents for room {room_id}: {agent_ids}")
+            except Exception as e:
+                print(f"[Backend] Error creating agents for room {room_id}: {str(e)}")
             
             # Get room metadata (if available)
             room_metadata = getattr(room, 'metadata', {})

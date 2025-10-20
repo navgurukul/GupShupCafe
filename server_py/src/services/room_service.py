@@ -113,27 +113,27 @@ class Room_service:
             print(f"Error listing rooms: {e}")
             return {"status": "failure", "data": [], "message": "Failed to list rooms"}
 
-    def list_rooms_by_status(self, status: str) -> dict:
-        """List rooms filtered by status"""
-        try:
-            self.cursor.execute(
-                "SELECT * FROM rooms WHERE status=? ORDER BY created_at DESC",
-                (status,)
-            )
-            rows = self.cursor.fetchall()
-            cols = [d[0] for d in self.cursor.description]
-            return {
-                "status": "success",
-                "data": [dict(zip(cols, r)) for r in rows],
-                "message": f"Rooms listed for status='{status}'",
-            }
-        except Exception as e:
-            print(f"Error listing rooms by status: {e}")
-            return {
-                "status": "failure",
-                "data": [],
-                "message": "Failed to list rooms by status",
-            }
+    # def list_rooms_by_status(self, status: str) -> dict:
+    #     """List rooms filtered by status"""
+    #     try:
+    #         self.cursor.execute(
+    #             "SELECT * FROM rooms WHERE status=? ORDER BY created_at DESC",
+    #             (status,)
+    #         )
+    #         rows = self.cursor.fetchall()
+    #         cols = [d[0] for d in self.cursor.description]
+    #         return {
+    #             "status": "success",
+    #             "data": [dict(zip(cols, r)) for r in rows],
+    #             "message": f"Rooms listed for status='{status}'",
+    #         }
+    #     except Exception as e:
+    #         print(f"Error listing rooms by status: {e}")
+    #         return {
+    #             "status": "failure",
+    #             "data": [],
+    #             "message": "Failed to list rooms by status",
+    #         }
 
     def update_room(self, room_id: str, updates: dict) -> dict:
         try:
