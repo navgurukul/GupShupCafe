@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { SocketProvider } from "./contexts/SocketContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AudioProvider } from "./contexts/AudioContext";
+import { TTSProvider } from "./contexts/TTSContext";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import LobbyPage from "./pages/LobbyPage";
@@ -23,7 +24,8 @@ function App() {
       <AuthProvider>
         <SocketProvider>
           <AudioProvider>
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+            <TTSProvider>
+              <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<LoginPage />} />
@@ -70,7 +72,8 @@ function App() {
                 {/* Fallback Route */}
                 <Route path="*" element={<LoginPage />} />
               </Routes>
-            </div>
+              </div>
+            </TTSProvider>
           </AudioProvider>
         </SocketProvider>
       </AuthProvider>

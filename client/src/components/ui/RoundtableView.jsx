@@ -1,7 +1,8 @@
 import React, { useContext } from 'react'
 import ParticipantCard from './ParticipantCard'
 import { useAudio } from '../../hooks/useAudio'
-import { Brain } from 'lucide-react'
+import { useTTS } from '../../hooks/useTTS'
+import { Brain, MessageSquare } from 'lucide-react'
 
 /**
  * RoundtableView Component
@@ -12,6 +13,9 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
   const audioCtx = useAudio()
   // You may need to adjust this depending on how remote streams are tracked in AudioContext
   const remoteStreams = audioCtx?.remoteStreams || {}
+  
+  // Get TTS context for facilitator speaking status
+  const { isSpeaking: facilitatorSpeaking, currentText: facilitatorText } = useTTS()
   /**
    * Calculate position for each chair around the circle
    * @param {number} index - Participant index
@@ -66,9 +70,20 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
                         rounded-full opacity-40"></div>
         
         {/* Center Topic Area */}
-        <div className="absolute inset-8 bg-white rounded-full shadow-inner border-4 
-                        border-gray-200 flex items-center justify-center p-4">
-          {discussionStarted && currentTopic ? (
+        <div className={`absolute inset-8 bg-white rounded-full shadow-inner border-4 
+                        ${facilitatorSpeaking ? 'border-blue-400 bg-blue-50' : 'border-gray-200'} 
+                        flex items-center justify-center p-4 transition-all duration-300`}>
+          {facilitatorSpeaking ? (
+            <div className="text-center">
+              <MessageSquare className="w-8 h-8 text-blue-600 mx-auto mb-2 animate-pulse" />
+              <h3 className="text-sm font-bold text-blue-900 leading-tight mb-1">
+                Facilitator Speaking
+              </h3>
+              <p className="text-xs text-blue-700 line-clamp-3">
+                {facilitatorText}
+              </p>
+            </div>
+          ) : discussionStarted && currentTopic ? (
             <div className="text-center">
               <Brain className="w-8 h-8 text-primary-600 mx-auto mb-2" />
               <h3 className="text-lg font-bold text-gray-900 leading-tight">
@@ -138,13 +153,26 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
       </div>
 
       {/* Current Speaker Highlight */}
-      {discussionStarted && currentSpeaker && (
+      {discussionStarted && currentSpeaker && !facilitatorSpeaking && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 
                         bg-green-100 border border-green-200 px-4 py-2 rounded-full">
           <div className="flex items-center space-x-2 text-sm">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span className="text-green-800 font-medium">
               {currentSpeaker.anonymousName} is speaking
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Facilitator Speaking Highlight */}
+      {facilitatorSpeaking && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 
+                        bg-blue-100 border border-blue-200 px-4 py-2 rounded-full">
+          <div className="flex items-center space-x-2 text-sm">
+            <MessageSquare className="w-4 h-4 text-blue-600 animate-pulse" />
+            <span className="text-blue-800 font-medium">
+              Facilitator is speaking
             </span>
           </div>
         </div>

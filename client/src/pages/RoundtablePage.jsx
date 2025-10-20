@@ -8,7 +8,9 @@ import TopicDisplay from "../components/ui/TopicDisplay";
 import SpeakerTimer from "../components/ui/SpeakerTimer";
 import ParticipantControls from "../components/ParticipantControls";
 import SpeechToTextPanel from "../components/feedback/SpeechToTextPanel";
-import { LogOut, Users } from "lucide-react";
+import TTSControls from "../components/ui/TTSControls";
+import { useTTS } from "../hooks/useTTS";
+import { LogOut, Users, MessageSquare } from "lucide-react";
 import AudioLevelBar from "../components/ui/AudioLevelBar";
 
 /**
@@ -21,6 +23,7 @@ function RoundtablePage() {
   const { user, anonymousName, logout } = useAuth();
   const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } =
     useAudio();
+  const { isSpeaking: facilitatorSpeaking } = useTTS();
 
   // Note: Room joining is handled by LobbyPage, no need to rejoin here
   // This prevents duplicate join-room events and state conflicts
@@ -464,6 +467,11 @@ function RoundtablePage() {
                 </p>
               )}
             </div>
+          )}
+
+          {/* TTS Controls - Facilitator Voice */}
+          {discussionStarted && (
+            <TTSControls />
           )}
         </div>
 
