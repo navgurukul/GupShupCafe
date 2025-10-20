@@ -2692,3 +2692,49 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - Compatible with RoomLobbyPage participant management
 - Integrates with participantHelpers.js data storage pattern
 - Maintains existing Socket.io event structure
+
+## 2025-10-20 16:45 UTC — Room and Agent Registration Fix
+
+**Date**: 2025-10-20 16:45 UTC  
+**Type**: Bug Fix | Database | Agent System  
+**Commit Message**: Fix room and agent registration to use correct room IDs and enable category-based topic generation
+
+**Changes:**
+
+### 1. Fixed Room ID Consistency Issue
+- **Problem**: Agent registration was using incorrect room IDs, causing facilitator agents to be registered with UUID room IDs instead of the actual room IDs that users joined
+- **Solution**: Eliminated separate `active_room_id` UUID generation and use original `room_id` for all database operations
+- **Impact**: Agents are now properly associated with the rooms users actually joined
+
+### 2. Updated Agent Registration Process
+- **Before**: `agent_service.create_room_agents(active_room_id, topic)`
+- **After**: `agent_service.create_room_agents(room_id, topic)`
+- **Added**: Update room record with facilitator `agent_id` after creation
+- **Result**: Facilitator agent ID is now properly linked to the room record in database
+
+### 3. Enhanced Topic Generation with Category Support
+- **Updated**: `generate_discussion_topic()` function to accept optional `category` parameter
+- **Added**: Category-based topic selection using room metadata
+- **Integration**: Prepared for MCP-based topic generation using room's topic category
+- **Fallback**: Maintains existing random topic selection when category not specified
+
+### 4. Database Operations Consistency
+- **Fixed all database operations to use original `room_id`**:
+  - Room creation: `room_id` instead of `active_room_id`
+  - Participant saving: `room_id` instead of `active_room_id`  
+  - Transcript saving: `room_id` instead of `active_room_id`
+  - Room updates: `room_id` instead of `active_room_id`
+- **Timer completion**: Fixed discussion-ended event to use correct room ID
+
+### 5. Files Modified
+- `server_py/src/socket/socket_handlers.py`: Fixed room creation and agent registration logic
+- `server_py/src/ai/topic_generator.py`: Added category parameter support
+
+### 6. Benefits Achieved
+- **Correct Agent-Room Linking**: Facilitator agents properly associated with user-joined rooms
+- **Improved Topic Relevance**: Topics generated based on room category preferences  
+- **Database Consistency**: All records use consistent room identifiers
+- **MCP Integration Ready**: System prepared for MCP-based topic generation
+- **Simplified Architecture**: Removed unnecessary UUID mapping complexity
+
+**Testing**: All socket handlers and database operations verified to use consistent room IDs. Agent creation and room registration now properly linked.

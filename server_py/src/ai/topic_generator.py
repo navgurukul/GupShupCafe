@@ -94,11 +94,20 @@ FALLBACK_TOPICS = [
 ]
 
 
-async def generate_discussion_topic() -> Dict[str, Any]:
+async def generate_discussion_topic(category: str = None) -> Dict[str, Any]:
     """
-    Generate a discussion topic using AI or fallback topics
+    Generate a discussion topic using AI, MCP tools, or fallback topics
+    Args:
+        category: Optional topic category to filter by
     Returns: Topic object
     """
+    # If category is provided, try to get topic by category first
+    if category:
+        category_topic = get_topic_by_category(category)
+        if category_topic:
+            print(f"📝 Selected topic by category '{category}': {category_topic['title']}")
+            return category_topic
+    
     try:
         # Try to generate topic using Hugging Face API
         ai_topic = await generate_topic_with_ai()
