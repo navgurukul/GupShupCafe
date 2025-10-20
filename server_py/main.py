@@ -51,6 +51,7 @@ default_dev_origins = ["http://localhost:5173", "http://localhost:5174"]
 default_prod_origins = [
     "https://gup-shup-cafe.vercel.app",
     "https://testing-team.d17x6h4sinckrd.amplifyapp.com/",
+    "https://testing.d17x6h4sinckrd.amplifyapp.com/",
     "https://dev.d17x6h4sinckrd.amplifyapp.com/",
     "https://main.d17x6h4sinckrd.amplifyapp.com/"
     # For regex patterns, we'll handle them differently

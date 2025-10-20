@@ -38,3 +38,6 @@
 - Save all the relevant documentation for the changes done in the `docs/Miscellaneous/` folder.
 - For every new change, make sure to create/update the regression tests accordingly. Ensure tests are passing before finalizing a PR or provide clear justification for every failing test case.
 - **IMPORTANT**: Keep adding every code update summary to `docs/product_docs_and_updates.md` along with date, time, and an informative commit message about the update. This file serves as a living changelog for all product and architectural changes.
+- The frontend code is stored in the `client` folder and the backend Python code being used is stored in the `server_py` folder.
+IGNORE `clientMain` and `server` folders.
+- **IMPORTANT** We are working with very hard deadlines - we want to make this app production-ready today. So, add necessary features wherever required but KEEP IT MINIMAL, MINIMUM VIABLE PRODUCT LEVEL AND SIMPLE.
