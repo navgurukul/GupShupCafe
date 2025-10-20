@@ -255,8 +255,8 @@ describe('LobbyPage - Join Room Feature', () => {
       })
 
       await waitFor(() => {
-        // Should navigate to room lobby
-        expect(mockNavigate).toHaveBeenCalledWith('/room-lobby')
+        // Should navigate to room-specific lobby
+        expect(mockNavigate).toHaveBeenCalledWith('/lobby/room-123?role=speaker')
       })
     })
 
@@ -336,7 +336,7 @@ describe('LobbyPage - Join Room Feature', () => {
 
       await waitFor(() => {
         const linkInput = screen.getByDisplayValue(/room-123/)
-        expect(linkInput.value).toContain('room=room-123')
+        expect(linkInput.value).toContain('/lobby/room-123')
         expect(linkInput.value).toContain('role=speaker')
       })
     })
@@ -499,7 +499,7 @@ describe('LobbyPage - Join Room Feature', () => {
       await user.click(joinButtons[0])
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/room-lobby')
+        expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('/lobby/'))
       })
     })
   })

@@ -24,6 +24,7 @@ import {
 
 import { generateAvatarColor } from "../utils/helpers";
 import { fetchWaitingRooms } from "../services/api";
+import { createParticipantForRoom } from "../utils/participantHelpers";
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== "undefined") {
@@ -138,7 +139,6 @@ function LobbyPage() {
   const [roomId, setRoomId] = useState("general");
   const [selectedRole, setSelectedRole] = useState("speaker"); // Default to speaker
   const [minParticipants, setMinParticipants] = useState(1); // Default to 1 for solo testing
-  const [isReady, setIsReady] = useState(false);
   const [waitingTime, setWaitingTime] = useState(0);
   const [systemMessage, setSystemMessage] = useState("Connecting to lobby...");
   const [isNavigating, setIsNavigating] = useState(false);
@@ -147,7 +147,6 @@ function LobbyPage() {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomId, setNewRoomId] = useState("");
   const [currentRoom, setCurrentRoom] = useState(null);
-  const [inRoom, setInRoom] = useState(false);
 
   // New room creation form state
   const [roomForm, setRoomForm] = useState({
@@ -164,21 +163,17 @@ function LobbyPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [joinedViaLink, setJoinedViaLink] = useState(false);
 
-  // Check if we're on room-lobby route
-  const isInRoomLobby = location.pathname === "/room-lobby";
+  // Join room modal state
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [pendingRoomData, setPendingRoomData] = useState(null);
+  const [joiningAnonymousName, setJoiningAnonymousName] = useState("");
+
+  // Check if we're on a room-specific lobby route (any /lobby/:roomId)
+  const isInRoomLobby = location.pathname.startsWith("/lobby/") && location.pathname !== "/lobby";
 
   // Waiting rooms from backend
   const [waitingRooms, setWaitingRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
-
-  // Auto-set inRoom state based on route
-  useEffect(() => {
-    if (isInRoomLobby && !inRoom) {
-      setInRoom(true);
-    } else if (!isInRoomLobby && inRoom) {
-      setInRoom(false);
-    }
-  }, [isInRoomLobby, inRoom]);
 
   // Fetch waiting rooms from backend
   useEffect(() => {
@@ -197,15 +192,13 @@ function LobbyPage() {
       }
     };
 
-    // Only fetch if not in a room
-    if (!inRoom) {
-      loadWaitingRooms();
-      
-      // Refresh room list every 10 seconds
-      const interval = setInterval(loadWaitingRooms, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [inRoom]);
+    // Always load waiting rooms for the main lobby
+    loadWaitingRooms();
+
+    // Refresh room list every 10 seconds
+    const interval = setInterval(loadWaitingRooms, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle URL parameters for room joining
   useEffect(() => {
@@ -264,128 +257,24 @@ function LobbyPage() {
 
     console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
     console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
-    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${location.pathname === "/room-lobby"}`);
+    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", IsInRoomLobby: ${isInRoomLobby}`);
     console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
 
     if (roomFromUrl && roomFromUrl.trim() !== '') {
       console.log(`[Lobby][Debug] ✅ Found room in URL: ${roomFromUrl} as ${roleFromUrl}`);
-      console.log(`[Lobby][Debug] Will process room joining...`);
+      console.log(`[Lobby][Debug] Redirecting to room-specific lobby page`);
 
-      // Always update the room state from URL
-      if (roomFromUrl !== roomId) {
-        console.log(`[Lobby][Debug] Setting room ID from "${roomId}" to "${roomFromUrl}"`);
-        setRoomId(roomFromUrl);
-        setSelectedRole(roleFromUrl);
-        setJoinedViaLink(true);
-        setInRoom(true); // Mark as in room immediately
-
-        // Only navigate if we're not already on room-lobby
-        if (location.pathname !== "/room-lobby") {
-          console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "/room-lobby"`);
-          navigate("/room-lobby", { replace: true });
-        } else {
-          console.log(`[Lobby][Debug] Already on room-lobby page`);
-        }
-      } else {
-        console.log(`[Lobby][Debug] Room ID already matches: "${roomId}"`);
-      }
-
-      // Join room when socket is ready
-      if (socket && connected) {
-        console.log(`[Lobby][Debug] Socket ready, attempting to join room: ${roomFromUrl}`);
-        setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-
-        // Join the room
-        console.log(`[Lobby][Debug] Calling joinRoom("${roomFromUrl}", "${roleFromUrl}")`);
-        joinRoom(roomFromUrl, roleFromUrl);
-
-        // Show success message after a delay
-        setTimeout(() => {
-          console.log(`[Lobby][Debug] Setting success message`);
-          setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
-        }, 1000);
-      } else {
-        console.log(`[Lobby][Debug] Socket not ready - Socket: ${!!socket}, Connected: ${connected}`);
-        setSystemMessage("Connecting to join shared room...");
+      // Navigate to the room-specific lobby route
+      const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
+      if (location.pathname + location.search !== targetPath) {
+        console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "${targetPath}"`);
+        navigate(targetPath, { replace: true });
       }
     } else {
       console.log(`[Lobby][Debug] ❌ No room found in URL or empty room`);
       console.log(`[Lobby][Debug] Checked sources:`, sources.map(s => `${s.name}: "${s.search}"`));
     }
-  }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname]);
-
-  // Separate effect to handle room joining when socket connects
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const roomFromUrl = urlParams.get('room');
-    const roleFromUrl = urlParams.get('role') || 'speaker';
-
-    console.log(`[Lobby][Debug] Second effect check - Room: ${roomFromUrl}, Socket: ${!!socket}, Connected: ${connected}, InRoom: ${inRoom}`);
-
-    // If we have room parameters and socket is connected but we haven't joined yet
-    if (roomFromUrl && socket && connected && !inRoom) {
-      console.log(`[Lobby][Debug] Socket connected, joining room: ${roomFromUrl}`);
-      setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-
-      // Ensure we're on the right page
-      if (location.pathname !== "/room-lobby") {
-        navigate("/room-lobby", { replace: true });
-      }
-
-      // Join the room
-      console.log(`[Lobby][Debug] Calling joinRoom with: ${roomFromUrl}, ${roleFromUrl}`);
-      joinRoom(roomFromUrl, roleFromUrl);
-      setInRoom(true);
-
-      setTimeout(() => {
-        setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
-      }, 1000);
-    }
-  }, [socket, connected, inRoom, joinRoom, location.search, navigate, location.pathname]);
-
-  // Predefined rooms (kept for backward compatibility and as examples)
-  const predefinedRooms = [
-    {
-      id: "education-b1",
-      name: "Education",
-      icon: BookOpen,
-      color: "bg-blue-500",
-      description: "Discuss educational topics and learning methodologies",
-      cefr_level: "B1",
-      topic_category: "education",
-      max_participants: 6,
-    },
-    {
-      id: "science-technology-b2",
-      name: "Science & Technology",
-      icon: Atom,
-      color: "bg-green-500",
-      description: "Explore the latest in science and tech innovations",
-      cefr_level: "B2",
-      topic_category: "scienceAndTechnology",
-      max_participants: 8,
-    },
-    {
-      id: "literature-c1",
-      name: "Literature",
-      icon: PenTool,
-      color: "bg-purple-500",
-      description: "Share thoughts on books, poetry, and creative writing",
-      cefr_level: "C1",
-      topic_category: "literature",
-      max_participants: 5,
-    },
-    {
-      id: "generative-ai-c2",
-      name: "Generative AI",
-      icon: Brain,
-      color: "bg-orange-500",
-      description: "Discuss AI, machine learning, and future technology",
-      cefr_level: "C2",
-      topic_category: "scienceAndTechnology",
-      max_participants: 4,
-    },
-  ];
+  }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname, isInRoomLobby]);
 
   // Map backend room data to frontend format
   const mapBackendRoomToFrontend = (backendRoom) => {
@@ -408,8 +297,8 @@ function LobbyPage() {
     const categoryInfo = categoryMap[backendRoom.topic_category] || { icon: Users, color: "bg-gray-500" };
 
     return {
-      id: backendRoom.room_id,
-      name: backendRoom.room_name,
+      roomId: backendRoom.room_id,
+      room_name: backendRoom.room_name,
       icon: categoryInfo.icon,
       color: categoryInfo.color,
       description: backendRoom.topic_title || `Room for ${backendRoom.topic_category}`,
@@ -418,24 +307,23 @@ function LobbyPage() {
       max_participants: backendRoom.max_participants,
       participant_count: backendRoom.participant_count || 0,
       status: backendRoom.status,
-      created_at: backendRoom.created_at,
-      isBackendRoom: true, // Flag to distinguish from predefined rooms
+      created_at: backendRoom.created_at
     };
   };
 
   // Combine backend rooms with predefined rooms (backend rooms take priority)
-  const allRooms = React.useMemo(() => {
+  const allWaitingRooms = React.useMemo(() => {
     const backendMapped = waitingRooms.map(mapBackendRoomToFrontend);
     // Only show predefined rooms if no backend rooms are available
-    return backendMapped.length > 0 ? backendMapped : predefinedRooms;
+    return backendMapped;
   }, [waitingRooms]);
 
   // Room sharing functions
-  const generateShareableLink = (roomId, role = 'speaker') => {
+  const generateShareableLink = (roomIdParam, role = 'speaker') => {
     // Use the current window location to ensure correct port
     const currentOrigin = window.location.origin;
-    // Generate URL that goes directly to room-lobby to avoid routing issues
-    return `${currentOrigin}/room-lobby?room=${roomId}&role=${role}`;
+    // Generate URL with room-specific path
+    return `${currentOrigin}/lobby/${roomIdParam}?role=${role}`;
   };
 
   const handleShareRoom = (roomId) => {
@@ -517,28 +405,17 @@ function LobbyPage() {
         // Store session_id for later use
         if (sessionResult.status === 'success') {
           sessionStorage.setItem('current_session_id', sessionResult.data)
+          roomData.roomId = sessionResult.data; // Assign generated room ID
 
 
-          // Create participant entry
-          const participantResponse = await fetch(`${apiUrl}/participants/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_id: storedHostData.userId,
-              room_id: sessionResult.data,
-              avatar_color: generateAvatarColor(), // Random color can be assigned here
-              anonymous_name: hostAnonymousName,
-              campusOrLocation: null,
-              joined_at: new Date().toISOString(),
-              starting_cefr_level: storedHostData.currentCefrLevel,
-              ending_cefr_level: storedHostData.currentCefrLevel  // Initially same as starting level
-            }),
+          // Create participant entry using helper function
+          await createParticipantForRoom({
+            userId: storedHostData.userId,
+            roomId: sessionResult.data,
+            anonymousName: hostAnonymousName,
+            currentCefrLevel: storedHostData.currentCefrLevel,
+            campusOrLocation: null
           })
-
-          const participantResult = await participantResponse.json()
-          console.log('[Lobby] Participant created:', participantResult)
         }
       } catch (error) {
         console.error('[Lobby] Error creating session/participant:', error)
@@ -546,10 +423,10 @@ function LobbyPage() {
 
 
       console.log(`[Lobby][Debug] Generated room data:`, roomData);
-      console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.id}"`);
+      console.log(`[Lobby][Debug] Calling joinRoom with ID: "${roomData.roomId}"`);
 
       // Pass room metadata as third parameter to joinRoom
-      joinRoom(roomData.id, selectedRole, {
+      joinRoom(roomData.roomId, selectedRole, {
         name: roomData.name,
         room_name: roomData.name,
         topic_category: roomData.topic_category,
@@ -557,20 +434,19 @@ function LobbyPage() {
         max_participants: roomData.max_participants
       })
       setCurrentRoom(roomData)
-      setInRoom(true)
       setShowCreateRoom(false)
 
-      // Navigate to room-lobby
-      navigate('/room-lobby');
+      // Navigate to room-specific lobby
+      navigate(`/lobby/${roomData.roomId}?role=${selectedRole}`);
 
-      console.log(`[Lobby][Debug] Room creation complete, navigating to room-lobby`);
+      console.log(`[Lobby][Debug] Room creation complete, navigating to /lobby/${roomData.roomId}`);
 
 
-      // Automatically show share modal for new room
-      setTimeout(() => {
-        console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.id}"`);
-        handleShareRoom(roomData.id);
-      }, 500);
+      // Automatically show share modal for new room (will be shown on RoomLobbyPage)
+      // setTimeout(() => {
+      //   console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.roomId}"`);
+      //   handleShareRoom(roomData.roomId);
+      // }, 500);
       // Reset form
       setRoomForm({
         room_name: "",
@@ -596,132 +472,59 @@ function LobbyPage() {
     }));
   };
 
-  const handleJoinPredefinedRoom = async (room) => {
-    console.log('[Lobby][Debug] Joining room:', room);
+  const handleJoinRoom = async (roomData) => {
+    console.log('[Lobby][Debug] Joining room:', roomData);
 
-    // If this is a backend room (already exists in DB), skip creation
-    if (room.isBackendRoom) {
-      console.log('[Lobby][Debug] Joining existing backend room:', room.id);
-      
-      // Load user data from localStorage
-      const storedHostData = JSON.parse(localStorage.getItem('userData'));
-      
-      try {
-        // Create participant entry for the user joining this room
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
-        const participantResponse = await fetch(`${apiUrl}/participants/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: storedHostData?.userId || user?.id || 'guest',
-            room_id: room.id,
-            avatar_color: generateAvatarColor(),
-            anonymous_name: anonymousName,
-            campusOrLocation: null,
-            joined_at: new Date().toISOString(),
-            starting_cefr_level: storedHostData?.currentCefrLevel || 'B1',
-            ending_cefr_level: storedHostData?.currentCefrLevel || 'B1',
-          }),
-        });
-
-        const participantResult = await participantResponse.json();
-        console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
-      } catch (error) {
-        console.error('[Lobby][Debug] Error creating participant for existing room:', error);
-      }
-
-      // Pass room metadata to joinRoom
-      joinRoom(room.id, selectedRole, {
-        name: room.name,
-        room_name: room.name,
-        topic_category: room.topic_category,
-        cefr_level: room.cefr_level,
-        max_participants: room.max_participants
-      });
-      setCurrentRoom(room);
-      setInRoom(true);
-      navigate('/room-lobby');
-      return;
-    }
-
-    // Otherwise, create a new room for predefined rooms (backward compatibility)
-    try {
-      // Create session in the database for predefined room
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-      const sessionResponse = await fetch(`${apiUrl}/rooms/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          room_name: room.name,
-          room_topic: '', // Will be generated later
-          topic_category: room.topic_category,
-          started_at: new Date().toISOString(),
-          ended_at: new Date().toISOString(),
-          rounds_completed: 0,
-          created_at: new Date().toISOString(),
-          cefr_level: parseInt(room.cefr_level.charAt(0)) // Extract numeric value from CEFR level
-        }),
-      })
-
-      const sessionResult = await sessionResponse.json()
-      console.log('[Lobby] Predefined room session created:', sessionResult)
-
-      // Store session_id for later use
-      if (sessionResult.status === 'success') {
-        sessionStorage.setItem('current_session_id', sessionResult.data)
-
-        // Create participant entry
-        const participantResponse = await fetch(`${apiUrl}/participants/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: user?.id || 'guest',
-            session_id: sessionResult.data,
-            anonymous_name: anonymousName,
-            campus: null,
-            location: null,
-            joined_at: new Date().toISOString()
-          }),
-        })
-
-        const participantResult = await participantResponse.json()
-        console.log('[Lobby] Participant created for predefined room:', participantResult)
-      }
-    } catch (error) {
-      console.error('[Lobby] Error creating session/participant for predefined room:', error)
-    }
-
-    // Pass room metadata as third parameter to joinRoom
-    joinRoom(room.id, selectedRole, {
-      name: room.name,
-      room_name: room.name,
-      topic_category: room.topic_category,
-      cefr_level: room.cefr_level,
-      max_participants: room.max_participants
-    })
-    setCurrentRoom(room)
-    setInRoom(true)
-
-    // Navigate to room-lobby
-    navigate('/room-lobby');
+    // Store the room data and show modal for anonymous name
+    setPendingRoomData(roomData);
+    setJoiningAnonymousName(""); // Reset the name field
+    setShowJoinModal(true);
   }
 
-  const handleLeaveRoom = () => {
-    if (socket) {
-      socket.emit("leave-room", { roomId: currentRoom?.id });
+  // New function to handle the actual join after name submission
+  const handleJoinSubmit = async () => {
+    if (!joiningAnonymousName.trim() || !pendingRoomData) return;
+
+    const roomData = pendingRoomData;
+
+    // If this is a backend room (already exists in DB), skip creation
+    console.log('[Lobby][Debug] Completing join for room:', roomData.roomId);
+
+    // Load user data from localStorage
+    const storedUserData = JSON.parse(localStorage.getItem('userData'));
+
+    try {
+      // Create participant entry for the user joining this room using helper function
+      await createParticipantForRoom({
+        userId: storedUserData?.userId,
+        roomId: roomData.roomId,
+        anonymousName: joiningAnonymousName,
+        currentCefrLevel: storedUserData?.currentCefrLevel,
+        campusOrLocation: null
+      })
+    } catch (error) {
+      console.error('[Lobby][Debug] Error creating participant for existing room:', error)
     }
-    setCurrentRoom(null);
-    setInRoom(false);
-    setParticipants([]);
-    // Navigate back to main lobby
-    navigate("/lobby");
-  };
+
+    // Pass room metadata to joinRoom
+    // joinRoom(roomData.roomId, selectedRole, {
+    //   name: roomData.name,
+    //   room_name: roomData.name,
+    //   topic_category: roomData.topic_category,
+    //   cefr_level: roomData.cefr_level,
+    //   max_participants: roomData.max_participants
+    // });
+    setCurrentRoom(roomData);
+    
+    // Close modal and clear pending data
+    setShowJoinModal(false);
+    setPendingRoomData(null);
+    setJoiningAnonymousName("");
+
+    // Navigate to the room URL (RoomLobbyPage will handle room joining)
+    navigate(`/lobby/${roomData.roomId}?role=${selectedRole}`);
+
+  }
 
   // Timer for waiting time and late join check
   useEffect(() => {
@@ -781,7 +584,7 @@ function LobbyPage() {
     };
   }, [roomId, isNavigating, navigate]);
 
-  // Socket event handlers
+  // Socket event handlers for main lobby (minimal, room-specific handlers in RoomLobbyPage)
   useEffect(() => {
     if (!socket || isNavigating) {
       console.log("[Lobby][Debug] Socket not available or navigating");
@@ -789,114 +592,22 @@ function LobbyPage() {
     }
 
     console.log("[Lobby][Debug] Socket available, connected:", connected);
+    
     // Socket connect/disconnect events
     socket.on("connect", () => {
-      if (!isNavigating) {
-        console.log("[Lobby][Debug] Socket connected:", socket.id);
-        console.log(
-          `[Lobby][Debug] Calling joinRoom with roomId: ${roomId}, role: ${selectedRole} (on connect)`
-        );
-        joinRoom(roomId, selectedRole);
-      }
+      console.log("[Lobby][Debug] Socket connected:", socket.id);
     });
+    
     socket.on("disconnect", () => {
       console.log("[Lobby][Debug] Socket disconnected");
-    });
-
-    // Handle participants update
-    socket.on("participants-update", (updatedParticipants) => {
-      console.log(
-        "[Lobby][Debug] Received participants-update:",
-        updatedParticipants
-      );
-      setParticipants(updatedParticipants);
-      // Enhanced debug: print all roles and readiness
-      console.log(
-        "[Lobby][Debug] Participants array:",
-        updatedParticipants.map((p) => ({
-          name: p.anonymousName,
-          role: p.role,
-          isReady: p.isReady,
-          id: p.id,
-          socketId: p.socketId,
-        }))
-      );
-      console.log(
-        "[Lobby][Debug] Local userRole:",
-        userRole,
-        "selectedRole:",
-        selectedRole
-      );
-      // Find local participant in the update
-      const local = updatedParticipants.find((p) => p.socketId === socket.id);
-      if (local) {
-        console.log("[Lobby][Debug] Local participant from update:", local);
-      } else {
-        console.log(
-          "[Lobby][Debug] Local participant not found in update. Socket ID:",
-          socket.id
-        );
-      }
-      if (updatedParticipants.length >= 1) {
-        setSystemMessage(
-          'Ready to start! Click "Ready" when you want to begin.'
-        );
-      } else {
-        setSystemMessage("Connecting to discussion room...");
-      }
-    });
-
-    // Handle discussion start
-    socket.on("discussion-started", () => {
-      console.log(
-        "[Lobby][Debug] Received discussion-started event - navigating to /roundtable"
-      );
-      if (!isNavigating) {
-        setIsNavigating(true);
-        setSystemMessage("Discussion starting! Redirecting to roundtable...");
-        console.log("[Lobby][Debug] Navigating to /roundtable now");
-        navigate("/roundtable", { replace: true });
-      }
-    });
-
-    // Handle user ready status
-    socket.on("user-ready-update", (readyUsers) => {
-      console.log("[Lobby][Debug] Received user-ready-update:", readyUsers);
-      // Update UI to show who's ready
-      console.log("[Lobby][Debug] Ready users:", readyUsers);
-    });
-
-    // Handle system messages
-    socket.on("system-message", (message) => {
-      console.log("[Lobby][Debug] Received system message:", message);
-      setSystemMessage(message);
     });
 
     // Cleanup event listeners
     return () => {
       socket.off("connect");
       socket.off("disconnect");
-      socket.off("participants-update");
-      socket.off("discussion-started");
-      socket.off("user-ready-update");
-      socket.off("system-message");
     };
-  }, [
-    socket,
-    connected,
-    isNavigating,
-    navigate,
-    joinRoom,
-    roomId,
-    selectedRole,
-    userRole,
-  ]);
-
-  // Audio permission management
-  const handleMicrophoneSetup = async () => {
-    console.log("[Lobby][Debug] Setting up microphone");
-    await requestMicrophoneAccess();
-  };
+  }, [socket, connected, isNavigating]);
 
   // User actions
   const handleLogout = () => {
@@ -904,26 +615,12 @@ function LobbyPage() {
     logout();
   };
 
-  const handleReady = () => {
-    console.log("[Lobby][Debug] Ready button clicked");
-    signalReady();
-    setIsReady(true);
-  };
-
-  // Derived state
-  const canStart =
-    participants.length >= minParticipants &&
-    (selectedRole === "listener" || audioEnabled);
-
   // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  // Check if ready button should be disabled
-  const isReadyButtonDisabled = !canStart;
 
   // Early return for development debugging
   const isDevelopment = window.location.hostname === 'localhost'
@@ -997,9 +694,8 @@ function LobbyPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
-        {!inRoom ? (
-          // Room Selection View
-          <div className="space-y-8">
+        {/* Room Selection View */}
+        <div className="space-y-8">
             {/* Header */}
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-bold text-gray-900">
@@ -1195,13 +891,13 @@ function LobbyPage() {
               <h3 className="text-2xl font-bold text-gray-900 text-center">
                 Available Rooms
               </h3>
-              
+
               {roomsLoading ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600">Loading rooms...</p>
                 </div>
-              ) : allRooms.length === 0 ? (
+              ) : allWaitingRooms.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl">
                   <Users className="w-16 h-16 mx-auto mb-4 text-gray-400" />
                   <p className="text-gray-600 text-lg">No rooms available at the moment</p>
@@ -1209,7 +905,7 @@ function LobbyPage() {
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {allRooms.map((room) => {
+                  {allWaitingRooms.map((room) => {
                     const IconComponent = room.icon;
                     const cefrLevel = cefrLevels.find(
                       (level) => level.id === room.cefr_level
@@ -1220,7 +916,7 @@ function LobbyPage() {
 
                     return (
                       <div
-                        key={room.id}
+                        key={room.roomId}
                         className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                       >
                         <div className="text-center space-y-4">
@@ -1267,22 +963,17 @@ function LobbyPage() {
                                 <span>Max: {room.max_participants} participants</span>
                               )}
                             </div>
-                            {room.isBackendRoom && (
-                              <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full inline-block">
-                                Active Room
-                              </div>
-                            )}
                           </div>
 
                           <div className="flex space-x-2">
                             <button
-                              onClick={() => handleJoinPredefinedRoom(room)}
+                              onClick={() => handleJoinRoom(room)}
                               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                             >
                               Join
                             </button>
                             <button
-                              onClick={() => handleShareRoom(room.id)}
+                              onClick={() => handleShareRoom(room.roomId)}
                               className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
                               title="Share this room"
                             >
@@ -1297,194 +988,10 @@ function LobbyPage() {
               )}
             </div>
           </div>
-        ) : (
-          // In Room View
-          <div className="space-y-8">
-            {/* Room Header */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {currentRoom?.icon && !currentRoom?.isCustom && (
-                    <div
-                      className={`w-12 h-12 ${predefinedRooms.find((r) => r.id === currentRoom.id)
-                        ?.color
-                        } rounded-full flex items-center justify-center`}
-                    >
-                      {React.createElement(
-                        predefinedRooms.find((r) => r.id === currentRoom.id)
-                          ?.icon,
-                        { className: "w-6 h-6 text-white" }
-                      )}
-                    </div>
-                  )}
-                  {currentRoom?.isCustom && (
-                    <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {currentRoom?.name}
-                    </h2>
-                    <p className="text-gray-600">
-                      {currentRoom?.isCustom
-                        ? "Custom Room"
-                        : predefinedRooms.find((r) => r.id === currentRoom.id)
-                          ?.description}
-                    </p>
+      </main>
 
-                    {/* Room Details */}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {currentRoom?.cefr_level && (
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevels.find(
-                            (level) => level.id === currentRoom.cefr_level
-                          )?.color
-                            } flex items-center`}
-                        >
-                          <Star className="w-3 h-3 mr-1" />
-                          {currentRoom.cefr_level}
-                        </span>
-                      )}
-                      {currentRoom?.topic_category && (
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategories.find(
-                            (cat) => cat.id === currentRoom.topic_category
-                          )?.color
-                            }`}
-                        >
-                          {
-                            topicCategories.find(
-                              (cat) => cat.id === currentRoom.topic_category
-                            )?.label
-                          }
-                        </span>
-                      )}
-                      {currentRoom?.max_participants && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                          Max: {currentRoom.max_participants}
-                        </span>
-                      )}
-                      {currentRoom?.host_anonymous_name && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          Host: {currentRoom.host_anonymous_name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleShareRoom(currentRoom?.id)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <Share2 size={16} />
-                    <span>Share Room</span>
-                  </button>
-                  <button
-                    onClick={handleLeaveRoom}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Leave Room
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Joined via Link Notification */}
-            {joinedViaLink && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-800 font-medium">
-                    🎉 You've successfully joined this shared room!
-                  </span>
-                </div>
-                <p className="text-green-700 text-sm mt-1 ml-4">
-                  Welcome to the discussion. You can share this room with others using the "Share Room" button above.
-                </p>
-              </div>
-            )}
-
-            {/* Participants */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Participants ({participants.length})
-              </h3>
-
-              {participants.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {participant.anonymousName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
-                          {participant.anonymousName}
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${participant.role === "speaker"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
-                              }`}
-                          >
-                            {participant.role === "speaker" ? "🎤" : "👂"}
-                          </span>
-                          {participant.isReady && (
-                            <span className="text-xs text-green-600 font-medium">
-                              Ready
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>You're the first one here! Others will join soon.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Ready Button */}
-            <div className="text-center">
-              {!isReady ? (
-                <button
-                  onClick={() => {
-                    if (socket && currentRoom) {
-                      console.log(
-                        "[Lobby][Debug] Signaling ready for room:",
-                        currentRoom.id
-                      );
-                      signalReady();
-                      setIsReady(true);
-                    }
-                  }}
-                  className="px-8 py-4 bg-green-600 text-white text-lg font-semibold rounded-xl hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  Ready
-                </button>
-              ) : (
-                <div className="inline-flex items-center space-x-3 px-6 py-3 bg-green-100 text-green-800 rounded-xl">
-                  <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse"></div>
-                  <span className="font-semibold">
-                    You're Ready! Waiting for others...
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Share Room Modal */}
-        {showShareModal && (
+      {/* Share Room Modal */}
+      {showShareModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
               <h3 className="text-xl font-bold text-gray-900 mb-4">
@@ -1564,7 +1071,81 @@ function LobbyPage() {
             </div>
           </div>
         )}
-      </main>
+
+        {/* Join Room Modal - Anonymous Name Input */}
+        {showJoinModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                👋 Join the Discussion
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Choose an anonymous name for this session. This name will be visible to other participants.
+              </p>
+
+              {/* Anonymous Name Input */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Anonymous Name for this Session
+                </label>
+                <input
+                  type="text"
+                  value={joiningAnonymousName}
+                  onChange={(e) => setJoiningAnonymousName(e.target.value)}
+                  placeholder="Enter your anonymous display name..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && joiningAnonymousName.trim()) {
+                      handleJoinSubmit();
+                    }
+                  }}
+                  autoFocus
+                />
+
+                {/* Quick Suggestions */}
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-2">
+                    Quick suggestions:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedNames.map((name, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setJoiningAnonymousName(name)}
+                        className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-blue-100 hover:text-blue-800 transition-colors border border-gray-200"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setPendingRoomData(null);
+                    setJoiningAnonymousName("");
+                    // Navigate back to main lobby
+                    navigate('/lobby');
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleJoinSubmit}
+                  disabled={!joiningAnonymousName.trim()}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  Join Room
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useSocket } from '../contexts/SocketContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useAudio } from '../contexts/AudioContext'
-import { Users, Clock, Mic, MicOff, LogOut, Settings } from 'lucide-react'
+import { Users, Clock, Mic, MicOff, LogOut, Settings, Share2, Copy, Check } from 'lucide-react'
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== 'undefined') {
@@ -11,11 +11,13 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Lobby Page Component
- * Waiting area until minimum participants (1+) join the session
+ * Room Lobby Page Component
+ * Waiting area for a specific room until participants join and are ready
  */
-function LobbyPage() {
+function RoomLobbyPage() {
   const navigate = useNavigate()
+  const { roomId: urlRoomId } = useParams()
+  const location = useLocation()
   const { socket, connected, joinRoom, signalReady } = useSocket()
   const { user, anonymousName, logout } = useAuth()
   const { 
@@ -27,22 +29,66 @@ function LobbyPage() {
     updateUserRole
   } = useAudio()
   
-  const [
-    participants, setParticipants] = useState([])
-  const [roomId, setRoomId] = useState('general')
+  const [participants, setParticipants] = useState([])
+  const [roomId, setRoomId] = useState(urlRoomId || 'general')
   const [selectedRole, setSelectedRole] = useState('speaker') // Default to speaker
   const [minParticipants, setMinParticipants] = useState(1) // Default to 1 for solo testing
   const [isReady, setIsReady] = useState(false)
   const [waitingTime, setWaitingTime] = useState(0)
   const [systemMessage, setSystemMessage] = useState('Connecting to lobby...')
   const [isNavigating, setIsNavigating] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareableLink, setShareableLink] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [roomDetails, setRoomDetails] = useState(null)
+  const [discussionStartTime, setDiscussionStartTime] = useState(null)
+
+  // Update roomId when URL parameter changes
+  useEffect(() => {
+    if (urlRoomId && urlRoomId !== roomId) {
+      console.log(`[RoomLobby][Debug] Room ID changed from URL: ${urlRoomId}`)
+      setRoomId(urlRoomId)
+    }
+  }, [urlRoomId])
+
+  // Fetch room details from API
+  useEffect(() => {
+    const fetchRoomDetails = async () => {
+      if (!roomId) return
+      
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+        const response = await fetch(`${apiUrl}/rooms/${roomId}`)
+        const result = await response.json()
+        
+        if (result.status === 'success') {
+          console.log('[RoomLobby][Debug] Fetched room details:', result.data)
+          setRoomDetails(result.data)
+        }
+      } catch (error) {
+        console.error('[RoomLobby][Debug] Error fetching room details:', error)
+      }
+    }
+    
+    fetchRoomDetails()
+  }, [roomId])
+
+  // Handle URL query parameters for role
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const roleFromUrl = params.get('role')
+    if (roleFromUrl && (roleFromUrl === 'speaker' || roleFromUrl === 'listener')) {
+      console.log(`[RoomLobby][Debug] Setting role from URL: ${roleFromUrl}`)
+      setSelectedRole(roleFromUrl)
+    }
+  }, [location.search])
 
   // Timer for waiting time and late join check
   useEffect(() => {
     // Disable late join check in development to prevent loops
     const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost'
     if (isDevelopment) {
-      console.log('[Lobby][Debug] Development mode - disabling auto late join navigation')
+      console.log('[RoomLobby][Debug] Development mode - disabling auto late join navigation')
       // Just start the timer, skip late join check
       const timer = setInterval(() => {
         setWaitingTime(prev => prev + 1)
@@ -61,13 +107,13 @@ function LobbyPage() {
         const json = await res.json();
         
         if (isMounted && json?.discussion?.active) {
-          console.log('[Lobby][Debug] Late join detected - navigating to /roundtable');
+          console.log('[RoomLobby][Debug] Late join detected - navigating to /roundtable');
           // Use a session flag to indicate a late join is in progress
           sessionStorage.setItem('late-join-navigating', 'true');
           navigate('/roundtable', { replace: true });
         }
       } catch (err) {
-        console.warn('[Lobby][Debug] Failed to check room state for late join', err);
+        console.warn('[RoomLobby][Debug] Failed to check room state for late join', err);
       }
     };
 
@@ -88,10 +134,43 @@ function LobbyPage() {
     };
   }, [roomId, isNavigating, navigate])
 
+  // Room sharing functions
+  const generateShareableLink = (roomIdParam, role = 'speaker') => {
+    const currentOrigin = window.location.origin
+    return `${currentOrigin}/lobby/${roomIdParam}?role=${role}`
+  }
+
+  const handleShareRoom = () => {
+    console.log(`[RoomLobby][Debug] Sharing room: ${roomId}`)
+    const link = generateShareableLink(roomId, selectedRole)
+    setShareableLink(link)
+    setShowShareModal(true)
+    setLinkCopied(false)
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy link: ', err)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = shareableLink
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    }
+  }
+
   // Socket event handlers
   useEffect(() => {
     if (!socket || isNavigating) {
-      console.log('[Lobby][Debug] Socket not available or navigating')
+      console.log('[RoomLobby][Debug] Socket not available or navigating')
       return
     }
 
@@ -136,6 +215,32 @@ function LobbyPage() {
         setIsNavigating(true)
         setSystemMessage('Discussion starting! Redirecting to roundtable...')
         console.log('[Lobby][Debug] Navigating to /roundtable now')
+        
+        // Mark discussion start time for polling
+        setDiscussionStartTime(Date.now())
+        
+        // Update room status to 'in_progress' via API
+        const updateRoomStatus = async () => {
+          try {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+            const response = await fetch(`${apiUrl}/rooms/${roomId}/status`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                status: 'in_progress'
+              })
+            })
+            
+            const result = await response.json()
+            console.log('[RoomLobby][Debug] Room status updated to in_progress:', result)
+          } catch (error) {
+            console.error('[RoomLobby][Debug] Error updating room status:', error)
+          }
+        }
+        
+        updateRoomStatus()
         navigate('/roundtable', { replace: true })
       }
     })
@@ -163,6 +268,45 @@ function LobbyPage() {
       socket.off('system-message')
     }
   }, [socket, joinRoom, roomId, selectedRole, navigate, connected, isNavigating])
+
+  // Poll for participants every 15 seconds for the first minute after discussion starts
+  useEffect(() => {
+    if (!discussionStartTime || !roomId) return
+    
+    const fetchParticipants = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+        const response = await fetch(`${apiUrl}/participants/room/${roomId}`)
+        const result = await response.json()
+        
+        if (result.status === 'success') {
+          console.log('[RoomLobby][Debug] Polled participants:', result.data)
+          // Update participants if needed (optional, socket updates should handle this)
+        }
+      } catch (error) {
+        console.error('[RoomLobby][Debug] Error polling participants:', error)
+      }
+    }
+    
+    // Poll every 15 seconds
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - discussionStartTime
+      
+      // Stop polling after 60 seconds (1 minute)
+      if (elapsed >= 60000) {
+        console.log('[RoomLobby][Debug] Stopping participant polling after 1 minute')
+        clearInterval(interval)
+        return
+      }
+      
+      fetchParticipants()
+    }, 15000) // 15 seconds
+    
+    // Initial fetch
+    fetchParticipants()
+    
+    return () => clearInterval(interval)
+  }, [discussionStartTime, roomId])
 
   // Fetch server-side configuration (minParticipants, etc.)
   useEffect(() => {
@@ -204,12 +348,39 @@ function LobbyPage() {
   /**
    * Handle ready button click
    */
-  const handleReady = () => {
-  console.log('[Lobby][Debug] Ready button clicked. Participants:', participants, 'AudioEnabled:', audioEnabled)
+  const handleReady = async () => {
+    console.log('[Lobby][Debug] Ready button clicked. Participants:', participants, 'AudioEnabled:', audioEnabled)
     if (participants.length >= minParticipants && audioEnabled) {
       setIsReady(true)
-  console.log('[Lobby][Debug] Emitting signalReady')
+      console.log('[Lobby][Debug] Emitting signalReady')
       signalReady()
+      
+      // Update participant ready status via API
+      try {
+        const participantData = JSON.parse(localStorage.getItem('participantData') || '{}')
+        const participantId = participantData.participantId
+        
+        if (participantId) {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+          const response = await fetch(`${apiUrl}/participants/ready`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              participant_id: participantId,
+              is_ready: true
+            })
+          })
+          
+          const result = await response.json()
+          console.log('[RoomLobby][Debug] Ready status updated via API:', result)
+        } else {
+          console.warn('[RoomLobby][Debug] No participantId found in localStorage')
+        }
+      } catch (error) {
+        console.error('[RoomLobby][Debug] Error updating ready status:', error)
+      }
     }
   }
 
@@ -285,6 +456,15 @@ function LobbyPage() {
               <span>{formatTime(waitingTime)}</span>
             </div>
             
+            {/* Share Room Button */}
+            <button
+              onClick={handleShareRoom}
+              className="p-2 text-blue-600 hover:text-blue-800 transition-colors"
+              title="Share Room"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+            
             {/* Logout */}
             <button
               onClick={handleLogout}
@@ -299,6 +479,43 @@ function LobbyPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-4xl mx-auto w-full p-6">
+        {/* Room Details Card */}
+        {roomDetails && (
+          <div className="mb-6 bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Room Details</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <span className="text-sm text-gray-600">Room Name:</span>
+                <p className="font-semibold text-gray-900">{roomDetails.room_name}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Room ID:</span>
+                <p className="font-semibold text-gray-900">{roomDetails.room_id}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Topic Category:</span>
+                <p className="font-semibold text-gray-900 capitalize">{roomDetails.topic_category?.replace(/([A-Z])/g, ' $1').trim()}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">CEFR Level:</span>
+                <p className="font-semibold text-gray-900">{roomDetails.cefr_level}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Max Participants:</span>
+                <p className="font-semibold text-gray-900">{roomDetails.max_participants}</p>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Status:</span>
+                <p className={`font-semibold capitalize ${
+                  roomDetails.status === 'waiting' ? 'text-orange-600' :
+                  roomDetails.status === 'in_progress' ? 'text-green-600' :
+                  'text-gray-600'
+                }`}>{roomDetails.status?.replace('_', ' ')}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-2 gap-6">
           {/* Status Panel */}
           <div className="space-y-6">
@@ -521,8 +738,91 @@ function LobbyPage() {
           )}
         </div>
       </main>
+
+      {/* Share Room Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              🎉 Share Room Link
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Share this link with others so they can join your discussion room:
+            </p>
+
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={shareableLink}
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 cursor-pointer break-all"
+                  onClick={(e) => e.target.select()}
+                  title={shareableLink}
+                />
+                <button
+                  onClick={copyToClipboard}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    linkCopied
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
+                >
+                  {linkCopied ? (
+                    <div className="flex items-center space-x-1">
+                      <Check size={16} />
+                      <span>Copied!</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1">
+                      <Copy size={16} />
+                      <span>Copy</span>
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>💡 Tip:</strong> Anyone with this link can join your room. Share it via WhatsApp, Email, or any messaging app!
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={async () => {
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: 'Join my GupShup Cafe discussion!',
+                        text: 'Join me for an English conversation practice session',
+                        url: shareableLink,
+                      })
+                    } catch (err) {
+                      console.log('Error sharing:', err)
+                    }
+                  } else {
+                    copyToClipboard()
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+              >
+                <Share2 size={16} />
+                <span>Share</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-export default LobbyPage
+export default RoomLobbyPage
