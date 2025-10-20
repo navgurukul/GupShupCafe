@@ -170,6 +170,34 @@ async def startup_event():
         logger.info("Setting up Socket.io handlers...")
         await setup_socket_handlers(sio)
 
+        # Start periodic room cleanup task
+        import asyncio
+        from src.socket.room_manager import room_manager
+        
+        async def cleanup_empty_rooms():
+            """Periodically clean up empty rooms"""
+            while True:
+                try:
+                    await asyncio.sleep(300)  # Check every 5 minutes
+                    empty_rooms = []
+                    for room_id, room in room_manager.rooms.items():
+                        if len(room.participants) == 0:
+                            empty_rooms.append(room_id)
+                    
+                    for room_id in empty_rooms:
+                        room_manager.cleanup_room(room_id)
+                        logger.info(f"🧹 Cleaned up empty room: {room_id}")
+                        
+                    if empty_rooms:
+                        logger.info(f"Cleaned up {len(empty_rooms)} empty rooms")
+                        
+                except Exception as e:
+                    logger.error(f"Error in room cleanup: {e}")
+        
+        # Start cleanup task in background
+        asyncio.create_task(cleanup_empty_rooms())
+        logger.info("Started periodic room cleanup task")
+
         logger.info(f"Server starting on port {PORT}")
         logger.info(
             f"Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")

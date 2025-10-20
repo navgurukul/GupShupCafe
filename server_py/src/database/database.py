@@ -18,7 +18,7 @@ class Database:
         self.db: Optional[aiosqlite.Connection] = None
         self.db_path: str = ""
 
-    async def initialize(self, db_path: str = "./data/gupshup_database.db"):
+    async def initialize(self, db_path: str = "./data/gupshup-database.db"):
         """Initialize the database connection and create tables"""
         self.db_path = db_path
 
@@ -28,6 +28,12 @@ class Database:
         # Create database connection
         self.db = await aiosqlite.connect(db_path)
         self.db.row_factory = aiosqlite.Row
+
+        # Improve concurrency: enable WAL and set a busy timeout
+        # WAL allows concurrent reads during writes; busy_timeout mitigates transient lock errors
+        await self.db.execute("PRAGMA journal_mode=WAL;")
+        await self.db.execute("PRAGMA synchronous=NORMAL;")
+        await self.db.execute("PRAGMA busy_timeout=5000;")
 
         print(f"📊 Connected to SQLite database at {db_path}")
 
@@ -75,6 +81,7 @@ class Database:
                     status TEXT NOT NULL,
                     current_round INTEGER DEFAULT 0,
                     current_speaker_index INTEGER DEFAULT 0,
+                    rounds_completed INTEGER DEFAULT 0,
                     
                     -- Participants
                     participant_count INTEGER DEFAULT 0,
@@ -89,10 +96,7 @@ class Database:
                     agent_id TEXT,
                     
                     -- Metadata
-                    created_by TEXT NOT NULL,
-                    
-                    -- Foreign Key
-                    FOREIGN KEY (created_by) REFERENCES users (user_id)
+                    created_by TEXT NOT NULL
                 )
             """)
 
@@ -259,10 +263,7 @@ class Database:
                     status TEXT DEFAULT 'active',
                     system_prompt TEXT,
                     total_interactions INTEGER DEFAULT 0,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                    
-                    -- Foreign Key
-                    FOREIGN KEY (room_id) REFERENCES rooms (room_id)
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
                 )
             """)
 
@@ -285,22 +286,30 @@ class Database:
         room_name = room_data.get("room_name") or room_data.get(
             "roomName") or room_id or "general"
 
+        # Get a valid created_by user ID
+        created_by = room_data.get("createdBy") or room_data.get("created_by")
+        if not created_by or created_by == "system":
+            # Get the first available user ID
+            cursor = await self.db.execute("SELECT user_id FROM users LIMIT 1")
+            user_row = await cursor.fetchone()
+            created_by = user_row[0] if user_row else "system"
+
         cursor = await self.db.execute(query, (
             room_id,
             room_name,
-            topic.get("title") if topic else None,
-            topic.get("category") if topic else None,
+            topic.get("title") if topic else "General Discussion",
+            topic.get("category") if topic else "general",
             room_data.get("participantCount") or room_data.get(
-                "participant_count"),
+                "participant_count") or 0,
             room_data.get("startedAt") or room_data.get("started_at"),
             room_data.get("endedAt") or room_data.get("ended_at"),
             room_data.get("durationSeconds") or room_data.get(
-                "duration_seconds"),
+                "duration_seconds") or 0,
             room_data.get("roundsCompleted") or room_data.get(
-                "rounds_completed"),
+                "rounds_completed") or 0,
             room_data.get("status", "waiting"),
-            room_data.get("cefrLevel") or room_data.get("cefr_level", 0),
-            room_data.get("createdBy") or room_data.get("created_by")
+            room_data.get("cefrLevel") or room_data.get("cefr_level", "A1"),
+            created_by
         ))
 
         await self.db.commit()
@@ -310,10 +319,21 @@ class Database:
         """Save participant data"""
         query = """
             INSERT INTO participants (
-                participant_id, user_id, room_id, anonymous_name, campus, location,
+                participant_id, user_id, room_id, anonymous_name, campusOrLocation,
                 joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
+
+        # Combine campus and location into campusOrLocation
+        campus = participant_data.get("campus")
+        location = participant_data.get("location")
+        campus_or_location = None
+        if campus and location:
+            campus_or_location = f"{campus}, {location}"
+        elif campus:
+            campus_or_location = campus
+        elif location:
+            campus_or_location = location
 
         cursor = await self.db.execute(query, (
             participant_data.get(
@@ -322,8 +342,7 @@ class Database:
             participant_data.get("room_id") or participant_data.get("roomId"),
             participant_data.get(
                 "anonymous_name") or participant_data.get("anonymousName"),
-            participant_data.get("campus"),
-            participant_data.get("location"),
+            campus_or_location,
             participant_data.get(
                 "joinedAt") or participant_data.get("joined_at"),
             participant_data.get("leftAt") or participant_data.get("left_at"),
@@ -450,6 +469,27 @@ class Database:
             stats["topCategories"] = [dict(row) for row in rows]
 
         return stats
+
+    async def update_room(self, room_id: str, room_data: Dict[str, Any]) -> int:
+        """Update room data"""
+        # Build dynamic query based on provided fields
+        fields = []
+        values = []
+        
+        for key, value in room_data.items():
+            if value is not None:
+                fields.append(f"{key} = ?")
+                values.append(value)
+        
+        if not fields:
+            return 0
+            
+        query = f"UPDATE rooms SET {', '.join(fields)} WHERE room_id = ?"
+        values.append(room_id)
+        
+        cursor = await self.db.execute(query, values)
+        await self.db.commit()
+        return cursor.rowcount
 
     async def update_room_end(self, room_data: Dict[str, Any]) -> int:
         """Update room end metadata"""
