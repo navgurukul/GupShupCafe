@@ -24,29 +24,63 @@ export function SocketProvider({ children }) {
   useEffect(() => {
     // Only connect if user is authenticated
     // Only initialize socket once when auth becomes available
-    // TEMP: Allow connection without auth for testing
-    if ((isAuthenticated && userData) && !socketRef.current) {
+    // Development bypass: allow connection without auth in development
+    const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost'
+    const shouldConnect = (isAuthenticated && userData) || isDevelopment
+
+    console.log('[Socket] Connection check:', {
+      isAuthenticated,
+      hasUserData: !!userData,
+      isDevelopment,
+      shouldConnect,
+      hasSocket: !!socketRef.current
+    })
+
+    if (shouldConnect && !socketRef.current) {
       const isProd = import.meta.env.MODE === 'production';
       const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? undefined : 'http://localhost:3003');
 
       // Get stored user data from localStorage
       const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
 
+      // For development: create mock data if no user data exists
+      if (isDevelopment && !storedUserData.userId && !userData?.userId) {
+        const mockUserData = {
+          userId: 'dev-user-' + Math.random().toString(36).substr(2, 9),
+          name: 'Dev User',
+          campusOrLocation: 'Development'
+        };
+        localStorage.setItem('userData', JSON.stringify(mockUserData));
+        localStorage.setItem('participantData', JSON.stringify({
+          anonymous_name: 'DevUser' + Math.random().toString(36).substr(2, 4)
+        }));
+        console.log('[Socket] Created mock user data for development:', mockUserData);
+      }
+
+      console.log('[Socket] Creating socket connection to:', socketUrl)
+      console.log('[Socket] Auth data:', {
+        storedUserId: storedUserData.userId,
+        userDataUserId: userData?.userId,
+        storedName: storedUserData.name,
+        userDataName: userData?.name
+      })
+
       // Create socket with sensible reconnection options
       const newSocket = io(socketUrl, {
         auth: {
-          userId: storedUserData.userId || userData.userId,
-          name: storedUserData.name || userData.name,
-          campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
+          userId: storedUserData.userId || userData?.userId || 'anonymous-' + Math.random().toString(36).substr(2, 9),
+          name: storedUserData.name || userData?.name || 'Anonymous User',
+          campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
         },
         transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
         autoConnect: true,
-        upgrade: true, // Allow transport upgrade
-        forceNew: true // Force new connection
+        upgrade: true // Allow transport upgrade
       })
+
+      console.log('[Socket] Setting up socket event listeners')
 
       newSocket.on('connect', () => {
         console.log('[Socket] Connected to server:', newSocket.id)
@@ -58,9 +92,9 @@ export function SocketProvider({ children }) {
           const storedParticipantData = JSON.parse(localStorage.getItem('participantData') || '{}');
 
           const reconnectUserData = {
-            userId: storedUserData.userId || userData?.userId,
-            name: storedUserData.name || userData?.name,
-            campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
+            userId: storedUserData.userId || userData?.userId || 'anonymous-user',
+            name: storedUserData.name || userData?.name || 'Anonymous User',
+            campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
             anonymousName: storedParticipantData.anonymous_name || storedUserData.name || userData?.name || 'Anonymous',
             role: metaRef.current.selectedRole
           }
@@ -84,6 +118,8 @@ export function SocketProvider({ children }) {
 
       socketRef.current = newSocket
       setSocket(newSocket)
+
+      console.log('[Socket] Socket instance created and stored')
     }
 
     // Cleanup when auth is removed entirely
@@ -100,6 +136,7 @@ export function SocketProvider({ children }) {
         setConnected(false)
       }
     }
+
   }, [isAuthenticated, userData])
 
   /**
@@ -122,9 +159,9 @@ export function SocketProvider({ children }) {
       const anonymousName = storedParticipantData.anonymous_name || 'Anonymous'
 
       const joinUserData = {
-        userId: storedUserData.userId || userData?.userId,
-        name: storedUserData.name || userData?.name,
-        campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
+        userId: storedUserData.userId || userData?.userId || 'anonymous-user',
+        name: storedUserData.name || userData?.name || 'Anonymous User',
+        campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
         anonymousName: anonymousName,
         role: role
       }

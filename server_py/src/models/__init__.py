@@ -10,7 +10,8 @@ from .participant_pydantic_models import (
     ParticipantLeftModel,
     ParticipantIsMutedModel,
     ParticipantIsSpeakingModel,
-    ParticipantIsReadyModel
+    ParticipantIsReadyModel,
+    Participant
 )
 from .room_pydantic_models import (
     RoomResponseModel, 
@@ -19,7 +20,8 @@ from .room_pydantic_models import (
     RoomModel,
     UpdateRoomStatusModel,
     UpdateRoomStateModel,
-    UpdateRoomEndModel
+    UpdateRoomEndModel,
+    Room
 )
 from .user_pydantic_models import (
     LoginSignUpResponseModel, 
