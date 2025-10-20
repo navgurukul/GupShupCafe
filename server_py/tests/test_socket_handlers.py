@@ -20,6 +20,10 @@ async def mock_sio():
     sio.leave_room = AsyncMock()
     sio.rooms = MagicMock(return_value=[])
     sio.get_room = AsyncMock(return_value={})
+    sio.on = MagicMock()  # Add the on method for @sio.on decorators
+    sio.event = MagicMock()  # Ensure event method exists
+    sio.get_session = AsyncMock(return_value={"auth": {}})
+    sio.save_session = AsyncMock()
     return sio
 
 
@@ -225,3 +229,107 @@ async def test_user_ready_triggers_discussion_start(mock_sio, setup_test_room):
     # Verify that check_and_start_discussion was called
     # (it should emit discussion-started if minimum participants are ready)
     # Since MIN_PARTICIPANTS defaults to 1, this should trigger
+
+
+@pytest.mark.asyncio
+async def test_socket_id_handling_in_room_manager():
+    """Test that room manager properly handles socket IDs from client data"""
+    # Clean up any existing rooms
+    room_manager.rooms.clear()
+    
+    socket_id = "test-socket-456"
+    room_id = "test-room-socket"
+    
+    # Test case 1: Client sends socket ID in user data
+    client_user_data = {
+        "id": "user-456",
+        "socketId": socket_id,  # Client provides socket ID
+        "name": "Test User",
+        "anonymousName": "TestUser456",
+        "role": "speaker",
+        "isReady": False,
+        "joinedAt": "2024-01-01T00:00:00Z"
+    }
+    
+    # Add user to room (this simulates what happens in join-room handler)
+    room_manager.add_user_to_room(room_id, client_user_data)
+    
+    # Verify user was added with correct socket ID
+    room = room_manager.get_room(room_id)
+    user = room.get_participant_by_socket(socket_id)
+    assert user is not None
+    assert user.socket_id == socket_id
+    assert user.id == "user-456"
+    assert user.anonymous_name == "TestUser456"
+    
+    # Clean up for next test
+    room_manager.rooms.clear()
+    
+    # Test case 2: Client data without socket ID
+    client_user_data_no_socket = {
+        "id": "user-789",
+        "name": "Test User 2",
+        "anonymousName": "TestUser789",
+        "role": "listener",
+        "isReady": False,
+        "joinedAt": "2024-01-01T00:00:00Z"
+        # No socketId field
+    }
+    
+    # Manually set socketId (this is what the server would do)
+    client_user_data_no_socket["socketId"] = socket_id
+    room_manager.add_user_to_room(room_id, client_user_data_no_socket)
+    
+    # Verify user was added with server's socket ID
+    room = room_manager.get_room(room_id)
+    user = room.get_participant_by_socket(socket_id)
+    assert user is not None
+    assert user.socket_id == socket_id
+    assert user.id == "user-789"
+    
+    # Clean up
+    room_manager.rooms.clear()
+
+
+@pytest.mark.asyncio 
+async def test_socket_id_in_participant_data():
+    """Test that participant data properly stores socket ID for database operations"""
+    # Clean up any existing rooms
+    room_manager.rooms.clear()
+    
+    socket_id = "test-socket-db-123"
+    room_id = "test-room-db"
+    
+    # Create user data with socket ID
+    user_data = {
+        "id": "user-db-123",
+        "socketId": socket_id,
+        "name": "DB Test User",
+        "anonymousName": "DBTestUser",
+        "role": "speaker",
+        "isReady": True,
+        "joinedAt": "2024-01-01T00:00:00Z"
+    }
+    
+    # Add user to room
+    participant_data = room_manager.add_user_to_room(room_id, user_data)
+    
+    # Verify the returned participant data includes socket ID
+    assert participant_data is not None
+    assert participant_data["socketId"] == socket_id
+    assert participant_data["id"] == "user-db-123"
+    assert participant_data["anonymousName"] == "DBTestUser"
+    
+    # Verify we can retrieve the participant by socket ID
+    room = room_manager.get_room(room_id)
+    user = room.get_participant_by_socket(socket_id)
+    assert user is not None
+    assert user.socket_id == socket_id
+    
+    # Verify participant list includes socket ID
+    participants = room_manager.get_room_participants(room_id)
+    assert len(participants) == 1
+    assert participants[0]["socketId"] == socket_id
+    
+    # Clean up
+    room_manager.rooms.clear()

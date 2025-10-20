@@ -6,7 +6,8 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room
+from ..models.participant_pydantic_models import Participant
 from ..models.enums import CEFRLevel, ParticipantRole
 
 
@@ -80,7 +81,7 @@ class RoomManager:
 
         print(
             f"➕ Added {participant.anonymous_name} to room {room_id}. Total: {len(room.participants)}")
-        return participant
+        return participant.to_dict()
 
     def remove_user_from_room(self, room_id: str, user_id: str):
         """
@@ -126,7 +127,7 @@ class RoomManager:
         Get room participants
         Args:
             room_id: Room identifier
-        Returns: Array of participants
+        Returns: Array of participants as dictionaries
         """
         room = self.get_room(room_id)
         return [p.to_dict() for p in room.participants]
@@ -166,15 +167,8 @@ class RoomManager:
         participant = room.get_participant_by_id(user_id)
 
         if participant:
-            old_role = participant.role.value
-            # Map role string to enum
-            role_map = {
-                "host": ParticipantRole.HOST,
-                "speaker": ParticipantRole.PARTICIPANT,
-                "listener": ParticipantRole.LISTENER
-            }
-            participant.role = role_map.get(
-                new_role.lower(), ParticipantRole.LISTENER)
+            old_role = participant.role
+            participant.change_role(new_role)
             print(
                 f"🔄 Changed {participant.anonymous_name} role from {old_role} to {new_role} in room {room_id}")
             return True
@@ -189,10 +183,8 @@ class RoomManager:
         Returns: Role statistics
         """
         room = self.get_room(room_id)
-        speakers = [p for p in room.participants if p.role ==
-                    ParticipantRole.PARTICIPANT]
-        listeners = [p for p in room.participants if p.role ==
-                     ParticipantRole.LISTENER]
+        speakers = [p for p in room.participants if p.role == "speaker"]
+        listeners = [p for p in room.participants if p.role == "listener"]
 
         return {
             "totalParticipants": len(room.participants),

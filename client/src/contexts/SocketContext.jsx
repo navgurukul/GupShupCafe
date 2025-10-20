@@ -96,7 +96,8 @@ export function SocketProvider({ children }) {
             name: storedUserData.name || userData?.name || 'Anonymous User',
             campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
             anonymousName: storedParticipantData.anonymous_name || storedUserData.name || userData?.name || 'Anonymous',
-            role: metaRef.current.selectedRole
+            role: metaRef.current.selectedRole,
+            socketId: newSocket.id // Include socket ID for reconnection
           }
           if (metaRef.current.roomMetadata) {
             newSocket.emit('join-room', metaRef.current.currentRoom, reconnectUserData, metaRef.current.roomMetadata)
@@ -163,8 +164,17 @@ export function SocketProvider({ children }) {
         name: storedUserData.name || userData?.name || 'Anonymous User',
         campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
         anonymousName: anonymousName,
-        role: role
+        role: role,
+        socketId: s.id // Explicitly include socket ID
       }
+
+      console.log('[Socket] Joining room with data:', {
+        roomId,
+        socketId: joinUserData.socketId,
+        userId: joinUserData.userId,
+        anonymousName: joinUserData.anonymousName,
+        role: joinUserData.role
+      })
 
       // Emit with room metadata as third parameter if provided
       if (roomMetadata) {
@@ -226,6 +236,15 @@ export function SocketProvider({ children }) {
     if (s && s.emit) s.emit('next-speaker')
   }
 
+  /**
+   * Get current socket ID
+   * @returns {string|null} Current socket ID or null if not connected
+   */
+  const getSocketId = () => {
+    const s = socketRef.current || socket
+    return s ? s.id : null
+  }
+
   const value = {
     socket,
     connected,
@@ -234,7 +253,8 @@ export function SocketProvider({ children }) {
     sendMessage,
     signalReady,
     requestNextSpeaker,
-    changeRole
+    changeRole,
+    getSocketId
   }
 
   return (

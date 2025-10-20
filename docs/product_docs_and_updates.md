@@ -2692,3 +2692,42 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - Compatible with RoomLobbyPage participant management
 - Integrates with participantHelpers.js data storage pattern
 - Maintains existing Socket.io event structure
+
+## October 20, 2025 - Socket ID Implementation & Participant Model Refactor
+
+### Changes Made:
+1. **Client-Side Socket ID Handling**:
+   - Modified `SocketContext.jsx` to explicitly send `socketId` in join-room requests
+   - Added socket ID to reconnection logic for proper room rejoining
+   - Added `getSocketId()` helper method for accessing current socket ID
+   - Enhanced debug logging for socket ID tracking
+
+2. **Server-Side Model Refactor**:
+   - Refactored Room model to use proper Participant objects instead of dictionaries
+   - Updated room_manager.py to create and work with Participant instances
+   - Added socket ID validation in join-room handler for security
+   - Simplified imports by directly importing Participant class
+
+3. **Database Integration**:
+   - Ensured socket_id field properly stores Socket.io connection IDs
+   - Updated participant serialization to include socket IDs in JSON responses
+   - Maintained backward compatibility with existing API endpoints
+
+4. **Testing**:
+   - Added comprehensive tests for socket ID handling
+   - Created tests for Participant model usage in room management
+   - Verified socket ID storage and retrieval functionality
+
+### Technical Details:
+- Socket.id is unique per client connection, not per room or participant pair
+- Server maintains authoritative control over socket IDs for security
+- Participant objects now used throughout the system instead of dictionaries
+- Proper type hints and validation added for better code quality
+
+### Impact:
+- Improved type safety and code maintainability
+- Better socket connection tracking and management
+- Enhanced security through server-side socket ID validation
+- Cleaner architecture with proper model usage
+
+**Commit Message**: "Implement proper socket ID handling and refactor to use Participant model objects"

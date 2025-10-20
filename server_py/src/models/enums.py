@@ -17,7 +17,7 @@ class RoomStatus(str, Enum):
 class ParticipantRole(str, Enum):
     """Participant role enumeration"""
     HOST = "host"
-    PARTICIPANT = "speaker"  # Maps to 'speaker' for backward compatibility
+    PARTICIPANT = "speaker"  
     LISTENER = "listener"
 
 

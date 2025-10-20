@@ -74,7 +74,6 @@ __all__ = [
     "ParticipantIsMutedModel",
     "ParticipantIsSpeakingModel",
     "ParticipantIsReadyModel",
-    "ParticipantRole",
     # Room Models
     "RoomResponseModel",
     "CreateRoomModel",
@@ -116,4 +115,5 @@ __all__ = [
     "AgentModelSource",
     # Enums
     "CEFRLevel",
+    "ParticipantRole"
 ]

@@ -148,9 +148,14 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
             # Use clientUserData if provided, else fallback to auth
             if client_user_data and client_user_data.get("userId"):
+                # Validate that client-provided socketId matches server sid (security check)
+                client_socket_id = client_user_data.get("socketId")
+                if client_socket_id and client_socket_id != sid:
+                    print(f"[Backend] Warning: Client socketId {client_socket_id} doesn't match server sid {sid}")
+                
                 effective_user_data = {
                     "id": client_user_data.get("userId"),
-                    "socketId": sid,
+                    "socketId": sid,  # Always use server's authoritative socket ID
                     "name": client_user_data.get("name"),
                     "campus": client_user_data.get("campus"),
                     "location": client_user_data.get("location"),
@@ -162,7 +167,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             else:
                 effective_user_data = {
                     "id": auth_data.get("userId", sid),
-                    "socketId": sid,
+                    "socketId": sid,  # Always use server's authoritative socket ID
                     "name": auth_data.get("name"),
                     "campus": auth_data.get("campus"),
                     "location": auth_data.get("location"),
@@ -172,7 +177,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     "joinedAt": datetime.now().isoformat()
                 }
             
-            print(f"[Backend] 📥 {effective_user_data['anonymousName']} joining room: {room_id}")
+            print(f"[Backend] 📥 {effective_user_data['anonymousName']} joining room: {room_id} with socketId: {effective_user_data['socketId']}")
             
             # Leave any existing rooms
             current_rooms = sio.rooms(sid)
