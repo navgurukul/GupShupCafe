@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
+from .enums import ParticipantRole
+
 
 class CreateParticipantModel(BaseModel):
     """Complete Participant model matching the schema"""
@@ -95,7 +97,7 @@ class Participant(BaseModel):
     name: Optional[str] = Field(None, description="Real name")
     campus: Optional[str] = Field(None, description="Campus")
     location: Optional[str] = Field(None, description="Location")
-    role: str = Field(default="listener", description="Role: speaker, listener, host")
+    role: ParticipantRole = Field(default=ParticipantRole.LISTENER, description="Role: speaker, listener, host")
     is_ready: bool = Field(default=False, description="Ready to start discussion")
     joined_at: str = Field(..., description="ISO timestamp when joined")
     
@@ -108,7 +110,7 @@ class Participant(BaseModel):
             "name": self.name,
             "campus": self.campus,
             "location": self.location,
-            "role": self.role,
+            "role": self.role.value,
             "isReady": self.is_ready,
             "joinedAt": self.joined_at
         }
@@ -117,9 +119,10 @@ class Participant(BaseModel):
         """Update ready status"""
         self.is_ready = is_ready
     
-    def change_role(self, new_role: str):
+    def change_role(self, new_role: ParticipantRole):
         """Change participant role"""
         self.role = new_role
 
     class Config:
         from_attributes = True
+        use_enum_values = True
