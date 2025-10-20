@@ -24,6 +24,7 @@ import {
 
 import { generateAvatarColor } from "../utils/helpers";
 import { fetchWaitingRooms } from "../services/api";
+import { createParticipantForRoom } from "../utils/participantHelpers";
 
 // Global flag to prevent multiple late join checks (accessible across components)
 if (typeof window !== "undefined") {
@@ -138,7 +139,6 @@ function LobbyPage() {
   const [roomId, setRoomId] = useState("general");
   const [selectedRole, setSelectedRole] = useState("speaker"); // Default to speaker
   const [minParticipants, setMinParticipants] = useState(1); // Default to 1 for solo testing
-  const [isReady, setIsReady] = useState(false);
   const [waitingTime, setWaitingTime] = useState(0);
   const [systemMessage, setSystemMessage] = useState("Connecting to lobby...");
   const [isNavigating, setIsNavigating] = useState(false);
@@ -147,7 +147,6 @@ function LobbyPage() {
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [newRoomId, setNewRoomId] = useState("");
   const [currentRoom, setCurrentRoom] = useState(null);
-  const [inRoom, setInRoom] = useState(false);
 
   // New room creation form state
   const [roomForm, setRoomForm] = useState({
@@ -176,15 +175,6 @@ function LobbyPage() {
   const [waitingRooms, setWaitingRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(true);
 
-  // Auto-set inRoom state based on route
-  useEffect(() => {
-    if (isInRoomLobby && !inRoom) {
-      setInRoom(true);
-    } else if (!isInRoomLobby && inRoom) {
-      setInRoom(false);
-    }
-  }, [isInRoomLobby, inRoom]);
-
   // Fetch waiting rooms from backend
   useEffect(() => {
     const loadWaitingRooms = async () => {
@@ -202,15 +192,13 @@ function LobbyPage() {
       }
     };
 
-    // Only fetch if not in a room
-    if (!inRoom) {
-      loadWaitingRooms();
+    // Always load waiting rooms for the main lobby
+    loadWaitingRooms();
 
-      // Refresh room list every 10 seconds
-      const interval = setInterval(loadWaitingRooms, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [inRoom]);
+    // Refresh room list every 10 seconds
+    const interval = setInterval(loadWaitingRooms, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle URL parameters for room joining
   useEffect(() => {
@@ -269,86 +257,24 @@ function LobbyPage() {
 
     console.log(`[Lobby][Debug] Final result - Room: "${roomFromUrl}", Role: "${roleFromUrl}", Source: ${workingSource}`);
     console.log(`[Lobby][Debug] Socket status - Socket: ${!!socket}, Connected: ${connected}`);
-    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", InRoom: ${inRoom}, IsInRoomLobby: ${isInRoomLobby}`);
+    console.log(`[Lobby][Debug] Current state - RoomId: "${roomId}", IsInRoomLobby: ${isInRoomLobby}`);
     console.log(`[Lobby][Debug] === END URL DEBUGGING ===`);
 
     if (roomFromUrl && roomFromUrl.trim() !== '') {
       console.log(`[Lobby][Debug] ✅ Found room in URL: ${roomFromUrl} as ${roleFromUrl}`);
-      console.log(`[Lobby][Debug] Will process room joining...`);
+      console.log(`[Lobby][Debug] Redirecting to room-specific lobby page`);
 
-      // Always update the room state from URL
-      if (roomFromUrl !== roomId) {
-        console.log(`[Lobby][Debug] Setting room ID from "${roomId}" to "${roomFromUrl}"`);
-        setRoomId(roomFromUrl);
-        setSelectedRole(roleFromUrl);
-        setJoinedViaLink(true);
-        setInRoom(true); // Mark as in room immediately
-
-        // Navigate to the new room-specific lobby route
-        const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
-        if (location.pathname + location.search !== targetPath) {
-          console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "${targetPath}"`);
-          navigate(targetPath, { replace: true });
-        } else {
-          console.log(`[Lobby][Debug] Already on correct room lobby page`);
-        }
-      } else {
-        console.log(`[Lobby][Debug] Room ID already matches: "${roomId}"`);
-      }
-
-      // Join room when socket is ready
-      if (socket && connected) {
-        console.log(`[Lobby][Debug] Socket ready, attempting to join room: ${roomFromUrl}`);
-        setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-
-        // Join the room
-        console.log(`[Lobby][Debug] Calling joinRoom("${roomFromUrl}", "${roleFromUrl}")`);
-        joinRoom(roomFromUrl, roleFromUrl);
-
-        // Show success message after a delay
-        setTimeout(() => {
-          console.log(`[Lobby][Debug] Setting success message`);
-          setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
-        }, 1000);
-      } else {
-        console.log(`[Lobby][Debug] Socket not ready - Socket: ${!!socket}, Connected: ${connected}`);
-        setSystemMessage("Connecting to join shared room...");
+      // Navigate to the room-specific lobby route
+      const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
+      if (location.pathname + location.search !== targetPath) {
+        console.log(`[Lobby][Debug] Redirecting from "${location.pathname}" to "${targetPath}"`);
+        navigate(targetPath, { replace: true });
       }
     } else {
       console.log(`[Lobby][Debug] ❌ No room found in URL or empty room`);
       console.log(`[Lobby][Debug] Checked sources:`, sources.map(s => `${s.name}: "${s.search}"`));
     }
   }, [location.search, socket, connected, roomId, joinRoom, navigate, location.pathname, isInRoomLobby]);
-
-  // Separate effect to handle room joining when socket connects
-  useEffect(() => {
-    const urlParams = new URLSearchParams(location.search);
-    const roomFromUrl = urlParams.get('room');
-    const roleFromUrl = urlParams.get('role') || 'speaker';
-
-    console.log(`[Lobby][Debug] Second effect check - Room: ${roomFromUrl}, Socket: ${!!socket}, Connected: ${connected}, InRoom: ${inRoom}`);
-
-    // If we have room parameters and socket is connected but we haven't joined yet
-    if (roomFromUrl && socket && connected && !inRoom) {
-      console.log(`[Lobby][Debug] Socket connected, joining room: ${roomFromUrl}`);
-      setSystemMessage(`Joining shared room: ${roomFromUrl}...`);
-
-      // Ensure we're on the right page - navigate to room-specific lobby
-      const targetPath = `/lobby/${roomFromUrl}?role=${roleFromUrl}`;
-      if (location.pathname + location.search !== targetPath) {
-        navigate(targetPath, { replace: true });
-      }
-
-      // Join the room
-      console.log(`[Lobby][Debug] Calling joinRoom with: ${roomFromUrl}, ${roleFromUrl}`);
-      joinRoom(roomFromUrl, roleFromUrl);
-      setInRoom(true);
-
-      setTimeout(() => {
-        setSystemMessage("🎉 Successfully joined shared room! Waiting for others...");
-      }, 1000);
-    }
-  }, [socket, connected, inRoom, joinRoom, location.search, navigate, location.pathname]);
 
   // Map backend room data to frontend format
   const mapBackendRoomToFrontend = (backendRoom) => {
@@ -482,26 +408,14 @@ function LobbyPage() {
           roomData.roomId = sessionResult.data; // Assign generated room ID
 
 
-          // Create participant entry
-          const participantResponse = await fetch(`${apiUrl}/participants/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              user_id: storedHostData.userId,
-              room_id: sessionResult.data,
-              avatar_color: generateAvatarColor(), // Random color can be assigned here
-              anonymous_name: hostAnonymousName,
-              campusOrLocation: null,
-              joined_at: new Date().toISOString(),
-              starting_cefr_level: storedHostData.currentCefrLevel,
-              ending_cefr_level: storedHostData.currentCefrLevel  // Initially same as starting level
-            }),
+          // Create participant entry using helper function
+          await createParticipantForRoom({
+            userId: storedHostData.userId,
+            roomId: sessionResult.data,
+            anonymousName: hostAnonymousName,
+            currentCefrLevel: storedHostData.currentCefrLevel,
+            campusOrLocation: null
           })
-
-          const participantResult = await participantResponse.json()
-          console.log('[Lobby] Participant created:', participantResult)
         }
       } catch (error) {
         console.error('[Lobby] Error creating session/participant:', error)
@@ -520,7 +434,6 @@ function LobbyPage() {
         max_participants: roomData.max_participants
       })
       setCurrentRoom(roomData)
-      setInRoom(true)
       setShowCreateRoom(false)
 
       // Navigate to room-specific lobby
@@ -529,11 +442,11 @@ function LobbyPage() {
       console.log(`[Lobby][Debug] Room creation complete, navigating to /lobby/${roomData.roomId}`);
 
 
-      // Automatically show share modal for new room
-      setTimeout(() => {
-        console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.roomId}"`);
-        handleShareRoom(roomData.roomId);
-      }, 500);
+      // Automatically show share modal for new room (will be shown on RoomLobbyPage)
+      // setTimeout(() => {
+      //   console.log(`[Lobby][Debug] Triggering share modal for room: "${roomData.roomId}"`);
+      //   handleShareRoom(roomData.roomId);
+      // }, 500);
       // Reset form
       setRoomForm({
         room_name: "",
@@ -581,29 +494,16 @@ function LobbyPage() {
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
 
     try {
-      // Create participant entry for the user joining this room
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003';
-      const participantResponse = await fetch(`${apiUrl}/participants/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: storedUserData?.userId,
-          room_id: roomData.roomId,
-          avatar_color: generateAvatarColor(),
-          anonymous_name: joiningAnonymousName,
-          campusOrLocation: null,
-          joined_at: new Date().toISOString(),
-          starting_cefr_level: storedUserData?.currentCefrLevel,
-          ending_cefr_level: storedUserData?.currentCefrLevel,
-        }),
-      });
-
-      const participantResult = await participantResponse.json();
-      console.log('[Lobby][Debug] Participant created for existing room:', participantResult);
+      // Create participant entry for the user joining this room using helper function
+      await createParticipantForRoom({
+        userId: storedUserData?.userId,
+        roomId: roomData.roomId,
+        anonymousName: joiningAnonymousName,
+        currentCefrLevel: storedUserData?.currentCefrLevel,
+        campusOrLocation: null
+      })
     } catch (error) {
-      console.error('[Lobby][Debug] Error creating participant for existing room:', error);
+      console.error('[Lobby][Debug] Error creating participant for existing room:', error)
     }
 
     // Pass room metadata to joinRoom
@@ -615,28 +515,16 @@ function LobbyPage() {
     //   max_participants: roomData.max_participants
     // });
     setCurrentRoom(roomData);
-    setInRoom(true);
     
     // Close modal and clear pending data
     setShowJoinModal(false);
     setPendingRoomData(null);
     setJoiningAnonymousName("");
 
-    // Navigate to the room URL immediately (but show modal overlay)
+    // Navigate to the room URL (RoomLobbyPage will handle room joining)
     navigate(`/lobby/${roomData.roomId}?role=${selectedRole}`);
 
   }
-
-  const handleLeaveRoom = () => {
-    if (socket) {
-      socket.emit("leave-room", { roomId: currentRoom?.roomId });
-    }
-    setCurrentRoom(null);
-    setInRoom(false);
-    setParticipants([]);
-    // Navigate back to main lobby
-    navigate("/lobby");
-  };
 
   // Timer for waiting time and late join check
   useEffect(() => {
@@ -696,7 +584,7 @@ function LobbyPage() {
     };
   }, [roomId, isNavigating, navigate]);
 
-  // Socket event handlers
+  // Socket event handlers for main lobby (minimal, room-specific handlers in RoomLobbyPage)
   useEffect(() => {
     if (!socket || isNavigating) {
       console.log("[Lobby][Debug] Socket not available or navigating");
@@ -704,114 +592,22 @@ function LobbyPage() {
     }
 
     console.log("[Lobby][Debug] Socket available, connected:", connected);
+    
     // Socket connect/disconnect events
     socket.on("connect", () => {
-      if (!isNavigating) {
-        console.log("[Lobby][Debug] Socket connected:", socket.id);
-        console.log(
-          `[Lobby][Debug] Calling joinRoom with roomId: ${roomId}, role: ${selectedRole} (on connect)`
-        );
-        joinRoom(roomId, selectedRole);
-      }
+      console.log("[Lobby][Debug] Socket connected:", socket.id);
     });
+    
     socket.on("disconnect", () => {
       console.log("[Lobby][Debug] Socket disconnected");
-    });
-
-    // Handle participants update
-    socket.on("participants-update", (updatedParticipants) => {
-      console.log(
-        "[Lobby][Debug] Received participants-update:",
-        updatedParticipants
-      );
-      setParticipants(updatedParticipants);
-      // Enhanced debug: print all roles and readiness
-      console.log(
-        "[Lobby][Debug] Participants array:",
-        updatedParticipants.map((p) => ({
-          name: p.anonymousName,
-          role: p.role,
-          isReady: p.isReady,
-          id: p.participantId,
-          socketId: p.socketId,
-        }))
-      );
-      console.log(
-        "[Lobby][Debug] Local userRole:",
-        userRole,
-        "selectedRole:",
-        selectedRole
-      );
-      // Find local participant in the update
-      const local = updatedParticipants.find((p) => p.socketId === socket.id);
-      if (local) {
-        console.log("[Lobby][Debug] Local participant from update:", local);
-      } else {
-        console.log(
-          "[Lobby][Debug] Local participant not found in update. Socket ID:",
-          socket.id
-        );
-      }
-      if (updatedParticipants.length >= 1) {
-        setSystemMessage(
-          'Ready to start! Click "Ready" when you want to begin.'
-        );
-      } else {
-        setSystemMessage("Connecting to discussion room...");
-      }
-    });
-
-    // Handle discussion start
-    socket.on("discussion-started", () => {
-      console.log(
-        "[Lobby][Debug] Received discussion-started event - navigating to /roundtable"
-      );
-      if (!isNavigating) {
-        setIsNavigating(true);
-        setSystemMessage("Discussion starting! Redirecting to roundtable...");
-        console.log("[Lobby][Debug] Navigating to /roundtable now");
-        navigate("/roundtable", { replace: true });
-      }
-    });
-
-    // Handle user ready status
-    socket.on("user-ready-update", (readyUsers) => {
-      console.log("[Lobby][Debug] Received user-ready-update:", readyUsers);
-      // Update UI to show who's ready
-      console.log("[Lobby][Debug] Ready users:", readyUsers);
-    });
-
-    // Handle system messages
-    socket.on("system-message", (message) => {
-      console.log("[Lobby][Debug] Received system message:", message);
-      setSystemMessage(message);
     });
 
     // Cleanup event listeners
     return () => {
       socket.off("connect");
       socket.off("disconnect");
-      socket.off("participants-update");
-      socket.off("discussion-started");
-      socket.off("user-ready-update");
-      socket.off("system-message");
     };
-  }, [
-    socket,
-    connected,
-    isNavigating,
-    navigate,
-    joinRoom,
-    roomId,
-    selectedRole,
-    userRole,
-  ]);
-
-  // Audio permission management
-  const handleMicrophoneSetup = async () => {
-    console.log("[Lobby][Debug] Setting up microphone");
-    await requestMicrophoneAccess();
-  };
+  }, [socket, connected, isNavigating]);
 
   // User actions
   const handleLogout = () => {
@@ -819,26 +615,12 @@ function LobbyPage() {
     logout();
   };
 
-  const handleReady = () => {
-    console.log("[Lobby][Debug] Ready button clicked");
-    signalReady();
-    setIsReady(true);
-  };
-
-  // Derived state
-  const canStart =
-    participants.length >= minParticipants &&
-    (selectedRole === "listener" || audioEnabled);
-
   // Format time display
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  // Check if ready button should be disabled
-  const isReadyButtonDisabled = !canStart;
 
   // Early return for development debugging
   const isDevelopment = window.location.hostname === 'localhost'
@@ -912,9 +694,8 @@ function LobbyPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-8">
-        {!inRoom ? (
-          // Room Selection View
-          <div className="space-y-8">
+        {/* Room Selection View */}
+        <div className="space-y-8">
             {/* Header */}
             <div className="text-center space-y-4">
               <h2 className="text-3xl font-bold text-gray-900">
@@ -1207,194 +988,10 @@ function LobbyPage() {
               )}
             </div>
           </div>
-        ) : (
-          // In Room View
-          <div className="space-y-8">
-            {/* Room Header */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {currentRoom?.icon && !currentRoom?.isCustom && (
-                    <div
-                      className={`w-12 h-12 ${allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
-                        ?.color
-                        } rounded-full flex items-center justify-center`}
-                    >
-                      {React.createElement(
-                        allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
-                          ?.icon,
-                        { className: "w-6 h-6 text-white" }
-                      )}
-                    </div>
-                  )}
-                  {currentRoom?.isCustom && (
-                    <div className="w-12 h-12 bg-gray-500 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900">
-                      {currentRoom?.name}
-                    </h2>
-                    <p className="text-gray-600">
-                      {currentRoom?.isCustom
-                        ? "Custom Room"
-                        : allWaitingRooms.find((r) => r.roomId === currentRoom.roomId)
-                          ?.description}
-                    </p>
+      </main>
 
-                    {/* Room Details */}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {currentRoom?.cefr_level && (
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${cefrLevels.find(
-                            (level) => level.roomId === currentRoom.cefr_level
-                          )?.color
-                            } flex items-center`}
-                        >
-                          <Star className="w-3 h-3 mr-1" />
-                          {currentRoom.cefr_level}
-                        </span>
-                      )}
-                      {currentRoom?.topic_category && (
-                        <span
-                          className={`px-2 py-1 text-xs font-medium rounded-full ${topicCategories.find(
-                            (cat) => cat.id === currentRoom.topic_category
-                          )?.color
-                            }`}
-                        >
-                          {
-                            topicCategories.find(
-                              (cat) => cat.id === currentRoom.topic_category
-                            )?.label
-                          }
-                        </span>
-                      )}
-                      {currentRoom?.max_participants && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                          Max: {currentRoom.max_participants}
-                        </span>
-                      )}
-                      {currentRoom?.host_anonymous_name && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          Host: {currentRoom.host_anonymous_name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleShareRoom(currentRoom?.roomId)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <Share2 size={16} />
-                    <span>Share Room</span>
-                  </button>
-                  <button
-                    onClick={handleLeaveRoom}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Leave Room
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Joined via Link Notification */}
-            {joinedViaLink && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-800 font-medium">
-                    🎉 You've successfully joined this shared room!
-                  </span>
-                </div>
-                <p className="text-green-700 text-sm mt-1 ml-4">
-                  Welcome to the discussion. You can share this room with others using the "Share Room" button above.
-                </p>
-              </div>
-            )}
-
-            {/* Participants */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Participants ({participants.length})
-              </h3>
-
-              {participants.length > 0 ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {participants.map((participant) => (
-                    <div
-                      key={participant.participantId}
-                      className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                        {participant.anonymousName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
-                          {participant.anonymousName}
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${participant.role === "speaker"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
-                              }`}
-                          >
-                            {participant.role === "speaker" ? "🎤" : "👂"}
-                          </span>
-                          {participant.isReady && (
-                            <span className="text-xs text-green-600 font-medium">
-                              Ready
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>You're the first one here! Others will join soon.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Ready Button */}
-            <div className="text-center">
-              {!isReady ? (
-                <button
-                  onClick={() => {
-                    if (socket && currentRoom) {
-                      console.log(
-                        "[Lobby][Debug] Signaling ready for room:",
-                        currentRoom.roomId
-                      );
-                      signalReady();
-                      setIsReady(true);
-                    }
-                  }}
-                  className="px-8 py-4 bg-green-600 text-white text-lg font-semibold rounded-xl hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  Ready
-                </button>
-              ) : (
-                <div className="inline-flex items-center space-x-3 px-6 py-3 bg-green-100 text-green-800 rounded-xl">
-                  <div className="w-3 h-3 bg-green-600 rounded-full animate-pulse"></div>
-                  <span className="font-semibold">
-                    You're Ready! Waiting for others...
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Share Room Modal */}
-        {showShareModal && (
+      {/* Share Room Modal */}
+      {showShareModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4">
               <h3 className="text-xl font-bold text-gray-900 mb-4">
@@ -1549,7 +1146,6 @@ function LobbyPage() {
             </div>
           </div>
         )}
-      </main>
     </div>
   );
 }

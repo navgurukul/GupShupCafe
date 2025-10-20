@@ -1,3 +1,113 @@
+## 2025-10-19 15:34 UTC — RoomLobbyPage Improvements with API Integration
+
+**Date**: 2025-10-19 15:34 UTC  
+**Type**: Feature | API Integration | Refactoring  
+**Commit Message**: Add room details, API integrations, participant helpers, and refactor lobby pages
+
+**Changes:**
+
+### 1. RoomLobbyPage Enhancements
+- **Added comprehensive room details display** showing:
+  - Room Name, Room ID
+  - Topic Category (auto-formatted with proper spacing)
+  - CEFR Level
+  - Max Participants
+  - Status (color-coded: waiting=orange, in_progress=green)
+- **Linked "I am ready" button to API endpoint** `/api/participants/ready`
+  - Updates participant's `isReady` status in database
+  - Retrieves participantId from localStorage for API call
+  - Maintains socket-based ready signal alongside database update
+- **Added room status update** when discussion starts
+  - PATCH request to `/api/rooms/{room_id}/status` sets status to `in_progress`
+  - Triggered by `discussion-started` socket event
+- **Implemented participant polling mechanism**
+  - Polls `/api/participants/room/{roomId}` every 15 seconds
+  - Runs for first minute after discussion starts
+  - Automatically stops after 60 seconds
+  - Provides visibility into participant changes during early discussion
+
+### 2. LobbyPage Refactoring
+- **Removed duplicate in-room view logic** (now exclusively handled by RoomLobbyPage)
+- **Simplified socket event handlers** to only handle main lobby connections
+- **Removed redundant state variables**: `isReady`, `inRoom`
+- **Cleaned up room-specific functions**: `handleLeaveRoom`, `handleReady`, etc.
+- **Improved routing**: Always redirect to `/lobby/:roomId` when joining a room
+- **Fixed JSX structure** and div nesting issues
+- **Resolved all linting errors**
+
+### 3. New Utility Module: participantHelpers.js
+- **Created centralized helper module** for participant data management
+- **Eliminates code duplication** between `handleCreateRoom` and `handleJoinSubmit`
+- **Functions provided**:
+  - `createParticipant()` - Create participant via API
+  - `saveParticipantToLocalStorage()` - Store participant data
+  - `getParticipantFromLocalStorage()` - Retrieve participant data
+  - `clearParticipantFromLocalStorage()` - Remove participant data
+  - `createParticipantForRoom()` - Unified participant creation with user data
+
+### 4. SocketContext Enhancement
+- **Updated joinRoom function** to use participant data from localStorage
+- Retrieves `anonymous_name` from stored participant data
+- Falls back to user name or "Anonymous" if no data available
+
+**Technical Details:**
+
+API Endpoints Used:
+- `GET /rooms/{room_id}` - Fetch room details
+- `PATCH /participants/ready` - Update participant ready status
+- `PATCH /rooms/{room_id}/status` - Update room status
+- `GET /participants/room/{roomId}` - Poll for participants
+- `POST /participants/` - Create new participant
+
+localStorage Schema (participantData):
+```javascript
+{
+  participantId: string,
+  user_id: string,
+  room_id: string,
+  anonymous_name: string,
+  avatar_color: string,
+  starting_cefr_level: string,
+  ending_cefr_level: string,
+  joined_at: string,
+  campusOrLocation: string
+}
+```
+
+**User Flow:**
+1. User creates or joins room in LobbyPage
+2. Automatically navigated to `/lobby/:roomId` (RoomLobbyPage)
+3. RoomLobbyPage fetches and displays comprehensive room details
+4. User sees room information, participants, and audio setup status
+5. User clicks "I'm Ready to Start!" button
+6. Ready status updated in database via API call
+7. Socket broadcasts ready status to all participants
+8. When discussion starts, room status updated to `in_progress`
+9. System polls for participants every 15s for first minute
+
+**Impact:**
+- Better separation of concerns between LobbyPage and RoomLobbyPage
+- Persistent participant data across page navigations
+- Real-time room status tracking in database
+- Reduced code duplication (~400 lines removed from LobbyPage)
+- Improved maintainability with centralized participant helpers
+
+**Files Modified:**
+- `client/src/pages/RoomLobbyPage.jsx` - Major enhancements
+- `client/src/pages/LobbyPage.jsx` - Significant refactoring
+- `client/src/contexts/SocketContext.jsx` - Minor update
+- `client/src/utils/participantHelpers.js` - New file created
+
+**Documentation:**
+- Created `docs/Miscellaneous/room-lobby-improvements-2025-10-19.md` with detailed implementation notes
+
+**Testing:**
+- ✅ Linting passes
+- ⏳ Integration tests pending
+- ⏳ Manual testing pending
+
+---
+
 ## 2025-10-19 17:45 UTC — Join Room Modal with Anonymous Name Input
 
 **Date**: 2025-10-19 17:45 UTC  
