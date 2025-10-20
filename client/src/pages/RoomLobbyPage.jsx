@@ -40,8 +40,6 @@ function RoomLobbyPage() {
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareableLink, setShareableLink] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
-  const [roomDetails, setRoomDetails] = useState(null)
-  const [discussionStartTime, setDiscussionStartTime] = useState(null)
 
   // Update roomId when URL parameter changes
   useEffect(() => {
@@ -50,28 +48,6 @@ function RoomLobbyPage() {
       setRoomId(urlRoomId)
     }
   }, [urlRoomId])
-
-  // Fetch room details from API
-  useEffect(() => {
-    const fetchRoomDetails = async () => {
-      if (!roomId) return
-      
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-        const response = await fetch(`${apiUrl}/rooms/${roomId}`)
-        const result = await response.json()
-        
-        if (result.status === 'success') {
-          console.log('[RoomLobby][Debug] Fetched room details:', result.data)
-          setRoomDetails(result.data)
-        }
-      } catch (error) {
-        console.error('[RoomLobby][Debug] Error fetching room details:', error)
-      }
-    }
-    
-    fetchRoomDetails()
-  }, [roomId])
 
   // Handle URL query parameters for role
   useEffect(() => {
@@ -215,32 +191,6 @@ function RoomLobbyPage() {
         setIsNavigating(true)
         setSystemMessage('Discussion starting! Redirecting to roundtable...')
         console.log('[Lobby][Debug] Navigating to /roundtable now')
-        
-        // Mark discussion start time for polling
-        setDiscussionStartTime(Date.now())
-        
-        // Update room status to 'in_progress' via API
-        const updateRoomStatus = async () => {
-          try {
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-            const response = await fetch(`${apiUrl}/rooms/${roomId}/status`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                status: 'in_progress'
-              })
-            })
-            
-            const result = await response.json()
-            console.log('[RoomLobby][Debug] Room status updated to in_progress:', result)
-          } catch (error) {
-            console.error('[RoomLobby][Debug] Error updating room status:', error)
-          }
-        }
-        
-        updateRoomStatus()
         navigate('/roundtable', { replace: true })
       }
     })
@@ -268,45 +218,6 @@ function RoomLobbyPage() {
       socket.off('system-message')
     }
   }, [socket, joinRoom, roomId, selectedRole, navigate, connected, isNavigating])
-
-  // Poll for participants every 15 seconds for the first minute after discussion starts
-  useEffect(() => {
-    if (!discussionStartTime || !roomId) return
-    
-    const fetchParticipants = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-        const response = await fetch(`${apiUrl}/participants/room/${roomId}`)
-        const result = await response.json()
-        
-        if (result.status === 'success') {
-          console.log('[RoomLobby][Debug] Polled participants:', result.data)
-          // Update participants if needed (optional, socket updates should handle this)
-        }
-      } catch (error) {
-        console.error('[RoomLobby][Debug] Error polling participants:', error)
-      }
-    }
-    
-    // Poll every 15 seconds
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - discussionStartTime
-      
-      // Stop polling after 60 seconds (1 minute)
-      if (elapsed >= 60000) {
-        console.log('[RoomLobby][Debug] Stopping participant polling after 1 minute')
-        clearInterval(interval)
-        return
-      }
-      
-      fetchParticipants()
-    }, 15000) // 15 seconds
-    
-    // Initial fetch
-    fetchParticipants()
-    
-    return () => clearInterval(interval)
-  }, [discussionStartTime, roomId])
 
   // Fetch server-side configuration (minParticipants, etc.)
   useEffect(() => {
@@ -348,39 +259,12 @@ function RoomLobbyPage() {
   /**
    * Handle ready button click
    */
-  const handleReady = async () => {
-    console.log('[Lobby][Debug] Ready button clicked. Participants:', participants, 'AudioEnabled:', audioEnabled)
+  const handleReady = () => {
+  console.log('[Lobby][Debug] Ready button clicked. Participants:', participants, 'AudioEnabled:', audioEnabled)
     if (participants.length >= minParticipants && audioEnabled) {
       setIsReady(true)
-      console.log('[Lobby][Debug] Emitting signalReady')
+  console.log('[Lobby][Debug] Emitting signalReady')
       signalReady()
-      
-      // Update participant ready status via API
-      try {
-        const participantData = JSON.parse(localStorage.getItem('participantData') || '{}')
-        const participantId = participantData.participantId
-        
-        if (participantId) {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
-          const response = await fetch(`${apiUrl}/participants/ready`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              participant_id: participantId,
-              is_ready: true
-            })
-          })
-          
-          const result = await response.json()
-          console.log('[RoomLobby][Debug] Ready status updated via API:', result)
-        } else {
-          console.warn('[RoomLobby][Debug] No participantId found in localStorage')
-        }
-      } catch (error) {
-        console.error('[RoomLobby][Debug] Error updating ready status:', error)
-      }
     }
   }
 
@@ -479,43 +363,6 @@ function RoomLobbyPage() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-4xl mx-auto w-full p-6">
-        {/* Room Details Card */}
-        {roomDetails && (
-          <div className="mb-6 bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Room Details</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <span className="text-sm text-gray-600">Room Name:</span>
-                <p className="font-semibold text-gray-900">{roomDetails.room_name}</p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Room ID:</span>
-                <p className="font-semibold text-gray-900">{roomDetails.room_id}</p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Topic Category:</span>
-                <p className="font-semibold text-gray-900 capitalize">{roomDetails.topic_category?.replace(/([A-Z])/g, ' $1').trim()}</p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">CEFR Level:</span>
-                <p className="font-semibold text-gray-900">{roomDetails.cefr_level}</p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Max Participants:</span>
-                <p className="font-semibold text-gray-900">{roomDetails.max_participants}</p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Status:</span>
-                <p className={`font-semibold capitalize ${
-                  roomDetails.status === 'waiting' ? 'text-orange-600' :
-                  roomDetails.status === 'in_progress' ? 'text-green-600' :
-                  'text-gray-600'
-                }`}>{roomDetails.status?.replace('_', ' ')}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid md:grid-cols-2 gap-6">
           {/* Status Panel */}
           <div className="space-y-6">
