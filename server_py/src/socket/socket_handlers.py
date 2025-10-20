@@ -52,7 +52,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     # In-memory map of active room ids per room
     active_rooms: Dict[str, str] = {}
     
-    @sio.on('connect')
+    @sio.on('connection')
     async def connect(sid, environ, auth):
         """Handle client connection"""
         print(f"[Backend] Socket connected: {sid}")
