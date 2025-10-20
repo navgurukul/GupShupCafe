@@ -104,25 +104,25 @@ app.add_middleware(
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*" if is_production else ALLOWED_ORIGINS,
-    logger=False,
-    engineio_logger=False
+    logger=True,  # Enable logging for debugging
+    engineio_logger=True  # Enable engine.io logging for debugging
 )
 
-# Wrap with ASGI app
-socket_app = socketio.ASGIApp(
-    sio,
-    other_asgi_app=app,
-    socketio_path="/socket.io"
-)
-
-# Mount API routes
+# Mount API routes BEFORE creating socket_app
 app.include_router(api_router, prefix="/api")
 app.include_router(user_router,prefix="/users",tags=["User Management"])
 app.include_router(room_router, prefix="/rooms", tags=["Room Management"])
 app.include_router(participant_router, prefix="/participants", tags=["Participant Management"])
 app.include_router(transcript_router, prefix="/transcripts", tags=["Transcripts"])
 app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
-app.include_router(agent_router, prefix="/agents", tags=["Agent Management"]) 
+app.include_router(agent_router, prefix="/agents", tags=["Agent Management"])
+
+# Wrap with ASGI app
+socket_app = socketio.ASGIApp(
+    sio,
+    other_asgi_app=app,
+    socketio_path="/socket.io"
+) 
 
 @app.get("/")
 async def root():
@@ -163,7 +163,18 @@ async def startup_event():
         
         # Setup Socket.io handlers
         logger.info("Setting up Socket.io handlers...")
-        await setup_socket_handlers(sio)
+        
+        # Add simple test handler
+        @sio.event
+        async def connect(sid, environ, auth):
+            logger.info(f"Client connected: {sid}")
+            await sio.emit("welcome", {"message": "Connected!"}, room=sid)
+        
+        @sio.event
+        async def disconnect(sid):
+            logger.info(f"Client disconnected: {sid}")
+        
+        # await setup_socket_handlers(sio)
         
         logger.info(f"Server starting on port {PORT}")
         logger.info(f"Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")

@@ -24,7 +24,8 @@ export function SocketProvider({ children }) {
   useEffect(() => {
     // Only connect if user is authenticated
     // Only initialize socket once when auth becomes available
-    if (isAuthenticated && userData && !socketRef.current) {
+    // TEMP: Allow connection without auth for testing
+    if ((isAuthenticated && userData) && !socketRef.current) {
       const isProd = import.meta.env.MODE === 'production';
       const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? undefined : 'http://localhost:3003');
 
@@ -36,13 +37,15 @@ export function SocketProvider({ children }) {
         auth: {
           userId: storedUserData.userId || userData.userId,
           name: storedUserData.name || userData.name,
-          campusOrLocation: storedUserData.campusOrLocation || userData.campusOrLocation,
+          campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
         },
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        autoConnect: true
+        autoConnect: true,
+        upgrade: true, // Allow transport upgrade
+        forceNew: true // Force new connection
       })
 
       newSocket.on('connect', () => {
@@ -57,7 +60,7 @@ export function SocketProvider({ children }) {
           const reconnectUserData = {
             userId: storedUserData.userId || userData?.userId,
             name: storedUserData.name || userData?.name,
-            campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
+            campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
             anonymousName: storedParticipantData.anonymous_name || storedUserData.name || userData?.name || 'Anonymous',
             role: metaRef.current.selectedRole
           }
@@ -121,7 +124,7 @@ export function SocketProvider({ children }) {
       const joinUserData = {
         userId: storedUserData.userId || userData?.userId,
         name: storedUserData.name || userData?.name,
-        campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
+        campusOrLocation: storedUserData?.campusOrLocation || userData?.campusOrLocation || null,
         anonymousName: anonymousName,
         role: role
       }

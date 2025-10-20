@@ -27,8 +27,7 @@ function authReducer(state, action) {
     case AUTH_ACTIONS.LOGIN:
       return {
         isAuthenticated: true,
-        user: action.payload.user || action.payload,
-        anonymousName: action.payload.anonymousName || null
+        user: action.payload.user || null
       }
     case AUTH_ACTIONS.LOGOUT:
       return initialState
