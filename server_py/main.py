@@ -23,6 +23,7 @@ from src.api.room_routes import router as room_router
 from src.api.participant_routes import router as participant_router
 from src.api.transcript_routes import router as transcript_router
 from src.api.feedback_routes import router as feedback_router
+from src.api.agent_routes import router as agent_router
 
 # Configure logging
 logging.basicConfig(
@@ -120,7 +121,8 @@ app.include_router(user_router,prefix="/users",tags=["User Management"])
 app.include_router(room_router, prefix="/rooms", tags=["Room Management"])
 app.include_router(participant_router, prefix="/participants", tags=["Participant Management"])
 app.include_router(transcript_router, prefix="/transcripts", tags=["Transcripts"])
-app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"]) 
+app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
+app.include_router(agent_router, prefix="/agents", tags=["Agent Management"]) 
 
 @app.get("/")
 async def root():
