@@ -127,6 +127,25 @@ async def get_topic_by_cat(category: str):
 #         raise HTTPException(status_code=500, detail="Failed to retrieve server statistics")
 
 
+@router.post("/feedback")
+async def submit_feedback(feedback_data: dict):
+    """Submit user feedback"""
+    try:
+        rating = feedback_data.get("rating")
+        comment = feedback_data.get("comment")
+        room_id = feedback_data.get("room_id")
+        
+        # Log feedback (in production, save to database)
+        print(f"Feedback received: {{'rating': {rating}, 'comment': {comment[:100] if comment else None}, 'room_id': {room_id}, 'timestamp': {__import__('datetime').datetime.now()}}}")
+        
+        return {
+            "success": True,
+            "message": "Feedback received successfully"
+        }
+    except Exception as e:
+        print(f"Error handling feedback: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to submit feedback")
+
 
 @router.get("/config")
 async def get_config():
@@ -161,3 +180,42 @@ async def get_config():
             }
         )
 
+
+@router.get("/room/{room_id}/state")
+async def get_room_state(room_id: str):
+    """Get current room state including discussion status"""
+    try:
+        room = room_manager.get_room(room_id)
+        
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        # Get current speaker
+        current_speaker = room.get_current_speaker()
+        
+        # Serialize only safe discussion fields
+        safe_discussion = {
+            "active": room.status.value == "in_progress",
+            "topic": room.topic,
+            "currentSpeakerIndex": room.current_speaker_index,
+            "speakingTime": room.speaking_time,
+            "timeRemaining": room.time_remaining,
+            "round": room.current_round,
+            "startedAt": room.started_at,
+            "endedAt": room.ended_at
+        }
+        
+        # Get participants
+        participants = room_manager.get_room_participants(room_id)
+        
+        return {
+            "participants": participants,
+            "discussion": safe_discussion
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[api/room/{room_id}/state] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to get room state")
