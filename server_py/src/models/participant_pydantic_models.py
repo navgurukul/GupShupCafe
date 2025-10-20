@@ -100,6 +100,9 @@ class Participant(BaseModel):
     role: ParticipantRole = Field(default=ParticipantRole.LISTENER, description="Role: speaker, listener, host")
     is_ready: bool = Field(default=False, description="Ready to start discussion")
     joined_at: str = Field(..., description="ISO timestamp when joined")
+    is_connected: bool = Field(default=True, description="Connection status")
+    disconnected_at: Optional[str] = Field(None, description="ISO timestamp when disconnected")
+    reconnected_at: Optional[str] = Field(None, description="ISO timestamp when reconnected")
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization"""
@@ -112,7 +115,10 @@ class Participant(BaseModel):
             "location": self.location,
             "role": self.role.value,
             "isReady": self.is_ready,
-            "joinedAt": self.joined_at
+            "joinedAt": self.joined_at,
+            "isConnected": self.is_connected,
+            "disconnectedAt": self.disconnected_at,
+            "reconnectedAt": self.reconnected_at
         }
     
     def update_ready_status(self, is_ready: bool):

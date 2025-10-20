@@ -1,4 +1,3 @@
-import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { SocketProvider } from "./contexts/SocketContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -12,6 +11,7 @@ import AudioTestPage from "./pages/AudioTestPage";
 import BroadcastTestPage from "./pages/BroadcastTestPage";
 import SpeechRecognitionTest from "./pages/SpeechRecognitionTest";
 import ProtectedRoute from "./components/common/ProtectedRoute";
+import ConnectionStatus from "./components/common/ConnectionStatus";
 
 /**
  * Main App Component
@@ -24,6 +24,11 @@ function App() {
         <SocketProvider>
           <AudioProvider>
             <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+              {/* Connection Status - Show on all pages */}
+              <div className="fixed top-4 right-4 z-50">
+                <ConnectionStatus />
+              </div>
+
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<LoginPage />} />

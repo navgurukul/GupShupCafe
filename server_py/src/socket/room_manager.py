@@ -72,7 +72,10 @@ class RoomManager:
             location=user_data.get("location"),
             role=role,
             is_ready=user_data.get("isReady", False),
-            joined_at=user_data.get("joinedAt", datetime.now().isoformat())
+            joined_at=user_data.get("joinedAt", datetime.now().isoformat()),
+            is_connected=user_data.get("isConnected", True),
+            disconnected_at=user_data.get("disconnectedAt"),
+            reconnected_at=user_data.get("reconnectedAt")
         )
 
         # Add participant (handles reconnection)

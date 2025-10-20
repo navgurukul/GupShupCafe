@@ -74,7 +74,11 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         
         # Save auth data to session so it can be retrieved in join_room
         if auth:
-            await sio.save_session(sid, {'auth': auth})
+            await sio.save_session(sid, {
+                'auth': auth,
+                'connected_at': datetime.now().isoformat(),
+                'reconnect_count': 0
+            })
 
         # Emit a connection acknowledgement for quick client-side sanity checks
         try:
@@ -107,19 +111,42 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 if user:
                     user_id = user.id
                     anonymous_name = user.anonymous_name
-                    room_manager.remove_user_from_room(room_id, user_id)
                     
-                    # Get updated participants
-                    participants = room_manager.get_room_participants(room_id)
+                    # Mark user as disconnected but don't remove immediately
+                    # This allows for reconnection within a grace period
+                    room_manager.update_user(room_id, user_id, {
+                        "isConnected": False,
+                        "disconnectedAt": datetime.now().isoformat()
+                    })
                     
-                    # Notify others
-                    await sio.emit("participants-update", participants, room=room_id)
-                    await sio.emit("participant-left", {
-                        "participantId": user_id,
-                        "anonymousName": anonymous_name
-                    }, room=room_id)
+                    print(f"[Backend] {anonymous_name} marked as disconnected from room {room_id}")
                     
-                    print(f"[Backend] {anonymous_name} disconnected from room {room_id}")
+                    # Set a grace period before removing the user completely
+                    async def remove_after_grace_period():
+                        await asyncio.sleep(30)  # 30 second grace period
+                        
+                        # Check if user reconnected
+                        room = room_manager.get_room(room_id)
+                        user = room.get_participant_by_id(user_id)
+                        
+                        if user and not getattr(user, 'is_connected', True):
+                            # User didn't reconnect, remove them
+                            room_manager.remove_user_from_room(room_id, user_id)
+                            
+                            # Get updated participants
+                            participants = room_manager.get_room_participants(room_id)
+                            
+                            # Notify others
+                            await sio.emit("participants-update", participants, room=room_id)
+                            await sio.emit("participant-left", {
+                                "participantId": user_id,
+                                "anonymousName": anonymous_name
+                            }, room=room_id)
+                            
+                            print(f"[Backend] {anonymous_name} removed from room {room_id} after grace period")
+                    
+                    # Start grace period timer
+                    asyncio.create_task(remove_after_grace_period())
     
     @sio.on('join-room')
     async def join_room(sid, *args):
@@ -146,6 +173,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             except:
                 auth_data = {}
             
+            # Check if this is a reconnection
+            is_reconnecting = client_user_data and client_user_data.get("isReconnecting", False)
+            
             # Use clientUserData if provided, else fallback to auth
             if client_user_data and client_user_data.get("userId"):
                 effective_user_data = {
@@ -157,6 +187,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     "anonymousName": client_user_data.get("anonymousName"),
                     "role": client_user_data.get("role", "listener"),
                     "isReady": False,
+                    "isConnected": True,
                     "joinedAt": datetime.now().isoformat()
                 }
             else:
@@ -169,10 +200,11 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     "anonymousName": auth_data.get("anonymousName"),
                     "role": auth_data.get("role", "listener"),
                     "isReady": False,
+                    "isConnected": True,
                     "joinedAt": datetime.now().isoformat()
                 }
             
-            print(f"[Backend] 📥 {effective_user_data['anonymousName']} joining room: {room_id}")
+            print(f"[Backend] 📥 {effective_user_data['anonymousName']} {'reconnecting to' if is_reconnecting else 'joining'} room: {room_id}")
             
             # Leave any existing rooms
             current_rooms = sio.rooms(sid)
@@ -180,18 +212,32 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 if room != sid:
                     print(f"[Backend] Leaving room: {room}")
                     await sio.leave_room(sid, room)
-                    # Find and remove user from that room
-                    old_room = room_manager.get_room(room)
-                    old_user = old_room.get_participant_by_socket(sid)
-                    if old_user:
-                        room_manager.remove_user_from_room(room, old_user.id)
+                    # Find and remove user from that room only if not reconnecting to same room
+                    if room != room_id:
+                        old_room = room_manager.get_room(room)
+                        old_user = old_room.get_participant_by_socket(sid)
+                        if old_user:
+                            room_manager.remove_user_from_room(room, old_user.id)
             
             # Join the new room
             await sio.enter_room(sid, room_id)
-            print(f"[Backend] Joined new room: {room_id}")
+            print(f"[Backend] Joined room: {room_id}")
             
-            # Add user to room manager
-            room_manager.add_user_to_room(room_id, effective_user_data)
+            # Check if user already exists in room (reconnection case)
+            room = room_manager.get_room(room_id)
+            existing_user = room.get_participant_by_id(effective_user_data["id"])
+            
+            if existing_user and is_reconnecting:
+                # Update existing user's socket ID and connection status
+                room_manager.update_user(room_id, effective_user_data["id"], {
+                    "socketId": sid,
+                    "isConnected": True,
+                    "reconnectedAt": datetime.now().isoformat()
+                })
+                print(f"[Backend] Updated existing user {effective_user_data['anonymousName']} with new socket ID")
+            else:
+                # Add new user to room manager
+                room_manager.add_user_to_room(room_id, effective_user_data)
             
             # Store room metadata if provided
             room = room_manager.get_room(room_id)
@@ -385,6 +431,18 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             print(f"[Backend] Provided whoami to {sid}")
         except Exception as e:
             print(f"[Backend] Error in debug-whoami handler: {e}")
+
+    @sio.event
+    async def heartbeat(sid, data=None):
+        """Handle heartbeat from client to maintain connection"""
+        try:
+            # Respond with server timestamp
+            await sio.emit("heartbeat-response", {
+                "serverTime": datetime.now().isoformat(),
+                "clientTime": data.get("timestamp") if data else None
+            }, room=sid)
+        except Exception as e:
+            print(f"[Backend] Error in heartbeat handler: {e}")
 
     @sio.event
     async def debug_room_state(sid, data=None):

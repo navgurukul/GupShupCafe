@@ -2692,3 +2692,134 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - Compatible with RoomLobbyPage participant management
 - Integrates with participantHelpers.js data storage pattern
 - Maintains existing Socket.io event structure
+
+---
+
+## 2025-10-20 16:30 UTC — Socket Connection Persistence Improvements
+
+**Date**: 2025-10-20 16:30 UTC  
+**Type**: Enhancement | Reliability | UX  
+**Commit Message**: Improve socket connection persistence with reconnection handling and state management
+
+**Changes:**
+
+### 1. Enhanced Client-Side Socket Reconnection
+- **Improved reconnection configuration** with increased attempts and better timeouts:
+  - Increased `reconnectionAttempts` from 10 to 20
+  - Added `reconnectionDelayMax: 5000` and `maxReconnectionAttempts: 20`
+  - Added `timeout: 20000` for connection timeout
+  - Set `forceNew: false` to reuse existing connections when possible
+- **Added comprehensive reconnection event handlers**:
+  - `reconnect` - Logs successful reconnection with attempt count
+  - `reconnect_attempt` - Tracks reconnection attempts
+  - `reconnect_error` - Handles reconnection errors
+  - `reconnect_failed` - Handles complete reconnection failure
+- **Implemented room state persistence** using localStorage:
+  - Saves room state (`currentRoom`, `selectedRole`, `roomMetadata`) to `socketRoomState` key
+  - Automatically restores room state on page reload/reconnection
+  - Clears state when explicitly leaving room
+- **Added heartbeat mechanism** for connection health monitoring:
+  - Sends heartbeat every 30 seconds when connected
+  - Helps detect connection issues early
+
+### 2. Server-Side Reconnection Handling
+- **Implemented graceful disconnection handling** with grace period:
+  - Users marked as disconnected but not immediately removed from room
+  - 30-second grace period allows for reconnection without losing room state
+  - Automatic cleanup after grace period if user doesn't reconnect
+- **Enhanced join-room handler for reconnections**:
+  - Detects reconnection attempts via `isReconnecting` flag
+  - Updates existing participant's socket ID instead of creating duplicate
+  - Preserves participant data and room state during reconnection
+- **Added connection status tracking** in participant model:
+  - New fields: `isConnected`, `disconnectedAt`, `reconnectedAt`
+  - Tracks connection lifecycle for better debugging and analytics
+- **Added heartbeat response handler** for connection monitoring
+
+### 3. Visual Connection Status Indicator
+- **Created ConnectionStatus component** (`client/src/components/common/ConnectionStatus.jsx`):
+  - Shows real-time connection status with colored indicator
+  - Green with pulse animation when connected
+  - Red indicator when disconnected
+  - Positioned as fixed overlay in top-right corner
+- **Integrated into main app layout** for visibility across all pages
+
+### 4. Page Visibility Management
+- **Created VisibilityManager utility** (`client/src/utils/visibilityManager.js`):
+  - Handles page visibility changes, focus/blur events
+  - Manages beforeunload events for state saving
+  - Singleton pattern for consistent behavior across components
+- **Integrated with SocketContext** for connection optimization:
+  - Maintains connection when page becomes hidden
+  - Ensures reconnection when page becomes visible
+  - Saves state before page unload
+
+### 5. Enhanced Participant Model
+- **Updated Participant domain model** with connection tracking fields:
+  - `is_connected: bool` - Current connection status
+  - `disconnected_at: Optional[str]` - Timestamp of disconnection
+  - `reconnected_at: Optional[str]` - Timestamp of reconnection
+- **Enhanced to_dict() method** to include connection status in serialization
+
+**Technical Details:**
+
+Socket Configuration Changes:
+```javascript
+// Enhanced reconnection settings
+reconnectionAttempts: 20,
+reconnectionDelayMax: 5000,
+maxReconnectionAttempts: 20,
+timeout: 20000,
+forceNew: false
+```
+
+localStorage Schema (socketRoomState):
+```javascript
+{
+  currentRoom: string,
+  selectedRole: string,
+  roomMetadata: object,
+  joinedAt: string
+}
+```
+
+Server Grace Period Logic:
+- User disconnects → marked as `isConnected: false`
+- 30-second timer starts
+- If user reconnects → update socket ID, set `isConnected: true`
+- If timer expires → remove user from room completely
+
+**User Experience Improvements:**
+- **Seamless reconnection**: Users automatically rejoin their room after network issues
+- **Visual feedback**: Connection status always visible in top-right corner
+- **State preservation**: Room state persists across page reloads and reconnections
+- **Reduced disruption**: Other participants don't see user leave/rejoin during brief disconnections
+- **Better reliability**: Multiple reconnection attempts with exponential backoff
+
+**Impact:**
+- Significantly improved connection reliability during network issues
+- Better user experience with automatic room rejoining
+- Reduced participant churn from temporary connection problems
+- Enhanced debugging capabilities with connection status tracking
+- Minimal performance impact with efficient state management
+
+**Files Modified:**
+- `client/src/contexts/SocketContext.jsx` - Enhanced reconnection and state persistence
+- `client/src/components/common/ConnectionStatus.jsx` - New connection status component
+- `client/src/utils/visibilityManager.js` - New page visibility management utility
+- `client/src/App.jsx` - Added connection status indicator
+- `server_py/src/socket/socket_handlers.py` - Enhanced disconnect handling and reconnection
+- `server_py/src/models/participant_pydantic_models.py` - Added connection tracking fields
+- `server_py/src/socket/room_manager.py` - Updated participant creation with connection fields
+
+**Testing:**
+- ✅ Connection status indicator displays correctly
+- ✅ Room state persists across page reloads
+- ✅ Automatic reconnection works after network interruption
+- ✅ Grace period prevents premature participant removal
+- ✅ Heartbeat mechanism maintains connection health
+- ⏳ Load testing for multiple concurrent reconnections pending
+
+**Documentation:**
+- Updated `docs/product_docs_and_updates.md` with comprehensive implementation details
+- Connection persistence improvements documented for future reference
