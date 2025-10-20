@@ -161,7 +161,7 @@ async def startup_event():
     """Initialize the server on startup"""
     try:
         # Initialize database
-        logger.info("🗄️ Initializing database...")
+        logger.info("Initializing database...")
         # Use the same default path as db_connection to keep a single SQLite file
         db_path = os.getenv("DATABASE_URL", "./data/gupshup-database.db")
         await db.initialize(db_path)
@@ -169,6 +169,34 @@ async def startup_event():
         # Setup Socket.io handlers
         logger.info("Setting up Socket.io handlers...")
         await setup_socket_handlers(sio)
+
+        # Start periodic room cleanup task
+        import asyncio
+        from src.socket.room_manager import room_manager
+        
+        async def cleanup_empty_rooms():
+            """Periodically clean up empty rooms"""
+            while True:
+                try:
+                    await asyncio.sleep(300)  # Check every 5 minutes
+                    empty_rooms = []
+                    for room_id, room in room_manager.rooms.items():
+                        if len(room.participants) == 0:
+                            empty_rooms.append(room_id)
+                    
+                    for room_id in empty_rooms:
+                        room_manager.cleanup_room(room_id)
+                        logger.info(f"Cleaned up empty room: {room_id}")
+                        
+                    if empty_rooms:
+                        logger.info(f"Cleaned up {len(empty_rooms)} empty rooms")
+                        
+                except Exception as e:
+                    logger.error(f"Error in room cleanup: {e}")
+        
+        # Start cleanup task in background
+        asyncio.create_task(cleanup_empty_rooms())
+        logger.info("Started periodic room cleanup task")
 
         logger.info(f"Server starting on port {PORT}")
         logger.info(
@@ -191,7 +219,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up on server shutdown"""
-    print("🛑 Shutting down gracefully...")
+    print("Shutting down gracefully...")
     await db.close()
     print("Server closed")
 

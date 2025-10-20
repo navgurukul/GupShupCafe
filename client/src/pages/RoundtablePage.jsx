@@ -1,135 +1,159 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useSocket } from '../hooks/useSocket'
-import { useAuth } from '../hooks/useAuth'
-import { useAudio } from '../hooks/useAudio'
-import RoundtableView from '../components/ui/RoundtableView'
-import TopicDisplay from '../components/ui/TopicDisplay'
-import SpeakerTimer from '../components/ui/SpeakerTimer'
-import ParticipantControls from '../components/ParticipantControls'
-import SpeechToTextPanel from '../components/feedback/SpeechToTextPanel'
-import { LogOut, Users } from 'lucide-react'
-import AudioLevelBar from '../components/ui/AudioLevelBar'
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSocket } from "../hooks/useSocket";
+import { useAuth } from "../hooks/useAuth";
+import { useAudio } from "../hooks/useAudio";
+import RoundtableView from "../components/ui/RoundtableView";
+import TopicDisplay from "../components/ui/TopicDisplay";
+import SpeakerTimer from "../components/ui/SpeakerTimer";
+import ParticipantControls from "../components/ParticipantControls";
+import SpeechToTextPanel from "../components/feedback/SpeechToTextPanel";
+import { LogOut, Users } from "lucide-react";
+import AudioLevelBar from "../components/ui/AudioLevelBar";
 
 /**
  * Roundtable Page Component
  * Main discussion interface with visual roundtable, timer, and speaking controls
  */
 function RoundtablePage() {
-  const navigate = useNavigate()
-  const { socket, connected, changeRole } = useSocket()
-  const { user, anonymousName, logout } = useAuth()
-  const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } = useAudio()
+  const navigate = useNavigate();
+  const { socket, connected, changeRole } = useSocket();
+  const { user, anonymousName, logout } = useAuth();
+  const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } =
+    useAudio();
 
   // Note: Room joining is handled by LobbyPage, no need to rejoin here
   // This prevents duplicate join-room events and state conflicts
 
   // Discussion state
-  const [participants, setParticipants] = useState([])
-  const [currentTopic, setCurrentTopic] = useState(null)
-  const [currentSpeaker, setCurrentSpeaker] = useState(null)
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [speakingDuration, setSpeakingDuration] = useState(60) // Default 60 seconds
-  const [discussionStarted, setDiscussionStarted] = useState(false)
-  const [discussionEnded, setDiscussionEnded] = useState(false)
-  const [round, setRound] = useState(1)
-  
+  const [participants, setParticipants] = useState([]);
+  const [currentTopic, setCurrentTopic] = useState(null);
+  const [currentSpeaker, setCurrentSpeaker] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [speakingDuration, setSpeakingDuration] = useState(60); // Default 60 seconds
+  const [discussionStarted, setDiscussionStarted] = useState(false);
+  const [discussionEnded, setDiscussionEnded] = useState(false);
+  const [round, setRound] = useState(1);
+
   // UI state
   const [isLoading, setIsLoading] = useState(true); // Start in loading state
-  const [error, setError] = useState(null)
-  const [showAudioEnablePrompt, setShowAudioEnablePrompt] = useState(false)
-  const [topic, setTopic] = useState({ title: 'Welcome', description: 'Waiting for topic...' })
-  const [systemMessage, setSystemMessage] = useState(null)
+  const [error, setError] = useState(null);
+  const [showAudioEnablePrompt, setShowAudioEnablePrompt] = useState(false);
+  const [topic, setTopic] = useState({
+    title: "Welcome",
+    description: "Waiting for topic...",
+  });
+  const [systemMessage, setSystemMessage] = useState(null);
 
   // Clear navigation state when roundtable page successfully mounts
   useEffect(() => {
-    console.log('[Roundtable] Page mounted - clearing navigation state')
-    sessionStorage.removeItem('roundtable-navigating')
+    console.log("[Roundtable] Page mounted - clearing navigation state");
+    sessionStorage.removeItem("roundtable-navigating");
     // Clear global flag by importing and resetting it
     if (window.lateJoinCheckInProgress !== undefined) {
-      window.lateJoinCheckInProgress = false
+      window.lateJoinCheckInProgress = false;
     }
-  }, [])
+  }, []);
 
-  // When the page loads, the discussion is considered started.
+  // When the page loads, check if discussion has already started
   useEffect(() => {
-    setDiscussionStarted(true);
     setIsLoading(false);
     // Clear the late-join flag once successfully on the roundtable page
-    sessionStorage.removeItem('late-join-navigating');
+    sessionStorage.removeItem("late-join-navigating");
+
+    // Check if discussion has already started by looking at discussion start time
+    const discussionStartTime = sessionStorage.getItem("discussion-start-time");
+    if (discussionStartTime) {
+      console.log(
+        "[Roundtable] Discussion already started, setting discussionStarted to true"
+      );
+      setDiscussionStarted(true);
+      // Clear the stored time
+      sessionStorage.removeItem("discussion-start-time");
+    }
   }, []);
 
   // Socket event handlers
   useEffect(() => {
-    if (!socket) return
+    if (!socket) return;
 
     const handleParticipantsUpdate = (updatedParticipants) => {
-      console.log('[Roundtable] Participants updated:', updatedParticipants);
-      setParticipants(updatedParticipants)
+      console.log("[Roundtable] Participants updated:", updatedParticipants);
+      setParticipants(updatedParticipants);
     };
 
     const handleSpeakerChange = (speaker) => {
-      console.log('[Roundtable] Speaker changed:', speaker);
-      setCurrentSpeaker(speaker)
-      
+      console.log("[Roundtable] Speaker changed:", speaker);
+      setCurrentSpeaker(speaker);
+
       // Enable/disable speaking based on if current user is the speaker
       if (speaker && speaker.id === user?.id) {
-        enableSpeaking()
+        enableSpeaking();
       } else {
-        disableSpeaking()
+        disableSpeaking();
       }
     };
 
     const handleTopicUpdate = (newTopic) => {
-      console.log('[Roundtable] Topic updated:', newTopic);
+      console.log("[Roundtable] Topic updated:", newTopic);
       setTopic(newTopic);
     };
 
     const handleDiscussionStarted = ({ topic, firstSpeaker, duration }) => {
-      console.log('[Roundtable] Discussion started:', { topic, firstSpeaker, duration });
-      console.log('[Roundtable] Current user:', user);
-      console.log('[Roundtable] Is current user first speaker?', firstSpeaker && firstSpeaker.id === user?.id);
-      
+      console.log("[Roundtable] Discussion started:", {
+        topic,
+        firstSpeaker,
+        duration,
+      });
+      console.log("[Roundtable] Current user:", user);
+      console.log(
+        "[Roundtable] Is current user first speaker?",
+        firstSpeaker && firstSpeaker.id === user?.id
+      );
+
+      setDiscussionStarted(true);
       setTopic(topic);
       setCurrentTopic(topic);
       setSpeakingDuration(duration);
       setTimeRemaining(duration);
       setCurrentSpeaker(firstSpeaker);
-      
+
       // Enable speaking if current user is the first speaker
       if (firstSpeaker && firstSpeaker.id === user?.id) {
-        console.log('[Roundtable] Current user is first speaker - enabling speaking');
+        console.log(
+          "[Roundtable] Current user is first speaker - enabling speaking"
+        );
         enableSpeaking();
       } else {
-        console.log('[Roundtable] Current user is not first speaker');
+        console.log("[Roundtable] Current user is not first speaker");
       }
     };
 
     const handleTurnStarted = (data) => {
-      console.log('[Roundtable] Turn started:', data);
+      console.log("[Roundtable] Turn started:", data);
       const { speaker_index, speaker, timer } = data;
-      
+
       setCurrentSpeaker(speaker);
       setSpeakingDuration(timer);
       setTimeRemaining(timer);
-      
+
       // Enable/disable speaking based on if current user is the speaker
       if (speaker && speaker.id === user?.id) {
-        console.log('[Roundtable] Current user is now speaking');
+        console.log("[Roundtable] Current user is now speaking");
         enableSpeaking();
       } else {
-        console.log('[Roundtable] Another participant is speaking');
+        console.log("[Roundtable] Another participant is speaking");
         disableSpeaking();
       }
     };
 
     const handleTurnEnded = (data) => {
-      console.log('[Roundtable] Turn ended:', data);
+      console.log("[Roundtable] Turn ended:", data);
       // The turn has ended, wait for next turn-started event
     };
 
     const handleTimerWarning = (data) => {
-      console.log('[Roundtable] Timer warning:', data);
+      console.log("[Roundtable] Timer warning:", data);
       const { remaining } = data;
       // Update time remaining and show warning
       setTimeRemaining(remaining);
@@ -140,7 +164,7 @@ function RoundtablePage() {
     };
 
     const handleRoundComplete = (data) => {
-      console.log('[Roundtable] Round complete:', data);
+      console.log("[Roundtable] Round complete:", data);
       const { round, next } = data;
       setRound(next);
       // Show notification that round is complete
@@ -149,106 +173,111 @@ function RoundtablePage() {
     };
 
     const handleDiscussionEnded = (data) => {
-      console.log('[Roundtable] Discussion ended:', data);
+      console.log("[Roundtable] Discussion ended:", data);
       setDiscussionEnded(true);
       setDiscussionStarted(false);
       disableSpeaking();
     };
 
     const handleParticipantLeft = (data) => {
-      console.log('[Roundtable] Participant left:', data);
+      console.log("[Roundtable] Participant left:", data);
       // participants-update will handle the state update
     };
 
     // No longer need a 'discussion-started' listener here
 
-    socket.on('participants-update', handleParticipantsUpdate);
-    socket.on('speaker-changed', handleSpeakerChange);
-    socket.on('topic-update', handleTopicUpdate);
-    socket.on('discussion-started', handleDiscussionStarted);
-    socket.on('turn-started', handleTurnStarted);
-    socket.on('turn-ended', handleTurnEnded);
-    socket.on('timer-warning', handleTimerWarning);
-    socket.on('round-complete', handleRoundComplete);
-    socket.on('discussion-ended', handleDiscussionEnded);
-    socket.on('participant-left', handleParticipantLeft);
+    socket.on("participants-update", handleParticipantsUpdate);
+    socket.on("speaker-changed", handleSpeakerChange);
+    socket.on("topic-update", handleTopicUpdate);
+    socket.on("discussion-started", handleDiscussionStarted);
+    socket.on("turn-started", handleTurnStarted);
+    socket.on("turn-ended", handleTurnEnded);
+    socket.on("timer-warning", handleTimerWarning);
+    socket.on("round-complete", handleRoundComplete);
+    socket.on("discussion-ended", handleDiscussionEnded);
+    socket.on("participant-left", handleParticipantLeft);
 
     return () => {
-      socket.off('participants-update', handleParticipantsUpdate);
-      socket.off('speaker-changed', handleSpeakerChange);
-      socket.off('topic-update', handleTopicUpdate);
-      socket.off('discussion-started', handleDiscussionStarted);
-      socket.off('turn-started', handleTurnStarted);
-      socket.off('turn-ended', handleTurnEnded);
-      socket.off('timer-warning', handleTimerWarning);
-      socket.off('round-complete', handleRoundComplete);
-      socket.off('discussion-ended', handleDiscussionEnded);
-      socket.off('participant-left', handleParticipantLeft);
+      socket.off("participants-update", handleParticipantsUpdate);
+      socket.off("speaker-changed", handleSpeakerChange);
+      socket.off("topic-update", handleTopicUpdate);
+      socket.off("discussion-started", handleDiscussionStarted);
+      socket.off("turn-started", handleTurnStarted);
+      socket.off("turn-ended", handleTurnEnded);
+      socket.off("timer-warning", handleTimerWarning);
+      socket.off("round-complete", handleRoundComplete);
+      socket.off("discussion-ended", handleDiscussionEnded);
+      socket.off("participant-left", handleParticipantLeft);
     };
-  }, [socket, user, enableSpeaking, disableSpeaking])
+  }, [socket, user, enableSpeaking, disableSpeaking]);
 
   // Auto-redirect if not connected or no participants
   useEffect(() => {
     if (!connected && !isLoading) {
-      navigate('/lobby')
+      navigate("/lobby");
     }
-  }, [connected, isLoading, navigate])
+  }, [connected, isLoading, navigate]);
 
   // Show audio enable prompt when discussion starts and there are other participants
   useEffect(() => {
     if (discussionStarted && participants.length > 1) {
       // Check if there are remote audio elements that might need user interaction
       setTimeout(() => {
-        const remoteAudioElements = document.querySelectorAll('audio[data-peer]')
+        const remoteAudioElements =
+          document.querySelectorAll("audio[data-peer]");
         if (remoteAudioElements.length > 0) {
-          setShowAudioEnablePrompt(true)
+          setShowAudioEnablePrompt(true);
         }
-      }, 2000) // Wait 2 seconds for WebRTC connections to establish
+      }, 2000); // Wait 2 seconds for WebRTC connections to establish
     }
-  }, [discussionStarted, participants.length])
+  }, [discussionStarted, participants.length]);
 
   /**
    * Handle leaving the discussion
    */
   const handleLeaveDiscussion = () => {
-    if (window.confirm('Are you sure you want to leave the discussion?')) {
-      navigate('/lobby')
+    if (window.confirm("Are you sure you want to leave the discussion?")) {
+      navigate("/lobby");
     }
-  }
+  };
 
   /**
    * Handle logout
    */
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to logout? This will end your session.')) {
-      logout()
-      navigate('/')
+    if (
+      window.confirm(
+        "Are you sure you want to logout? This will end your session."
+      )
+    ) {
+      logout();
+      navigate("/");
     }
-  }
+  };
 
   /**
    * Get the current user's position in the speaking order
    */
   const getCurrentUserPosition = () => {
-    const currentUserIndex = participants.findIndex(p => p.id === user?.id)
-    return currentUserIndex >= 0 ? currentUserIndex + 1 : null
-  }
+    const currentUserIndex = participants.findIndex((p) => p.id === user?.id);
+    return currentUserIndex >= 0 ? currentUserIndex + 1 : null;
+  };
 
   /**
    * Check if current user is speaking
    */
   const isCurrentUserSpeaking = () => {
-    return currentSpeaker && currentSpeaker.id === user?.id
-  }
+    return currentSpeaker && currentSpeaker.id === user?.id;
+  };
 
   /**
    * Toggle user role between speaker and listener
    */
   const handleRoleToggle = () => {
-    const newRole = userRole === 'speaker' ? 'listener' : 'speaker'
-    console.log(`[Roundtable] Requesting role change to ${newRole}`)
-    changeRole(user?.id, newRole)
-  }
+    const newRole = userRole === "speaker" ? "listener" : "speaker";
+    console.log(`[Roundtable] Requesting role change to ${newRole}`);
+    changeRole(user?.id, newRole);
+  };
 
   if (isLoading) {
     return (
@@ -258,7 +287,7 @@ function RoundtablePage() {
           <p className="text-gray-600">Loading discussion...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -267,14 +296,14 @@ function RoundtablePage() {
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={() => navigate('/lobby')}
+            onClick={() => navigate("/lobby")}
             className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
           >
             Return to Lobby
           </button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -294,8 +323,8 @@ function RoundtablePage() {
             <div className="flex space-x-2">
               <button
                 onClick={() => {
-                  enableAudioPlayback()
-                  setShowAudioEnablePrompt(false)
+                  enableAudioPlayback();
+                  setShowAudioEnablePrompt(false);
                 }}
                 className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-sm px-3 py-1 rounded"
               >
@@ -319,9 +348,7 @@ function RoundtablePage() {
             <div className="flex">
               <div className="text-blue-400 mr-3">ℹ️</div>
               <div>
-                <p className="text-sm text-blue-800">
-                  {systemMessage}
-                </p>
+                <p className="text-sm text-blue-800">{systemMessage}</p>
               </div>
             </div>
             <button
@@ -343,8 +370,12 @@ function RoundtablePage() {
                 <Users className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">AI Roundtable</h1>
-                <p className="text-sm text-gray-500">Round {round} • {participants.length} participants</p>
+                <h1 className="text-lg font-semibold text-gray-900">
+                  AI Roundtable
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Round {round} • {participants.length} participants
+                </p>
               </div>
             </div>
             {/* Add the live audio level bar for your own mic */}
@@ -352,31 +383,37 @@ function RoundtablePage() {
               <AudioLevelBar />
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             {/* Connection Status */}
-            <div className={`hidden sm:flex items-center space-x-1 text-sm ${
-              connected ? 'text-green-600' : 'text-red-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                connected ? 'bg-green-600' : 'bg-red-600'
-              }`}></div>
-              <span>{connected ? 'Connected' : 'Disconnected'}</span>
+            <div
+              className={`hidden sm:flex items-center space-x-1 text-sm ${
+                connected ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  connected ? "bg-green-600" : "bg-red-600"
+                }`}
+              ></div>
+              <span>{connected ? "Connected" : "Disconnected"}</span>
             </div>
-            
+
             {/* Role Toggle */}
             <button
               onClick={handleRoleToggle}
               className={`px-3 py-1 text-sm font-medium border rounded transition-colors ${
-                userRole === 'speaker'
-                  ? 'bg-primary-100 text-primary-700 border-primary-300 hover:bg-primary-200'
-                  : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                userRole === "speaker"
+                  ? "bg-primary-100 text-primary-700 border-primary-300 hover:bg-primary-200"
+                  : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
               }`}
-              title={`Switch to ${userRole === 'speaker' ? 'listener' : 'speaker'}`}
+              title={`Switch to ${
+                userRole === "speaker" ? "listener" : "speaker"
+              }`}
             >
-              {userRole === 'speaker' ? '🎤 Speaker' : '👂 Listener'}
+              {userRole === "speaker" ? "🎤 Speaker" : "👂 Listener"}
             </button>
-            
+
             {/* Controls */}
             <button
               onClick={handleLeaveDiscussion}
@@ -385,7 +422,7 @@ function RoundtablePage() {
             >
               Leave
             </button>
-            
+
             <button
               onClick={handleLogout}
               className="p-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -402,10 +439,8 @@ function RoundtablePage() {
         {/* Left Panel - Discussion Info */}
         <div className="lg:w-80 space-y-4">
           {/* Topic Display */}
-          {currentTopic && (
-            <TopicDisplay topic={currentTopic} />
-          )}
-          
+          {currentTopic && <TopicDisplay topic={currentTopic} />}
+
           {/* Speaking Timer */}
           {discussionStarted && currentSpeaker && (
             <SpeakerTimer
@@ -415,7 +450,7 @@ function RoundtablePage() {
               isCurrentUser={isCurrentUserSpeaking()}
             />
           )}
-          
+
           {/* Your Position */}
           {discussionStarted && (
             <div className="bg-white rounded-lg shadow-sm p-4">
@@ -450,15 +485,15 @@ function RoundtablePage() {
             discussionStarted={discussionStarted}
             discussionEnded={discussionEnded}
           />
-          
+
           {/* Speech to Text - Show when current user is speaking */}
           {discussionStarted && isCurrentUserSpeaking() && (
             <SpeechToTextPanel
               isActive={isCurrentUserSpeaking()}
-              speakerName={user?.anonymousName || 'You'}
+              speakerName={user?.anonymousName || "You"}
             />
           )}
-          
+
           {/* Participants List */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h3 className="font-semibold text-gray-900 mb-3">
@@ -466,34 +501,38 @@ function RoundtablePage() {
             </h3>
             <div className="space-y-2">
               {participants.map((participant, index) => (
-                <div 
+                <div
                   key={participant.id}
                   className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
                     currentSpeaker && currentSpeaker.id === participant.id
-                      ? 'bg-green-100 border border-green-200'
-                      : 'bg-gray-50'
+                      ? "bg-green-100 border border-green-200"
+                      : "bg-gray-50"
                   }`}
                 >
                   <div className="flex items-center space-x-2">
                     <span className="text-xs font-medium text-gray-500 w-6">
                       #{index + 1}
                     </span>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                      currentSpeaker && currentSpeaker.id === participant.id
-                        ? 'bg-green-500'
-                        : 'bg-primary-600'
-                    }`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
+                        currentSpeaker && currentSpeaker.id === participant.id
+                          ? "bg-green-500"
+                          : "bg-primary-600"
+                      }`}
+                    >
                       {participant.anonymousName.charAt(0).toUpperCase()}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${
-                      currentSpeaker && currentSpeaker.id === participant.id
-                        ? 'text-green-800'
-                        : 'text-gray-900'
-                    }`}>
+                    <p
+                      className={`text-sm font-medium truncate ${
+                        currentSpeaker && currentSpeaker.id === participant.id
+                          ? "text-green-800"
+                          : "text-gray-900"
+                      }`}
+                    >
                       {participant.anonymousName}
-                      {participant.id === user?.id && ' (You)'}
+                      {participant.id === user?.id && " (You)"}
                     </p>
                     {currentSpeaker && currentSpeaker.id === participant.id && (
                       <p className="text-xs text-green-600">Speaking now</p>
@@ -510,14 +549,16 @@ function RoundtablePage() {
       {discussionEnded && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md mx-4">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Discussion Completed!</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Discussion Completed!
+            </h2>
             <p className="text-gray-600 mb-6">
-              Thank you for participating in this AI-powered roundtable discussion. 
-              We hope you enjoyed the conversation!
+              Thank you for participating in this AI-powered roundtable
+              discussion. We hope you enjoyed the conversation!
             </p>
             <div className="flex space-x-3">
               <button
-                onClick={() => navigate('/lobby')}
+                onClick={() => navigate("/lobby")}
                 className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700"
               >
                 Join New Discussion
@@ -533,7 +574,7 @@ function RoundtablePage() {
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default RoundtablePage
+export default RoundtablePage;

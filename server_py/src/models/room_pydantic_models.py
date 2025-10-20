@@ -62,7 +62,6 @@ class RoomModel(CreateRoomModel):
 
 class UpdateRoomStatusModel(BaseModel):
     """Model for updating the room's status."""
-    room_id: str = Field(..., description="Room UUID")
     status: RoomStatus = Field(..., description="New room status")
     started_at: Optional[datetime] = Field(None, description="Timestamp when room started (if applicable)")
     

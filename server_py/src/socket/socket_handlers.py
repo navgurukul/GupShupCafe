@@ -94,7 +94,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     @sio.on('disconnect')
     async def disconnect(sid):
         """Handle client disconnection"""
-        print(f"👋 User disconnected: {sid}")
+        print(f"User disconnected: {sid}")
         
         # Find the room this socket was in
         rooms = sio.rooms(sid)
@@ -105,21 +105,49 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 user = room.get_participant_by_socket(sid)
                 
                 if user:
-                    user_id = user.id
-                    anonymous_name = user.anonymous_name
+                    user_id = user.get("id")
+                    anonymous_name = user.get("anonymousName")
+                    was_host = room_manager.is_host(room_id, user_id)
+                    
+                    # Preserve host state if this user was the host
+                    if was_host:
+                        room_manager.preserve_host_state(room_id, user_id)
+                        print(f"[Backend] Host {anonymous_name} disconnected, preserving host state")
+                    
                     room_manager.remove_user_from_room(room_id, user_id)
                     
                     # Get updated participants
                     participants = room_manager.get_room_participants(room_id)
                     
+                    # If the host left and there are still participants, assign a new host
+                    new_host = None
+                    if was_host and participants:
+                        new_host = room_manager.assign_new_host(room_id)
+                        if new_host:
+                            print(f"[Backend] Assigned new host: {new_host.get('anonymousName', 'Unknown')}")
+                    
                     # Notify others
                     await sio.emit("participants-update", participants, room=room_id)
                     await sio.emit("participant-left", {
                         "participantId": user_id,
-                        "anonymousName": anonymous_name
+                        "anonymousName": anonymous_name,
+                        "wasHost": was_host,
+                        "newHost": new_host.get("id") if new_host else None
                     }, room=room_id)
                     
+                    # If a new host was assigned, notify about host change
+                    if new_host:
+                        await sio.emit("host-changed", {
+                            "newHost": new_host,
+                            "previousHost": anonymous_name
+                        }, room=room_id)
+                    
                     print(f"[Backend] {anonymous_name} disconnected from room {room_id}")
+                    
+                    # Clean up empty rooms immediately
+                    if len(participants) == 0:
+                        print(f"[Backend] Room {room_id} is now empty, cleaning up...")
+                        room_manager.cleanup_room(room_id)
     
     @sio.on('join-room')
     async def join_room(sid, *args):
@@ -148,12 +176,14 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
             # Use clientUserData if provided, else fallback to auth
             if client_user_data and client_user_data.get("userId"):
+                # Handle both campusOrLocation and separate campus/location fields
+                campus_or_location = client_user_data.get("campusOrLocation")
                 effective_user_data = {
                     "id": client_user_data.get("userId"),
                     "socketId": sid,
                     "name": client_user_data.get("name"),
-                    "campus": client_user_data.get("campus"),
-                    "location": client_user_data.get("location"),
+                    "campus": client_user_data.get("campus") or campus_or_location,
+                    "location": client_user_data.get("location") or campus_or_location,
                     "anonymousName": client_user_data.get("anonymousName"),
                     "role": client_user_data.get("role", "listener"),
                     "isReady": False,
@@ -172,7 +202,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     "joinedAt": datetime.now().isoformat()
                 }
             
-            print(f"[Backend] 📥 {effective_user_data['anonymousName']} joining room: {room_id}")
+            print(f"[Backend] {effective_user_data['anonymousName']} joining room: {room_id}")
             
             # Leave any existing rooms
             current_rooms = sio.rooms(sid)
@@ -184,14 +214,52 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     old_room = room_manager.get_room(room)
                     old_user = old_room.get_participant_by_socket(sid)
                     if old_user:
-                        room_manager.remove_user_from_room(room, old_user.id)
+                        room_manager.remove_user_from_room(room, old_user.get("id"))
             
             # Join the new room
             await sio.enter_room(sid, room_id)
             print(f"[Backend] Joined new room: {room_id}")
             
-            # Add user to room manager
-            room_manager.add_user_to_room(room_id, effective_user_data)
+            # Check if user already exists in room (reconnection case)
+            existing_user = room_manager.get_room(room_id).get_participant_by_id(effective_user_data["id"])
+            
+            if existing_user:
+                # Update existing user's socket ID and preserve their state
+                print(f"[Backend] User {effective_user_data['anonymousName']} reconnecting to room {room_id}")
+                print(f"[Backend] Old socket ID: {existing_user.get('socketId')}, New socket ID: {sid}")
+                
+                # Store previous state for comparison
+                previous_ready = existing_user.get("isReady", False)
+                previous_role = existing_user.get("role", "listener")
+                
+                # Update socket ID and user data
+                existing_user["socketId"] = sid
+                existing_user["name"] = effective_user_data["name"]
+                existing_user["campus"] = effective_user_data["campus"]
+                existing_user["location"] = effective_user_data["location"]
+                
+                # Preserve existing ready status and role
+                print(f"[Backend] Preserved user state - ready: {previous_ready}, role: {previous_role}")
+                
+                # Check if this user should have host privileges restored
+                host_restored = room_manager.restore_host_privileges(room_id, effective_user_data["id"])
+                if host_restored:
+                    print(f"[Backend] Restored host privileges for {effective_user_data['anonymousName']}")
+                
+                # Emit reconnection event to the user
+                await sio.emit("user-reconnected", {
+                    "userId": effective_user_data["id"],
+                    "anonymousName": effective_user_data["anonymousName"],
+                    "wasHost": host_restored,
+                    "preservedState": {
+                        "isReady": previous_ready,
+                        "role": previous_role
+                    }
+                }, room=sid)
+                
+            else:
+                # Add new user to room manager
+                room_manager.add_user_to_room(room_id, effective_user_data)
             
             # Store room metadata if provided
             room = room_manager.get_room(room_id)
@@ -220,7 +288,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 
                 discussion_state = {
                     "topic": room.topic,
-                    "firstSpeaker": current_speaker.to_dict() if current_speaker else None,
+                    "firstSpeaker": current_speaker if current_speaker else None,
                     "duration": room.speaking_time,
                     "currentSpeakerIndex": room.current_speaker_index,
                     "round": room.current_round
@@ -233,6 +301,92 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             import traceback
             traceback.print_exc()
     
+    @sio.on('start-discussion')
+    async def start_discussion(sid, data=None):
+        """Handle host starting discussion manually"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                print(f"[Backend] No room found for start-discussion from {sid}")
+                return
+            
+            # Get user from room by socket ID
+            room = room_manager.get_room(room_id)
+            user = room.get_participant_by_socket(sid)
+            
+            if not user:
+                print(f"[Backend] No user found for socket {sid} in room {room_id}")
+                return
+            
+            # Check if user is host using the room manager
+            is_host = room_manager.is_host(room_id, user.get("id"))
+            
+            if not is_host:
+                print(f"[Backend] User {user.get('anonymousName', 'Unknown')} is not host, cannot start discussion")
+                return
+            
+            # Check if all participants are ready
+            ready_participants = [p for p in room.participants if p.get("isReady", False)]
+            if len(ready_participants) < len(room.participants):
+                print(f"[Backend] Not all participants are ready, cannot start discussion")
+                return
+            
+            print(f"[Backend] Host {user.get('anonymousName', 'Unknown')} manually starting discussion in room {room_id}")
+            
+            # Start the discussion
+            await check_and_start_discussion(sio, room_id, active_rooms)
+            
+        except Exception as e:
+            print(f"Error in start-discussion: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
+    @sio.on('user-reconnection-ack')
+    async def user_reconnection_ack(sid, data=None):
+        """Handle user acknowledgment of successful reconnection"""
+        try:
+            # Find room for this socket
+            rooms = sio.rooms(sid)
+            room_id = None
+            for room in rooms:
+                if room != sid:
+                    room_id = room
+                    break
+            
+            if not room_id:
+                print(f"[Backend] No room found for reconnection ack from {sid}")
+                return
+            
+            # Get user from room by socket ID
+            room = room_manager.get_room(room_id)
+            user = room.get_participant_by_socket(sid)
+            
+            if user:
+                print(f"[Backend] User {user.get('anonymousName', 'Unknown')} acknowledged reconnection in room {room_id}")
+                
+                # Get updated participants and emit to all
+                participants = room_manager.get_room_participants(room_id)
+                await sio.emit("participants-update", participants, room=room_id)
+                
+                # Notify others that user has reconnected
+                await sio.emit("participant-reconnected", {
+                    "participantId": user.get("id"),
+                    "anonymousName": user.get("anonymousName"),
+                    "socketId": sid
+                }, room=room_id, skip_sid=sid)
+            
+        except Exception as e:
+            print(f"Error in user-reconnection-ack: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
     @sio.on('user-ready')
     async def user_ready(sid, data=None):
         """Handle user ready status"""
@@ -263,12 +417,14 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 is_ready = data.get("isReady", True)
             
             # Update user ready status using the participant from room
-            room_manager.update_user(room_id, user.id, {"isReady": is_ready})
+            room_manager.update_user(room_id, user.get("id"), {"isReady": is_ready})
             
-            print(f"[Backend] {user.anonymous_name} marked as ready in room {room_id}")
+            print(f"[Backend] {user.get('anonymousName', 'Unknown')} marked as ready={is_ready} in room {room_id}")
             
             # Get updated participants
             participants = room_manager.get_room_participants(room_id)
+            ready_count = len([p for p in participants if p.get("isReady", False)])
+            print(f"[Backend] Room {room_id} now has {len(participants)} total participants, {ready_count} ready")
             
             # Emit update to all in room
             await sio.emit("participants-update", participants, room=room_id)
@@ -529,9 +685,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 print(f"[Backend] No room found for speech transcript from {sid}")
                 return
             
-            # Get room ID
-            room_id = active_rooms.get(room_id)
-            if not room_id:
+            # Resolve active room id for DB
+            active_room_id = active_rooms.get(room_id)
+            if not active_room_id:
                 print(f"[Backend] No active room for room {room_id}")
                 return
             
@@ -539,7 +695,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             transcript_id = str(uuid.uuid4())
             await db.save_transcript({
                 "id": transcript_id,
-                "roomId": room_id,
+                "roomId": active_room_id,
                 "participantId": speaker_id,
                 "text": text,
                 "timestamp": datetime.now().isoformat()
@@ -581,7 +737,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
             # Emit turn-ended event
             await sio.emit("turn-ended", {
-                "speaker": current_speaker.to_dict()
+                "speaker": current_speaker
             }, room=room_id)
             
             # Advance to next speaker
@@ -592,9 +748,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 print(f"[Backend] Discussion completed in room {room_id}")
                 
                 # Update room in database
-                room_id = active_rooms.get(room_id)
-                if room_id:
-                    await db.update_room(room_id, {
+                active_room_id = active_rooms.get(room_id)
+                if active_room_id:
+                    await db.update_room(active_room_id, {
                         "endedAt": datetime.now().isoformat(),
                         "roundsCompleted": room.current_round - 1
                     })
@@ -604,7 +760,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 
                 # Emit discussion-ended event
                 await sio.emit("discussion-ended", {
-                    "roomId": room_id,
+                    "roomId": active_room_id,
                     "roundsCompleted": room.current_round - 1
                 }, room=room_id)
                 
@@ -621,11 +777,11 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             if next_speaker:
                 await sio.emit("turn-started", {
                     "speaker_index": room.current_speaker_index,
-                    "speaker": next_speaker.to_dict(),
+                    "speaker": next_speaker,
                     "timer": room.speaking_time
                 }, room=room_id)
                 
-                print(f"[Backend] Next speaker: {next_speaker.anonymous_name}")
+                print(f"[Backend] Next speaker: {next_speaker.get('anonymousName', 'Unknown')}")
                 
                 # Start timer for next turn
                 await start_turn_timer(sio, room_id, room.speaking_time, active_rooms)
@@ -661,10 +817,18 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             
             # Get user data from room before removing
             room = room_manager.get_room(room_id)
-            user = next((p for p in room.participants if p.socket_id == sid), None)
+            user = room.get_participant_by_socket(sid)
             
             if user:
-                user_id = user.id
+                user_id = user.get("id")
+                anonymous_name = user.get("anonymousName")
+                was_host = room_manager.is_host(room_id, user_id)
+                
+                # Preserve host state if this user was the host
+                if was_host:
+                    room_manager.preserve_host_state(room_id, user_id)
+                    print(f"[Backend] Host {anonymous_name} left, preserving host state")
+                
                 room_manager.remove_user_from_room(room_id, user_id)
                 
                 # Leave socket.io room
@@ -673,14 +837,35 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 # Get updated participants
                 participants = room_manager.get_room_participants(room_id)
                 
+                # If the host left and there are still participants, assign a new host
+                new_host = None
+                if was_host and participants:
+                    new_host = room_manager.assign_new_host(room_id)
+                    if new_host:
+                        print(f"[Backend] Assigned new host: {new_host.get('anonymousName', 'Unknown')}")
+                
                 # Notify others
                 await sio.emit("participants-update", participants, room=room_id)
                 await sio.emit("participant-left", {
                     "participantId": user_id,
-                    "anonymousName": user.anonymous_name
+                    "anonymousName": anonymous_name,
+                    "wasHost": was_host,
+                    "newHost": new_host.get("id") if new_host else None
                 }, room=room_id)
                 
-                print(f"[Backend] {user.anonymous_name} left room {room_id}")
+                # If a new host was assigned, notify about host change
+                if new_host:
+                    await sio.emit("host-changed", {
+                        "newHost": new_host,
+                        "previousHost": anonymous_name
+                    }, room=room_id)
+                
+                print(f"[Backend] {anonymous_name} left room {room_id}")
+                
+                # Clean up empty rooms immediately
+                if len(participants) == 0:
+                    print(f"[Backend] Room {room_id} is now empty, cleaning up...")
+                    room_manager.cleanup_room(room_id)
             
         except Exception as e:
             print(f"Error handling leave-room: {str(e)}")
@@ -879,28 +1064,24 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
         
         # Check if we have minimum participants ready
         min_participants = int(os.getenv("MIN_PARTICIPANTS", "1"))
-        ready_participants = [p for p in room.participants if p.is_ready]
+        ready_participants = [p for p in room.participants if p.get("isReady", False)]
+        
+        print(f"[Backend] Discussion check - Total participants: {len(room.participants)}, Ready: {len(ready_participants)}, Min required: {min_participants}")
+        print(f"[Backend] Participant ready statuses: {[(p.get('anonymousName', 'Unknown'), p.get('isReady', False)) for p in room.participants]}")
         
         if len(ready_participants) >= min_participants:
             print(f"[Backend] Starting discussion in room {room_id}")
             
             # Generate or get topic
             topic = await generate_discussion_topic()
-            
-            # Create room
-            room_id = str(uuid.uuid4())
-            active_rooms[room_id] = room_id
-            
-            # Create agents for this room
-            from ..services.agent_service import agent_service
-            try:
-                agent_ids = await agent_service.create_room_agents(room_id, topic)
-                print(f"[Backend] Created agents for room {room_id}: {agent_ids}")
-            except Exception as e:
-                print(f"[Backend] Error creating agents for room {room_id}: {str(e)}")
+
+            # Create a persistent active room id, but keep emitting to the lobby room id
+            active_room_id = str(uuid.uuid4())
+            # Map the lobby room -> active room id for DB and analytics
+            active_rooms[room_id] = active_room_id
             
             # Get room metadata (if available)
-            room_metadata = getattr(room, 'metadata', {})
+            room_metadata = getattr(room, 'metadata', {}) or {}
             room_name = room_metadata.get('name') or room_metadata.get('room_name') or room_id
             topic_category = room_metadata.get('topic_category') or topic.get("category")
             cefr_level = room_metadata.get('cefr_level', 0)
@@ -910,9 +1091,9 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                 cefr_map = {'A1': 1, 'A2': 2, 'B1': 3, 'B2': 4, 'C1': 5, 'C2': 6}
                 cefr_level = cefr_map.get(cefr_level, 0)
             
-            # Save room to database
+            # Save room to database first
             await db.save_room({
-                "room_id": room_id,
+                "room_id": active_room_id,
                 "room_name": room_name,
                 "topic": topic,
                 "participantCount": len(ready_participants),
@@ -924,21 +1105,30 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                 "cefr_level": cefr_level
             })
             
+            # Create agents for this room (after room is saved to database)
+            from ..services.agent_service import agent_service
+            try:
+                agent_ids = await agent_service.create_room_agents(active_room_id, topic)
+                print(f"[Backend] Created agents for active room {active_room_id}: {agent_ids}")
+            except Exception as e:
+                print(f"[Backend] Error creating agents for active room {active_room_id}: {str(e)}")
+                # Continue without agents - discussion can still proceed
+            
             # Save participants to database
             for participant in ready_participants:
                 try:
                     await db.save_participant({
-                        "user_id": participant.id,
-                        "room_id": room_id,
-                        "anonymousName": participant.anonymous_name,
-                        "campus": participant.campus if hasattr(participant, 'campus') else None,
-                        "location": participant.location if hasattr(participant, 'location') else None,
-                        "joinedAt": participant.joined_at if hasattr(participant, 'joined_at') else datetime.now().isoformat(),
+                        "user_id": participant.get("id"),
+                        "room_id": active_room_id,
+                        "anonymousName": participant.get("anonymousName"),
+                        "campus": participant.get("campus"),
+                        "location": participant.get("location"),
+                        "joinedAt": participant.get("joinedAt", datetime.now().isoformat()),
                         "leftAt": None,
                         "speakingTimeSeconds": 0
                     })
                 except Exception as e:
-                    print(f"[Backend] Error saving participant {participant.anonymous_name}: {str(e)}")
+                    print(f"[Backend] Error saving participant {participant.get('anonymousName', 'Unknown')}: {str(e)}")
             
             # Record topic usage
             await db.record_topic_usage(topic)
@@ -960,15 +1150,20 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             # Emit discussion started
             await sio.emit("discussion-started", {
                 "topic": topic,
-                "firstSpeaker": first_speaker.to_dict() if first_speaker else None,
+                "firstSpeaker": first_speaker if first_speaker else None,
                 "duration": duration
             }, room=room_id)
+            
+            # Emit participants update to ensure frontend has latest participant data
+            participants = room_manager.get_room_participants(room_id)
+            await sio.emit("participants-update", participants, room=room_id)
+            print("[Backend] Emitted participants-update after discussion started")
             
             # Emit turn-started for the first speaker
             if first_speaker:
                 await sio.emit("turn-started", {
                     "speaker_index": 0,
-                    "speaker": first_speaker.to_dict(),
+                    "speaker": first_speaker,
                     "timer": duration
                 }, room=room_id)
             
@@ -1015,7 +1210,7 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
             
             # Emit turn-ended event
             await sio.emit("turn-ended", {
-                "speaker": current_speaker.to_dict()
+                "speaker": current_speaker
             }, room=rid)
             
             # Advance to next speaker
@@ -1026,9 +1221,9 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
                 print(f"[Backend] Discussion completed in room {rid}")
                 
                 # Update room in database
-                room_id = active_rooms.get(rid)
-                if room_id:
-                    await db.update_room(room_id, {
+                active_room_id = active_rooms.get(rid)
+                if active_room_id:
+                    await db.update_room(active_room_id, {
                         "endedAt": datetime.now().isoformat(),
                         "roundsCompleted": room.current_round - 1
                     })
@@ -1038,7 +1233,7 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
                 
                 # Emit discussion-ended event
                 await sio.emit("discussion-ended", {
-                    "roomId": room_id,
+                    "roomId": active_room_id,
                     "roundsCompleted": room.current_round - 1
                 }, room=rid)
                 
@@ -1055,11 +1250,11 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
             if next_speaker:
                 await sio.emit("turn-started", {
                     "speaker_index": room.current_speaker_index,
-                    "speaker": next_speaker.to_dict(),
+                    "speaker": next_speaker,
                     "timer": room.speaking_time
                 }, room=rid)
                 
-                print(f"[Backend] Next speaker: {next_speaker.anonymous_name}")
+                print(f"[Backend] Next speaker: {next_speaker.get('anonymousName', 'Unknown')}")
                 
                 # Start timer for next turn
                 await start_turn_timer(sio, rid, room.speaking_time, active_rooms)

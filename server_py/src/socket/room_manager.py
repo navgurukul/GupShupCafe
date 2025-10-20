@@ -79,8 +79,8 @@ class RoomManager:
         room.add_participant(participant)
 
         print(
-            f"➕ Added {participant.anonymous_name} to room {room_id}. Total: {len(room.participants)}")
-        return participant
+            f"Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
+        return participant_dict
 
     def remove_user_from_room(self, room_id: str, user_id: str):
         """
@@ -95,9 +95,9 @@ class RoomManager:
         # Remove participant by user ID
         participant = room.get_participant_by_id(user_id)
         if participant:
-            room.remove_participant(participant.socket_id)
+            room.remove_participant(participant.get("socketId"))
             print(
-                f"➖ Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
+                f"Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
 
         # Clean up empty rooms
         if len(room.participants) == 0 and not self._skip_cleanup:
@@ -115,11 +115,11 @@ class RoomManager:
         participant = room.get_participant_by_id(user_id)
 
         if participant:
-            # The participant is now a Pydantic model, so we can update it directly.
-            # The `update_participant` method on the Room model handles this.
-            room.update_participant(user_id, updates)
+            # Update participant dictionary directly
+            for key, value in updates.items():
+                participant[key] = value
 
-            print(f"🔄 Updated user {user_id} in room {room_id}: {updates}")
+            print(f"Updated user {user_id} in room {room_id}: {updates}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
         """
@@ -144,7 +144,7 @@ class RoomManager:
         return {
             "active": room.status == RoomStatus.IN_PROGRESS,
             "topic": room.topic,
-            "currentSpeaker": current_speaker.to_dict() if current_speaker else None,
+            "currentSpeaker": current_speaker if current_speaker else None,
             "timeRemaining": room.time_remaining,
             "round": room.current_round,
             "participantCount": len(room.participants)
@@ -166,17 +166,11 @@ class RoomManager:
         participant = room.get_participant_by_id(user_id)
 
         if participant:
-            old_role = participant.role.value
-            # Map role string to enum
-            role_map = {
-                "host": ParticipantRole.HOST,
-                "speaker": ParticipantRole.PARTICIPANT,
-                "listener": ParticipantRole.LISTENER
-            }
-            participant.role = role_map.get(
-                new_role.lower(), ParticipantRole.LISTENER)
+            old_role = participant.get("role", "listener")
+            # Update role in dictionary
+            participant["role"] = new_role.lower()
             print(
-                f"🔄 Changed {participant.anonymous_name} role from {old_role} to {new_role} in room {room_id}")
+                f"Changed {participant.get('anonymousName', 'Unknown')} role from {old_role} to {new_role} in room {room_id}")
             return True
 
         return False
@@ -189,17 +183,15 @@ class RoomManager:
         Returns: Role statistics
         """
         room = self.get_room(room_id)
-        speakers = [p for p in room.participants if p.role ==
-                    ParticipantRole.PARTICIPANT]
-        listeners = [p for p in room.participants if p.role ==
-                     ParticipantRole.LISTENER]
+        speakers = [p for p in room.participants if p.get("role") == "speaker"]
+        listeners = [p for p in room.participants if p.get("role") == "listener"]
 
         return {
             "totalParticipants": len(room.participants),
             "speakers": len(speakers),
             "listeners": len(listeners),
-            "speakerList": [p.to_dict() for p in speakers],
-            "listenerList": [p.to_dict() for p in listeners]
+            "speakerList": speakers,  # Already dictionaries
+            "listenerList": listeners  # Already dictionaries
         }
 
     def can_become_speaker(self, room_id: str, max_speakers: int = 6) -> bool:
@@ -263,6 +255,127 @@ class RoomManager:
             "activeDiscussions": active_discussions,
             "timestamp": datetime.now().isoformat()
         }
+
+    def get_host(self, room_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the current host of a room
+        Args:
+            room_id: Room identifier
+        Returns: Host participant or None
+        """
+        room = self.get_room(room_id)
+        if not room.participants:
+            return None
+        
+        # First check for explicit host role
+        host = next((p for p in room.participants if p.get("role") == "host"), None)
+        if host:
+            return host
+        
+        # Fallback to first participant
+        return room.participants[0] if room.participants else None
+
+    def assign_new_host(self, room_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Assign a new host when the current host leaves
+        Args:
+            room_id: Room identifier
+        Returns: New host participant or None
+        """
+        room = self.get_room(room_id)
+        if not room.participants:
+            return None
+        
+        # Find the first available participant to become host
+        new_host = None
+        for participant in room.participants:
+            if participant.get("role") != "host":  # Don't reassign if already host
+                new_host = participant
+                break
+        
+        if new_host:
+            # Update the participant's role to host
+            new_host["role"] = "host"
+            print(f"Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
+            return new_host
+        
+        return None
+
+    def is_host(self, room_id: str, user_id: str) -> bool:
+        """
+        Check if a user is the host of a room
+        Args:
+            room_id: Room identifier
+            user_id: User identifier
+        Returns: True if user is host
+        """
+        host = self.get_host(room_id)
+        return host and host.get("id") == user_id
+
+    def preserve_host_state(self, room_id: str, user_id: str) -> Dict[str, Any]:
+        """
+        Preserve host state when host disconnects
+        Args:
+            room_id: Room identifier
+            user_id: User identifier
+        Returns: Preserved host state
+        """
+        room = self.get_room(room_id)
+        participant = room.get_participant_by_id(user_id)
+        
+        if participant and participant.get("role") == "host":
+            # Store host state for potential restoration
+            host_state = {
+                "id": participant.get("id"),
+                "anonymousName": participant.get("anonymousName"),
+                "name": participant.get("name"),
+                "campus": participant.get("campus"),
+                "location": participant.get("location"),
+                "role": "host",
+                "isReady": participant.get("isReady", False),
+                "wasHost": True,
+                "disconnectedAt": datetime.now().isoformat()
+            }
+            
+            # Store in room metadata for restoration
+            if not hasattr(room, 'metadata'):
+                room.metadata = {}
+            room.metadata['previous_host'] = host_state
+            
+            print(f"Preserved host state for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
+            return host_state
+        
+        return {}
+
+    def restore_host_privileges(self, room_id: str, user_id: str) -> bool:
+        """
+        Restore host privileges if user was previously the host
+        Args:
+            room_id: Room identifier
+            user_id: User identifier
+        Returns: True if host privileges were restored
+        """
+        room = self.get_room(room_id)
+        participant = room.get_participant_by_id(user_id)
+        
+        if not participant:
+            return False
+        
+        # Check if this user was the previous host
+        if hasattr(room, 'metadata') and room.metadata.get('previous_host'):
+            prev_host = room.metadata['previous_host']
+            if prev_host.get('id') == user_id:
+                # Restore host role
+                participant["role"] = "host"
+                participant["isReady"] = prev_host.get("isReady", False)
+                
+                # Clear previous host metadata
+                del room.metadata['previous_host']
+                
+                print(f"Restored host privileges for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
+                return True
+        
+        return False
 
 
 # Singleton instance
