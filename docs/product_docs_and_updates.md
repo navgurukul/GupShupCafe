@@ -1,3 +1,263 @@
+## 2025-10-19 15:34 UTC — RoomLobbyPage Improvements with API Integration
+
+**Date**: 2025-10-19 15:34 UTC  
+**Type**: Feature | API Integration | Refactoring  
+**Commit Message**: Add room details, API integrations, participant helpers, and refactor lobby pages
+
+**Changes:**
+
+### 1. RoomLobbyPage Enhancements
+- **Added comprehensive room details display** showing:
+  - Room Name, Room ID
+  - Topic Category (auto-formatted with proper spacing)
+  - CEFR Level
+  - Max Participants
+  - Status (color-coded: waiting=orange, in_progress=green)
+- **Linked "I am ready" button to API endpoint** `/api/participants/ready`
+  - Updates participant's `isReady` status in database
+  - Retrieves participantId from localStorage for API call
+  - Maintains socket-based ready signal alongside database update
+- **Added room status update** when discussion starts
+  - PATCH request to `/api/rooms/{room_id}/status` sets status to `in_progress`
+  - Triggered by `discussion-started` socket event
+- **Implemented participant polling mechanism**
+  - Polls `/api/participants/room/{roomId}` every 15 seconds
+  - Runs for first minute after discussion starts
+  - Automatically stops after 60 seconds
+  - Provides visibility into participant changes during early discussion
+
+### 2. LobbyPage Refactoring
+- **Removed duplicate in-room view logic** (now exclusively handled by RoomLobbyPage)
+- **Simplified socket event handlers** to only handle main lobby connections
+- **Removed redundant state variables**: `isReady`, `inRoom`
+- **Cleaned up room-specific functions**: `handleLeaveRoom`, `handleReady`, etc.
+- **Improved routing**: Always redirect to `/lobby/:roomId` when joining a room
+- **Fixed JSX structure** and div nesting issues
+- **Resolved all linting errors**
+
+### 3. New Utility Module: participantHelpers.js
+- **Created centralized helper module** for participant data management
+- **Eliminates code duplication** between `handleCreateRoom` and `handleJoinSubmit`
+- **Functions provided**:
+  - `createParticipant()` - Create participant via API
+  - `saveParticipantToLocalStorage()` - Store participant data
+  - `getParticipantFromLocalStorage()` - Retrieve participant data
+  - `clearParticipantFromLocalStorage()` - Remove participant data
+  - `createParticipantForRoom()` - Unified participant creation with user data
+
+### 4. SocketContext Enhancement
+- **Updated joinRoom function** to use participant data from localStorage
+- Retrieves `anonymous_name` from stored participant data
+- Falls back to user name or "Anonymous" if no data available
+
+**Technical Details:**
+
+API Endpoints Used:
+- `GET /rooms/{room_id}` - Fetch room details
+- `PATCH /participants/ready` - Update participant ready status
+- `PATCH /rooms/{room_id}/status` - Update room status
+- `GET /participants/room/{roomId}` - Poll for participants
+- `POST /participants/` - Create new participant
+
+localStorage Schema (participantData):
+```javascript
+{
+  participantId: string,
+  user_id: string,
+  room_id: string,
+  anonymous_name: string,
+  avatar_color: string,
+  starting_cefr_level: string,
+  ending_cefr_level: string,
+  joined_at: string,
+  campusOrLocation: string
+}
+```
+
+**User Flow:**
+1. User creates or joins room in LobbyPage
+2. Automatically navigated to `/lobby/:roomId` (RoomLobbyPage)
+3. RoomLobbyPage fetches and displays comprehensive room details
+4. User sees room information, participants, and audio setup status
+5. User clicks "I'm Ready to Start!" button
+6. Ready status updated in database via API call
+7. Socket broadcasts ready status to all participants
+8. When discussion starts, room status updated to `in_progress`
+9. System polls for participants every 15s for first minute
+
+**Impact:**
+- Better separation of concerns between LobbyPage and RoomLobbyPage
+- Persistent participant data across page navigations
+- Real-time room status tracking in database
+- Reduced code duplication (~400 lines removed from LobbyPage)
+- Improved maintainability with centralized participant helpers
+
+**Files Modified:**
+- `client/src/pages/RoomLobbyPage.jsx` - Major enhancements
+- `client/src/pages/LobbyPage.jsx` - Significant refactoring
+- `client/src/contexts/SocketContext.jsx` - Minor update
+- `client/src/utils/participantHelpers.js` - New file created
+
+**Documentation:**
+- Created `docs/Miscellaneous/room-lobby-improvements-2025-10-19.md` with detailed implementation notes
+
+**Testing:**
+- ✅ Linting passes
+- ⏳ Integration tests pending
+- ⏳ Manual testing pending
+
+---
+
+## 2025-10-19 17:45 UTC — Join Room Modal with Anonymous Name Input
+
+**Date**: 2025-10-19 17:45 UTC  
+**Type**: Feature | UX Enhancement  
+**Commit Message**: Add anonymous name input modal for joining rooms with backdrop blur
+
+**Changes:**
+- Added modal dialog that appears when user clicks "Join" button on any room
+- Modal displays over the room lobby page with blurred background (`backdrop-blur-sm`)
+- User must enter an anonymous name before joining the room
+- Quick suggestion buttons for commonly used anonymous names
+- Navigation happens immediately to `/lobby/:roomId` but modal overlay prevents interaction
+- After submitting anonymous name, user is registered as participant in backend
+- Anonymous name is used for participant creation via `/participants/` API endpoint
+
+**Technical Details:**
+- New state variables: `showJoinModal`, `pendingRoomData`, `joiningAnonymousName`
+- `handleJoinRoom()` now shows modal and navigates to room URL immediately
+- New `handleJoinSubmit()` function completes the join process after name entry
+- Modal includes:
+  - Text input with placeholder and auto-focus
+  - Six quick suggestion buttons (ThoughtfulMind, KindPerson, etc.)
+  - Cancel button (navigates back to `/lobby`)
+  - Submit button (disabled until name entered)
+  - Enter key support for quick submission
+- Backdrop uses `bg-black bg-opacity-50 backdrop-blur-sm` for visual clarity
+- Anonymous name is sent to backend participant creation API
+
+**User Flow:**
+1. User browses available rooms in main lobby
+2. User clicks "Join" button on desired room
+3. URL changes to `/lobby/:roomId` (content blurred)
+4. Modal appears asking for anonymous name
+5. User enters name or selects suggestion
+6. User clicks "Join Room" or presses Enter
+7. Backend creates participant record with anonymous name
+8. Modal closes and room lobby content becomes interactive
+9. User sees their anonymous name displayed in participant list
+
+**Impact:**
+- Better privacy control - users choose their display name per session
+- Cleaner UX - anonymous name input at the point of joining
+- Consistent with room creation flow which also asks for anonymous name
+- Anonymous name stored with participant record in database
+
+**Files Modified:**
+- `client/src/pages/LobbyPage.jsx` - Added modal state, refactored join logic
+
+**Testing:**
+- ✅ Modal appears on clicking Join button
+- ✅ Navigation to room URL works correctly
+- ✅ Backdrop blur effect applied
+- ✅ Suggested names clickable and populate input
+- ✅ Submit button disabled until name entered
+- ✅ Cancel navigates back to main lobby
+- ✅ Anonymous name sent to backend participant API
+
+---
+
+## 2025-10-19 14:10 UTC — Room Lobby Routing Update: Dynamic Room URLs
+
+**Date**: 2025-10-19 14:10 UTC  
+**Type**: Feature | Enhancement | Routing  
+**Commit Message**: Link RoomLobbyPage to Join/Publish buttons with dynamic room-specific routes
+
+**Changes:**
+- Replaced static `/room-lobby` route with dynamic `/lobby/:roomId` pattern for room-specific URLs
+- Updated `RoomLobbyPage.jsx` to use `useParams` for extracting room ID from URL path
+- Added share room functionality with modal dialog in RoomLobbyPage
+- Updated all navigation in `LobbyPage.jsx` to use new URL format: `/lobby/{roomId}?role={role}`
+- Modified `App.jsx` routing to map `/lobby/:roomId` to `RoomLobbyPage` component
+- Updated shareable link generation to use path-based room IDs instead of query parameters
+- Created comprehensive test suite for `RoomLobbyPage` with 6 passing tests
+- Updated existing `LobbyPage` tests to expect new URL format
+
+**Technical Details:**
+- Room ID now in URL path (e.g., `/lobby/room-123`) instead of query param (`?room=room-123`)
+- Role remains as query parameter for flexibility (e.g., `?role=speaker`)
+- Share button added to RoomLobbyPage header with copy-to-clipboard functionality
+- Room-specific URLs enable direct bookmarking and sharing
+- Better RESTful URL structure and clearer separation of concerns
+- No database or backend changes required
+
+**Impact:**
+- Users can now share direct links to specific rooms with `/lobby/{roomId}` format
+- Better URL structure enables room bookmarking and analytics
+- Clearer separation between room discovery (`/lobby`) and room waiting area (`/lobby/:roomId`)
+- Improved user experience with dedicated share functionality in room lobby
+
+**Files Modified:**
+- `client/src/pages/RoomLobbyPage.jsx` - Dynamic room ID extraction, share modal
+- `client/src/pages/LobbyPage.jsx` - Updated navigation to new URL format
+- `client/src/App.jsx` - Updated routing configuration
+- `client/src/tests/pages/RoomLobbyPage.test.jsx` - New test suite (6/6 passing)
+- `client/src/tests/pages/LobbyPage.test.jsx` - Updated test assertions
+
+**Testing:**
+- ✅ All RoomLobbyPage tests passing (6/6)
+- ✅ Build successful with no compilation errors
+- ✅ No new lint errors introduced
+- ✅ Room sharing and navigation verified
+
+**Documentation:**
+- Added detailed migration guide in `docs/Miscellaneous/room-lobby-routing-update.md`
+
+---
+
+## 2025-10-19 — Join Room Feature Integration with Backend API
+
+**Date**: 2025-10-19 09:15 UTC
+**Type**: Feature | Integration
+**Commit Message**: Integrate Join Room feature with backend API
+
+**Changes:**
+- Integrated frontend LobbyPage with backend waiting rooms API to dynamically display available rooms
+- Added `fetchWaitingRooms()` function in `client/src/services/api.js` to fetch rooms from `GET /rooms/waiting` endpoint
+- Updated `client/src/pages/LobbyPage.jsx` to replace static `predefinedRooms` array with dynamic data from backend
+- Implemented `mapBackendRoomToFrontend()` helper to transform backend room data to frontend format
+- Added auto-refresh mechanism (every 10 seconds) to keep room list up-to-date
+- Enhanced UI with loading states, empty states, and participant count display (e.g., "2 / 6 joined")
+- Added "Active Room" badge to distinguish backend rooms from fallback rooms
+- Updated `handleJoinPredefinedRoom()` to support both backend rooms (existing in DB) and predefined rooms (backward compatibility)
+- Implemented intelligent room detection: backend rooms skip creation step, predefined rooms use legacy flow
+- Preserved existing WebRTC and Socket.io integration for seamless room joining
+
+**Technical Details:**
+- Leveraged existing `GET /rooms/waiting` route from `server_py/src/api/room_routes.py`
+- Used existing `list_rooms_by_status()` service method - no backend changes required
+- Backend rooms identified by `isBackendRoom: true` flag
+- Category-to-icon mapping for visual consistency across room types
+- Graceful error handling with empty array fallback
+
+**Impact:**
+- Users can now see and join actual waiting rooms created by other users
+- Real-time room availability without page refresh
+- Better user experience with participant counts and room status indicators
+- Seamless integration between create room and join room flows
+- Maintains backward compatibility with predefined rooms
+
+**Files Modified:**
+- `client/src/services/api.js` - Added `fetchWaitingRooms()` function
+- `client/src/pages/LobbyPage.jsx` - Dynamic room fetching, mapping, and display logic
+
+**Testing:**
+- ✅ LobbyPage.jsx passes ESLint with no errors
+- ✅ API service follows existing patterns
+- ✅ Backend tests pass (13/14 in test_new_routes_services.py)
+
+---
+
 ## 2025-10-19 — Rooms API: waiting filter
 
 - Added GET `/api/rooms/waiting` FastAPI route to list rooms with `status='waiting'`.

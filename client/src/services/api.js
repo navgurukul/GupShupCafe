@@ -134,11 +134,30 @@ export async function fetchActiveRooms() {
   }
 }
 
+/**
+ * Fetch waiting rooms (rooms with status 'waiting')
+ * @returns {Promise<Array>} List of waiting rooms
+ */
+export async function fetchWaitingRooms() {
+  try {
+    const response = await get('/rooms')
+    if (response.status === 'success') {
+      response.data = response.data.filter(room => room.status === 'waiting')
+      return response.data || []
+    }
+    return []
+  } catch (error) {
+    console.error('[API] Error fetching waiting rooms:', error)
+    return []
+  }
+}
+
 export default {
   get,
   post,
   fetchTopics,
   fetchAnalytics,
   createRoom,
-  fetchActiveRooms
+  fetchActiveRooms,
+  fetchWaitingRooms
 }

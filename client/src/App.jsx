@@ -6,6 +6,7 @@ import { AudioProvider } from "./contexts/AudioContext";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import LobbyPage from "./pages/LobbyPage";
+import RoomLobbyPage from "./pages/RoomLobbyPage";
 import RoundtablePage from "./pages/RoundtablePage";
 import AudioTestPage from "./pages/AudioTestPage";
 import BroadcastTestPage from "./pages/BroadcastTestPage";
@@ -38,21 +39,12 @@ function App() {
                   }
                 />
 
-                <Route
-                  path="/room-lobby"
-                  element={
-                    <ProtectedRoute>
-                      <LobbyPage />
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Handle lobby with room parameters directly */}
+                {/* Room-specific lobby with dynamic roomId */}
                 <Route
                   path="/lobby/:roomId"
                   element={
                     <ProtectedRoute>
-                      <LobbyPage />
+                      <RoomLobbyPage />
                     </ProtectedRoute>
                   }
                 />
