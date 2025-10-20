@@ -52,7 +52,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     # In-memory map of active room ids per room
     active_rooms: Dict[str, str] = {}
     
-    @sio.on('connect')
+    @sio.on('connection')
     async def connect(sid, environ, auth):
         """Handle client connection"""
         print(f"[Backend] Socket connected: {sid}")
@@ -72,9 +72,9 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
         except Exception as e:
             print(f"[Backend] Error parsing connect environ: {e}")
         
-        # Save auth data to room so it can be retrieved in join_room
+        # Save auth data to session so it can be retrieved in join_room
         if auth:
-            await sio.save_room(sid, {'auth': auth})
+            await sio.save_session(sid, {'auth': auth})
 
         # Emit a connection acknowledgement for quick client-side sanity checks
         try:
@@ -139,9 +139,12 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             if len(args) > 2 and isinstance(args[2], dict):
                 room_data = args[2]
             
-            # Get auth data from room
-            room = await sio.get_room(sid)
-            auth_data = room.get("auth", {}) if room else {}
+            # Get auth data from session
+            try:
+                session = await sio.get_session(sid)
+                auth_data = session.get("auth", {}) if session else {}
+            except:
+                auth_data = {}
             
             # Use clientUserData if provided, else fallback to auth
             if client_user_data and client_user_data.get("userId"):
@@ -370,12 +373,12 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
 
     @sio.event
     async def debug_whoami(sid, data=None):
-        """Return the current socket id and any saved auth room data"""
+        """Return the current socket id and any saved auth session data"""
         try:
-            room = await sio.get_room(sid)
+            session = await sio.get_session(sid)
             payload = {
                 "sid": sid,
-                "auth": (room.get("auth") if room else None),
+                "auth": (session.get("auth") if session else None),
                 "serverTime": datetime.now().isoformat(),
             }
             await sio.emit("debug-whoami", payload, room=sid)

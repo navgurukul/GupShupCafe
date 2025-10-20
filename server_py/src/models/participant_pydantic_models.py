@@ -85,3 +85,41 @@ class ParticipantUpdateModel(BaseModel):
     is_speaking: Optional[bool] = Field(None, description="Is the participant speaking?")
     is_ready: Optional[bool] = Field(None, description="Is the participant ready?")
 
+
+# --- Domain Model for Room Management ---
+class Participant(BaseModel):
+    """Domain model for participant used in room management"""
+    id: str = Field(..., description="User ID")
+    socket_id: str = Field(..., description="Socket.io connection ID")
+    anonymous_name: str = Field(..., description="Anonymous display name")
+    name: Optional[str] = Field(None, description="Real name")
+    campus: Optional[str] = Field(None, description="Campus")
+    location: Optional[str] = Field(None, description="Location")
+    role: str = Field(default="listener", description="Role: speaker, listener, host")
+    is_ready: bool = Field(default=False, description="Ready to start discussion")
+    joined_at: str = Field(..., description="ISO timestamp when joined")
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "id": self.id,
+            "socketId": self.socket_id,
+            "anonymousName": self.anonymous_name,
+            "name": self.name,
+            "campus": self.campus,
+            "location": self.location,
+            "role": self.role,
+            "isReady": self.is_ready,
+            "joinedAt": self.joined_at
+        }
+    
+    def update_ready_status(self, is_ready: bool):
+        """Update ready status"""
+        self.is_ready = is_ready
+    
+    def change_role(self, new_role: str):
+        """Change participant role"""
+        self.role = new_role
+
+    class Config:
+        from_attributes = True

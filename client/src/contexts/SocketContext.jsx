@@ -19,47 +19,89 @@ export function SocketProvider({ children }) {
   const metaRef = React.useRef({ currentRoom: null, selectedRole: null, roomMetadata: null })
   const [socket, setSocket] = useState(null)
   const [connected, setConnected] = useState(false)
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user: userData } = useAuth()
 
   useEffect(() => {
     // Only connect if user is authenticated
     // Only initialize socket once when auth becomes available
-    if (isAuthenticated && user && !socketRef.current) {
+    // Development bypass: allow connection without auth in development
+    const isDevelopment = import.meta.env.DEV || window.location.hostname === 'localhost'
+    const shouldConnect = (isAuthenticated && userData) || isDevelopment
+
+    console.log('[Socket] Connection check:', {
+      isAuthenticated,
+      hasUserData: !!userData,
+      isDevelopment,
+      shouldConnect,
+      hasSocket: !!socketRef.current
+    })
+
+    if (shouldConnect && !socketRef.current) {
       const isProd = import.meta.env.MODE === 'production';
       const socketUrl = import.meta.env.VITE_SOCKET_URL || (isProd ? undefined : 'http://localhost:3003');
+
+      // Get stored user data from localStorage
+      const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+
+      // For development: create mock data if no user data exists
+      if (isDevelopment && !storedUserData.userId && !userData?.userId) {
+        const mockUserData = {
+          userId: 'dev-user-' + Math.random().toString(36).substr(2, 9),
+          name: 'Dev User',
+          campusOrLocation: 'Development'
+        };
+        localStorage.setItem('userData', JSON.stringify(mockUserData));
+        localStorage.setItem('participantData', JSON.stringify({
+          anonymous_name: 'DevUser' + Math.random().toString(36).substr(2, 4)
+        }));
+        console.log('[Socket] Created mock user data for development:', mockUserData);
+      }
+
+      console.log('[Socket] Creating socket connection to:', socketUrl)
+      console.log('[Socket] Auth data:', {
+        storedUserId: storedUserData.userId,
+        userDataUserId: userData?.userId,
+        storedName: storedUserData.name,
+        userDataName: userData?.name
+      })
 
       // Create socket with sensible reconnection options
       const newSocket = io(socketUrl, {
         auth: {
-          userId: user.id,
-          name: user.name,
-          campus: user.campus,
-          location: user.location,
+          userId: storedUserData.userId || userData?.userId || 'anonymous-' + Math.random().toString(36).substr(2, 9),
+          name: storedUserData.name || userData?.name || 'Anonymous User',
+          campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
         },
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
-        autoConnect: true
+        autoConnect: true,
+        upgrade: true // Allow transport upgrade
       })
+
+      console.log('[Socket] Setting up socket event listeners')
 
       newSocket.on('connect', () => {
         console.log('[Socket] Connected to server:', newSocket.id)
         setConnected(true)
         // re-join room if needed after reconnect using metaRef
         if (metaRef.current.currentRoom && metaRef.current.selectedRole) {
-          const userData = {
-            userId: user?.id,
-            name: user?.name,
-            campus: user?.campus,
-            location: user?.location,
+          // Get stored data from localStorage
+          const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+          const storedParticipantData = JSON.parse(localStorage.getItem('participantData') || '{}');
 
+          const reconnectUserData = {
+            userId: storedUserData.userId || userData?.userId || 'anonymous-user',
+            name: storedUserData.name || userData?.name || 'Anonymous User',
+            campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
+            anonymousName: storedParticipantData.anonymous_name || storedUserData.name || userData?.name || 'Anonymous',
             role: metaRef.current.selectedRole
           }
           if (metaRef.current.roomMetadata) {
-            newSocket.emit('join-room', metaRef.current.currentRoom, userData, metaRef.current.roomMetadata)
+            newSocket.emit('join-room', metaRef.current.currentRoom, reconnectUserData, metaRef.current.roomMetadata)
           } else {
-            newSocket.emit('join-room', metaRef.current.currentRoom, userData)
+            newSocket.emit('join-room', metaRef.current.currentRoom, reconnectUserData)
           }
         }
       })
@@ -76,6 +118,8 @@ export function SocketProvider({ children }) {
 
       socketRef.current = newSocket
       setSocket(newSocket)
+
+      console.log('[Socket] Socket instance created and stored')
     }
 
     // Cleanup when auth is removed entirely
@@ -92,7 +136,8 @@ export function SocketProvider({ children }) {
         setConnected(false)
       }
     }
-  }, [isAuthenticated, user])
+
+  }, [isAuthenticated, userData])
 
   /**
    * Join a room
@@ -107,25 +152,25 @@ export function SocketProvider({ children }) {
       metaRef.current.currentRoom = roomId
       metaRef.current.selectedRole = role
       metaRef.current.roomMetadata = roomMetadata
-      
-      // Get participant data from localStorage if available
-      const participantData = JSON.parse(localStorage.getItem('participantData') || '{}')
-      const anonymousName = participantData.anonymous_name || user?.name || 'Anonymous'
-      
-      const userData = {
-        userId: user?.id,
-        name: user?.name,
-        campus: user?.campus,
-        location: user?.location,
+
+      // Get stored data from localStorage
+      const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+      const storedParticipantData = JSON.parse(localStorage.getItem('participantData') || '{}');
+      const anonymousName = storedParticipantData.anonymous_name || 'Anonymous'
+
+      const joinUserData = {
+        userId: storedUserData.userId || userData?.userId || 'anonymous-user',
+        name: storedUserData.name || userData?.name || 'Anonymous User',
+        campusOrLocation: storedUserData.campusOrLocation || userData?.campusOrLocation || null,
         anonymousName: anonymousName,
         role: role
       }
-      
+
       // Emit with room metadata as third parameter if provided
       if (roomMetadata) {
-        s.emit('join-room', roomId, userData, roomMetadata)
+        s.emit('join-room', roomId, joinUserData, roomMetadata)
       } else {
-        s.emit('join-room', roomId, userData)
+        s.emit('join-room', roomId, joinUserData)
       }
     }
   }

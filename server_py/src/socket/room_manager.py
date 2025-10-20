@@ -4,36 +4,43 @@ Manages discussion rooms and participants
 """
 
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
+from ..models.enums import CEFRLevel, ParticipantRole
 
 
 class RoomManager:
     """Manages discussion rooms and participants"""
-    
+
     def __init__(self):
-        self.rooms: Dict[str, CreateRoomModel] = {}
+        self.rooms: Dict[str, Room] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> CreateRoomModel:
+    def get_room(self, room_id: str) -> Room:
         """
         Get or create a room
         Args:
-            room_id: CreateRoomModel identifier
-        Returns: CreateRoomModel object
+            room_id: Room identifier
+        Returns: Room object
         """
         if room_id not in self.rooms:
-            self.rooms[room_id] = CreateRoomModel(
+            self.rooms[room_id] = Room(
+                room_id=room_id,
                 room_name="General",
-                room_topic="General Discussion",
-                topic_category="General",
-                started_at=datetime.now(),
-                ended_at=datetime.now() + timedelta(hours=1),
-                rounds_completed=0,
-                created_at=datetime.now(),
+                topic={"title": "General Discussion", "category": "general"},
+                max_participants=6,
+                speaking_time=60,
+                num_rounds=3,
+                cefr_level="A1",
                 status=RoomStatus.WAITING,
-                cefr_level="A0"
+                current_round=0,
+                current_speaker_index=0,
+                participants=[],
+                started_at=None,
+                ended_at=None,
+                time_remaining=60,
+                created_by="system"
             )
         return self.rooms[room_id]
 
@@ -45,34 +52,37 @@ class RoomManager:
             user_data: User data
         """
         room = self.get_room(room_id)
-        
-        # Create Participant object
+
+        # Get role as string
         role = user_data.get("role", "listener")
         if isinstance(role, str):
-            # Map role string to enum
+            # Map role string to standardized values
             role_map = {
-                "host": ParticipantRole.HOST,
-                "speaker": ParticipantRole.PARTICIPANT,
-                "listener": ParticipantRole.LISTENER
+                "host": "host",
+                "speaker": "speaker",
+                "listener": "listener"
             }
-            role = role_map.get(role.lower(), ParticipantRole.LISTENER)
-        
-        participant = Participant(
-            id=user_data.get("id"),
-            socket_id=user_data.get("socketId"),
-            anonymous_name=user_data.get("anonymousName"),
-            name=user_data.get("name"),
-            campus=user_data.get("campus"),
-            location=user_data.get("location"),
-            role=role,
-            is_ready=user_data.get("isReady", False),
-            joined_at=user_data.get("joinedAt", datetime.now().isoformat())
-        )
-        
+            role = role_map.get(role.lower(), "listener")
+
+        # Create participant dictionary for the room
+        participant_dict = {
+            "id": user_data.get("id"),
+            "socketId": user_data.get("socketId"),
+            "anonymousName": user_data.get("anonymousName"),
+            "name": user_data.get("name"),
+            "campus": user_data.get("campus"),
+            "location": user_data.get("location"),
+            "role": role,
+            "isReady": user_data.get("isReady", False),
+            "joinedAt": user_data.get("joinedAt", datetime.now().isoformat())
+        }
+
         # Add participant (handles reconnection)
-        room.add_participant(participant)
-        
-        print(f"➕ Added {participant.anonymous_name} to room {room_id}. Total: {len(room.participants)}")
+        room.add_participant(participant_dict)
+
+        print(
+            f"➕ Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
+        return participant_dict
 
     def remove_user_from_room(self, room_id: str, user_id: str):
         """
@@ -83,13 +93,14 @@ class RoomManager:
         """
         room = self.get_room(room_id)
         initial_count = len(room.participants)
-        
+
         # Remove participant by user ID
         participant = room.get_participant_by_id(user_id)
         if participant:
             room.remove_participant(participant.socket_id)
-            print(f"➖ Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
-        
+            print(
+                f"➖ Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
+
         # Clean up empty rooms
         if len(room.participants) == 0 and not self._skip_cleanup:
             self.cleanup_room(room_id)
@@ -104,7 +115,7 @@ class RoomManager:
         """
         room = self.get_room(room_id)
         participant = room.get_participant_by_id(user_id)
-        
+
         if participant:
             # Update participant attributes
             for key, value in updates.items():
@@ -124,10 +135,10 @@ class RoomManager:
                     attr_name = "anonymous_name"
                 elif key == "avatarColor":
                     attr_name = "avatar_color"
-                    
+
                 if hasattr(participant, attr_name):
                     setattr(participant, attr_name, value)
-            
+
             print(f"🔄 Updated user {user_id} in room {room_id}: {updates}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
@@ -138,7 +149,7 @@ class RoomManager:
         Returns: Array of participants
         """
         room = self.get_room(room_id)
-        return [p.to_dict() for p in room.participants]
+        return room.participants  # Already dictionaries, no need to convert
 
     def get_discussion_state(self, room_id: str) -> Dict[str, Any]:
         """
@@ -149,7 +160,7 @@ class RoomManager:
         """
         room = self.get_room(room_id)
         current_speaker = room.get_current_speaker()
-        
+
         return {
             "active": room.status == RoomStatus.IN_PROGRESS,
             "topic": room.topic,
@@ -173,7 +184,7 @@ class RoomManager:
 
         room = self.get_room(room_id)
         participant = room.get_participant_by_id(user_id)
-        
+
         if participant:
             old_role = participant.role.value
             # Map role string to enum
@@ -182,10 +193,12 @@ class RoomManager:
                 "speaker": ParticipantRole.PARTICIPANT,
                 "listener": ParticipantRole.LISTENER
             }
-            participant.role = role_map.get(new_role.lower(), ParticipantRole.LISTENER)
-            print(f"🔄 Changed {participant.anonymous_name} role from {old_role} to {new_role} in room {room_id}")
+            participant.role = role_map.get(
+                new_role.lower(), ParticipantRole.LISTENER)
+            print(
+                f"🔄 Changed {participant.anonymous_name} role from {old_role} to {new_role} in room {room_id}")
             return True
-        
+
         return False
 
     def get_role_stats(self, room_id: str) -> Dict[str, Any]:
@@ -196,9 +209,11 @@ class RoomManager:
         Returns: Role statistics
         """
         room = self.get_room(room_id)
-        speakers = [p for p in room.participants if p.role == ParticipantRole.PARTICIPANT]
-        listeners = [p for p in room.participants if p.role == ParticipantRole.LISTENER]
-        
+        speakers = [p for p in room.participants if p.role ==
+                    ParticipantRole.PARTICIPANT]
+        listeners = [p for p in room.participants if p.role ==
+                     ParticipantRole.LISTENER]
+
         return {
             "totalParticipants": len(room.participants),
             "speakers": len(speakers),
@@ -226,12 +241,12 @@ class RoomManager:
         """
         if room_id in self.rooms:
             room = self.rooms[room_id]
-            
+
             # Clear any active timers (would need async handling in real implementation)
             if room.timer:
                 # In Python with asyncio, we'd cancel the task here
                 pass
-            
+
             # Remove the room
             del self.rooms[room_id]
             print(f"🧹 Cleaned up empty room: {room_id}")
@@ -257,9 +272,11 @@ class RoomManager:
         Get server statistics
         Returns: Server stats
         """
-        total_participants = sum(len(room.participants) for room in self.rooms.values())
-        active_discussions = sum(1 for room in self.rooms.values() if room.status == RoomStatus.IN_PROGRESS)
-        
+        total_participants = sum(len(room.participants)
+                                 for room in self.rooms.values())
+        active_discussions = sum(
+            1 for room in self.rooms.values() if room.status == RoomStatus.IN_PROGRESS)
+
         return {
             "totalRooms": len(self.rooms),
             "totalParticipants": total_participants,

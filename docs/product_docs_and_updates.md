@@ -2614,3 +2614,81 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - ⏳ Integration tests pending LLM service implementation
 
 ---
+---
+
+
+## 2025-10-20 — SocketContext Enhancement: Use localStorage userData and participantData
+
+**Date**: 2025-10-20 12:30 UTC  
+**Type**: Enhancement | Context Management  
+**Commit Message**: Update SocketContext to use localStorage userData and participantData from LobbyPage/RoomLobbyPage
+
+**Changes:**
+
+### SocketContext.jsx Updates
+- **Enhanced socket authentication** to use stored user data from localStorage
+  - Retrieves `userData` from localStorage for socket auth (userId, name, campusOrLocation)
+  - Falls back to AuthContext userData if localStorage data unavailable
+- **Updated joinRoom function** to use participant data from localStorage
+  - Retrieves `participantData` from localStorage for anonymous name
+  - Uses `anonymous_name` field from stored participant data
+  - Falls back chain: participantData.anonymous_name → userData.name → 'Anonymous'
+- **Improved reconnection handling** with stored data
+  - Uses localStorage data for room rejoining after socket reconnection
+  - Maintains participant identity across connection drops
+  - Preserves anonymous name and role during reconnects
+
+### Technical Details
+- **localStorage Schema Used**:
+  ```javascript
+  // userData (from SignupPage/LoginPage)
+  {
+    userId: string,
+    name: string,
+    campus: string,
+    location: string,
+    campusOrLocation: string,
+    currentCefrLevel: string
+  }
+  
+  // participantData (from participantHelpers.js)
+  {
+    participantId: string,
+    anonymous_name: string,
+    user_id: string,
+    room_id: string,
+    avatar_color: string,
+    starting_cefr_level: string,
+    campusOrLocation: string
+  }
+  ```
+
+- **Data Flow**:
+  1. User creates/joins room in LobbyPage → participantData stored via participantHelpers
+  2. Navigation to RoomLobbyPage → SocketContext reads stored data
+  3. Socket connection uses stored userData for authentication
+  4. Room joining uses stored participantData for anonymous name
+  5. Reconnections maintain identity using stored data
+
+**Impact:**
+- **Consistent Identity**: Anonymous names persist across page navigations and reconnections
+- **Better UX**: Users see their chosen anonymous name throughout the session
+- **Reliable Reconnection**: Socket reconnects maintain participant identity
+- **Data Persistence**: Participant data survives page refreshes and network issues
+- **Fallback Safety**: Multiple fallback levels prevent undefined names
+
+**Files Modified:**
+- `client/src/contexts/SocketContext.jsx` - Enhanced to use localStorage data
+
+**Testing:**
+- ✅ No diagnostics issues
+- ✅ Maintains backward compatibility with existing AuthContext
+- ✅ Proper fallback chain for missing data
+- ✅ Socket authentication works with stored userData
+- ✅ Room joining uses correct anonymous name from participantData
+
+**Integration:**
+- Works seamlessly with existing LobbyPage room creation flow
+- Compatible with RoomLobbyPage participant management
+- Integrates with participantHelpers.js data storage pattern
+- Maintains existing Socket.io event structure

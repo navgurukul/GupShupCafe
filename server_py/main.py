@@ -50,9 +50,9 @@ elif os.getenv("CORS_ORIGIN"):
 default_dev_origins = ["http://localhost:5173", "http://localhost:5174"]
 default_prod_origins = [
     "https://gup-shup-cafe.vercel.app",
-     "https://testing-team.d17x6h4sinckrd.amplifyapp.com/",
-     "https://dev.d17x6h4sinckrd.amplifyapp.com/",
-     "https://main.d17x6h4sinckrd.amplifyapp.com/"
+    "https://testing-team.d17x6h4sinckrd.amplifyapp.com/",
+    "https://dev.d17x6h4sinckrd.amplifyapp.com/",
+    "https://main.d17x6h4sinckrd.amplifyapp.com/"
     # For regex patterns, we'll handle them differently
 ]
 
@@ -68,19 +68,20 @@ ALLOWED_ORIGINS = list(set(
 # Add regex pattern for Vercel deployments in production
 vercel_pattern = re.compile(r".*\.vercel\.app$")
 
+
 def check_cors_origin(origin: str) -> bool:
     """Check if origin is allowed"""
     if not origin:
         return True  # Allow requests with no origin
-    
+
     # Check exact matches
     if origin in ALLOWED_ORIGINS:
         return True
-    
+
     # Check regex patterns (e.g., Vercel deployments)
     if is_production and vercel_pattern.match(origin):
         return True
-    
+
     return False
 
 
@@ -94,7 +95,8 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS if not is_production else ["*"],  # In production, we validate in check_cors_origin
+    allow_origins=ALLOWED_ORIGINS if not is_production else [
+        "*"],  # In production, we validate in check_cors_origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -104,9 +106,20 @@ app.add_middleware(
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*" if is_production else ALLOWED_ORIGINS,
-    logger=False,
-    engineio_logger=False
+    logger=True,  # Enable logging for debugging
+    engineio_logger=True  # Enable engine.io logging for debugging
 )
+
+# Mount API routes BEFORE creating socket_app
+app.include_router(api_router, prefix="/api")
+app.include_router(user_router, prefix="/users", tags=["User Management"])
+app.include_router(room_router, prefix="/rooms", tags=["Room Management"])
+app.include_router(participant_router, prefix="/participants",
+                   tags=["Participant Management"])
+app.include_router(transcript_router, prefix="/transcripts",
+                   tags=["Transcripts"])
+app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
+app.include_router(agent_router, prefix="/agents", tags=["Agent Management"])
 
 # Wrap with ASGI app
 socket_app = socketio.ASGIApp(
@@ -115,14 +128,6 @@ socket_app = socketio.ASGIApp(
     socketio_path="/socket.io"
 )
 
-# Mount API routes
-app.include_router(api_router, prefix="/api")
-app.include_router(user_router,prefix="/users",tags=["User Management"])
-app.include_router(room_router, prefix="/rooms", tags=["Room Management"])
-app.include_router(participant_router, prefix="/participants", tags=["Participant Management"])
-app.include_router(transcript_router, prefix="/transcripts", tags=["Transcripts"])
-app.include_router(feedback_router, prefix="/feedback", tags=["Feedback"])
-app.include_router(agent_router, prefix="/agents", tags=["Agent Management"]) 
 
 @app.get("/")
 async def root():
@@ -160,20 +165,22 @@ async def startup_event():
         # Use the same default path as db_connection to keep a single SQLite file
         db_path = os.getenv("DATABASE_URL", "./data/gupshup-database.db")
         await db.initialize(db_path)
-        
+
         # Setup Socket.io handlers
         logger.info("Setting up Socket.io handlers...")
         await setup_socket_handlers(sio)
-        
+
         logger.info(f"Server starting on port {PORT}")
-        logger.info(f"Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
+        logger.info(
+            f"Socket.io enabled with CORS origins: {', '.join(ALLOWED_ORIGINS)}")
         if os.getenv("CORS_ORIGIN") and not os.getenv("ALLOWED_ORIGINS"):
-            logger.info("Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
+            logger.info(
+                "Using CORS_ORIGIN (single) – consider switching to ALLOWED_ORIGINS for multiple domains.")
         logger.info(f"Environment: {PYTHON_ENV}")
         logger.info(f"Health check: http://localhost:{PORT}/health")
         logger.info("")
         logger.info("AI Roundtable Discussion Server is ready!")
-        
+
     except Exception as error:
         print(f"Failed to start server: {str(error)}")
         import traceback
