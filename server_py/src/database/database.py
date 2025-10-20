@@ -35,7 +35,7 @@ class Database:
         await self.db.execute("PRAGMA synchronous=NORMAL;")
         await self.db.execute("PRAGMA busy_timeout=5000;")
 
-        print(f"📊 Connected to SQLite database at {db_path}")
+        print(f"Connected to SQLite database at {db_path}")
 
         # Enforce foreign key constraints for this connection
         await self.db.execute("PRAGMA foreign_keys = ON;")

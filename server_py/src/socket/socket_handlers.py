@@ -94,7 +94,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     @sio.on('disconnect')
     async def disconnect(sid):
         """Handle client disconnection"""
-        print(f"👋 User disconnected: {sid}")
+        print(f"User disconnected: {sid}")
         
         # Find the room this socket was in
         rooms = sio.rooms(sid)
@@ -202,7 +202,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     "joinedAt": datetime.now().isoformat()
                 }
             
-            print(f"[Backend] 📥 {effective_user_data['anonymousName']} joining room: {room_id}")
+            print(f"[Backend] {effective_user_data['anonymousName']} joining room: {room_id}")
             
             # Leave any existing rooms
             current_rooms = sio.rooms(sid)

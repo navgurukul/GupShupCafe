@@ -161,7 +161,7 @@ async def startup_event():
     """Initialize the server on startup"""
     try:
         # Initialize database
-        logger.info("🗄️ Initializing database...")
+        logger.info("Initializing database...")
         # Use the same default path as db_connection to keep a single SQLite file
         db_path = os.getenv("DATABASE_URL", "./data/gupshup-database.db")
         await db.initialize(db_path)
@@ -186,7 +186,7 @@ async def startup_event():
                     
                     for room_id in empty_rooms:
                         room_manager.cleanup_room(room_id)
-                        logger.info(f"🧹 Cleaned up empty room: {room_id}")
+                        logger.info(f"Cleaned up empty room: {room_id}")
                         
                     if empty_rooms:
                         logger.info(f"Cleaned up {len(empty_rooms)} empty rooms")
@@ -219,7 +219,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Clean up on server shutdown"""
-    print("🛑 Shutting down gracefully...")
+    print("Shutting down gracefully...")
     await db.close()
     print("Server closed")
 

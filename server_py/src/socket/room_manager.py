@@ -81,7 +81,7 @@ class RoomManager:
         room.add_participant(participant_dict)
 
         print(
-            f"➕ Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
+            f"Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
         return participant_dict
 
     def remove_user_from_room(self, room_id: str, user_id: str):
@@ -99,7 +99,7 @@ class RoomManager:
         if participant:
             room.remove_participant(participant.get("socketId"))
             print(
-                f"➖ Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
+                f"Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
 
         # Clean up empty rooms
         if len(room.participants) == 0 and not self._skip_cleanup:
@@ -121,7 +121,7 @@ class RoomManager:
             for key, value in updates.items():
                 participant[key] = value
 
-            print(f"🔄 Updated user {user_id} in room {room_id}: {updates}")
+            print(f"Updated user {user_id} in room {room_id}: {updates}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
         """
@@ -172,7 +172,7 @@ class RoomManager:
             # Update role in dictionary
             participant["role"] = new_role.lower()
             print(
-                f"🔄 Changed {participant.get('anonymousName', 'Unknown')} role from {old_role} to {new_role} in room {room_id}")
+                f"Changed {participant.get('anonymousName', 'Unknown')} role from {old_role} to {new_role} in room {room_id}")
             return True
 
         return False
@@ -298,7 +298,7 @@ class RoomManager:
         if new_host:
             # Update the participant's role to host
             new_host["role"] = "host"
-            print(f"👑 Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
+            print(f"Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
             return new_host
         
         return None
@@ -344,7 +344,7 @@ class RoomManager:
                 room.metadata = {}
             room.metadata['previous_host'] = host_state
             
-            print(f"💾 Preserved host state for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
+            print(f"Preserved host state for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
             return host_state
         
         return {}
@@ -374,7 +374,7 @@ class RoomManager:
                 # Clear previous host metadata
                 del room.metadata['previous_host']
                 
-                print(f"👑 Restored host privileges for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
+                print(f"Restored host privileges for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
                 return True
         
         return False
