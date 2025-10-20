@@ -134,11 +134,18 @@ export function setupSocketHandlers(io) {
           return
         }
         
-        console.log(`✅ ${userData.anonymousName} is ready`)
+        const room = roomManager.getRoom(roomId)
+        const participant = room.participants.find(p => p.socketId === socket.id)
+
+        if (!participant) {
+          console.log(`[Backend] Participant with socket ID ${socket.id} not found in room ${roomId}`)
+          return
+        }
+
+        console.log(`✅ ${participant.anonymousName} is ready`)
         
         // Update user ready status
-        userData.isReady = true
-        roomManager.updateUser(roomId, userData.id, { isReady: true })
+        roomManager.updateUser(roomId, participant.id, { isReady: true })
         
         // Get updated participants
         const participants = roomManager.getRoomParticipants(roomId)
