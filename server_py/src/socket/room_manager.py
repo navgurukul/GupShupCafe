@@ -53,36 +53,34 @@ class RoomManager:
         """
         room = self.get_room(room_id)
 
-        # Get role as string
-        role = user_data.get("role", "listener")
-        if isinstance(role, str):
-            # Map role string to standardized values
-            role_map = {
-                "host": "host",
-                "speaker": "speaker",
-                "listener": "listener"
-            }
-            role = role_map.get(role.lower(), "listener")
-
-        # Create participant dictionary for the room
-        participant_dict = {
-            "id": user_data.get("id"),
-            "socketId": user_data.get("socketId"),
-            "anonymousName": user_data.get("anonymousName"),
-            "name": user_data.get("name"),
-            "campus": user_data.get("campus"),
-            "location": user_data.get("location"),
-            "role": role,
-            "isReady": user_data.get("isReady", False),
-            "joinedAt": user_data.get("joinedAt", datetime.now().isoformat())
+        # Get role as string and map to enum
+        role_str = user_data.get("role", "listener").lower()
+        role_map = {
+            "host": ParticipantRole.HOST,
+            "speaker": ParticipantRole.PARTICIPANT,
+            "listener": ParticipantRole.LISTENER
         }
+        role = role_map.get(role_str, ParticipantRole.LISTENER)
+
+        # Create participant object
+        participant = Participant(
+            id=user_data.get("id"),
+            socket_id=user_data.get("socketId"),
+            anonymous_name=user_data.get("anonymousName"),
+            name=user_data.get("name"),
+            campus=user_data.get("campus"),
+            location=user_data.get("location"),
+            role=role,
+            is_ready=user_data.get("isReady", False),
+            joined_at=user_data.get("joinedAt", datetime.now().isoformat())
+        )
 
         # Add participant (handles reconnection)
-        room.add_participant(participant_dict)
+        room.add_participant(participant)
 
         print(
-            f"➕ Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
-        return participant_dict
+            f"➕ Added {participant.anonymous_name} to room {room_id}. Total: {len(room.participants)}")
+        return participant
 
     def remove_user_from_room(self, room_id: str, user_id: str):
         """
@@ -117,27 +115,9 @@ class RoomManager:
         participant = room.get_participant_by_id(user_id)
 
         if participant:
-            # Update participant attributes
-            for key, value in updates.items():
-                # Convert camelCase to snake_case
-                attr_name = key
-                if key == "isReady":
-                    attr_name = "is_ready"
-                elif key == "isSpeaking":
-                    attr_name = "is_speaking"
-                elif key == "isMuted":
-                    attr_name = "is_muted"
-                elif key == "cefrLevel":
-                    attr_name = "cefr_level"
-                elif key == "socketId":
-                    attr_name = "socket_id"
-                elif key == "anonymousName":
-                    attr_name = "anonymous_name"
-                elif key == "avatarColor":
-                    attr_name = "avatar_color"
-
-                if hasattr(participant, attr_name):
-                    setattr(participant, attr_name, value)
+            # The participant is now a Pydantic model, so we can update it directly.
+            # The `update_participant` method on the Room model handles this.
+            room.update_participant(user_id, updates)
 
             print(f"🔄 Updated user {user_id} in room {room_id}: {updates}")
 
@@ -149,7 +129,7 @@ class RoomManager:
         Returns: Array of participants
         """
         room = self.get_room(room_id)
-        return room.participants  # Already dictionaries, no need to convert
+        return [p.to_dict() for p in room.participants]
 
     def get_discussion_state(self, room_id: str) -> Dict[str, Any]:
         """

@@ -5,7 +5,8 @@ from enum import Enum
 
 
 # --- Enums Referenced by the Models ---
-from .enums import CEFRLevel
+from .enums import CEFRLevel, ParticipantRole
+from .participant_pydantic_models import Participant
 
 class RoomStatus(str, Enum):
     """Room status enumeration"""
@@ -96,48 +97,48 @@ class Room(BaseModel):
     status: RoomStatus = Field(default=RoomStatus.WAITING, description="Room status")
     current_round: int = Field(default=0, description="Current round")
     current_speaker_index: int = Field(default=0, description="Current speaker index")
-    participants: List[dict] = Field(default_factory=list, description="List of participants")
+    participants: List[Participant] = Field(default_factory=list, description="List of participants")
     started_at: Optional[str] = Field(None, description="Start timestamp")
     ended_at: Optional[str] = Field(None, description="End timestamp")
     time_remaining: int = Field(default=60, description="Time remaining in current turn")
     created_by: str = Field(default="system", description="Creator user ID")
     metadata: Optional[dict] = Field(None, description="Additional room metadata")
     
-    def add_participant(self, participant_dict: dict):
+    def add_participant(self, participant: Participant):
         """Add participant to room"""
         # Remove existing participant with same socket_id if exists
-        self.participants = [p for p in self.participants if p.get("socketId") != participant_dict.get("socketId")]
+        self.participants = [p for p in self.participants if p.socket_id != participant.socket_id]
         # Add new participant
-        self.participants.append(participant_dict)
+        self.participants.append(participant)
     
     def remove_participant(self, socket_id: str):
         """Remove participant by socket_id"""
-        self.participants = [p for p in self.participants if p.get("socketId") != socket_id]
+        self.participants = [p for p in self.participants if p.socket_id != socket_id]
     
-    def get_participant_by_socket(self, socket_id: str) -> Optional[dict]:
+    def get_participant_by_socket(self, socket_id: str) -> Optional[Participant]:
         """Get participant by socket_id"""
         for p in self.participants:
-            if p.get("socketId") == socket_id:
+            if p.socket_id == socket_id:
                 return p
         return None
     
-    def get_participant_by_id(self, user_id: str) -> Optional[dict]:
+    def get_participant_by_id(self, user_id: str) -> Optional[Participant]:
         """Get participant by user_id"""
         for p in self.participants:
-            if p.get("id") == user_id:
+            if p.id == user_id:
                 return p
         return None
     
-    def get_current_speaker(self) -> Optional[dict]:
+    def get_current_speaker(self) -> Optional[Participant]:
         """Get current speaker based on speaker index"""
-        speakers = [p for p in self.participants if p.get("role") == "speaker"]
+        speakers = [p for p in self.participants if p.role == ParticipantRole.PARTICIPANT]
         if speakers and 0 <= self.current_speaker_index < len(speakers):
             return speakers[self.current_speaker_index]
         return None
     
-    def advance_turn(self) -> Optional[dict]:
+    def advance_turn(self) -> Optional[Participant]:
         """Advance to next speaker and return next speaker"""
-        speakers = [p for p in self.participants if p.get("role") == "speaker"]
+        speakers = [p for p in self.participants if p.role == ParticipantRole.PARTICIPANT]
         if not speakers:
             return None
             
@@ -157,9 +158,11 @@ class Room(BaseModel):
     
     def update_participant(self, user_id: str, updates: dict):
         """Update participant data"""
-        for i, p in enumerate(self.participants):
-            if p.get("id") == user_id:
-                self.participants[i].update(updates)
+        for p in self.participants:
+            if p.id == user_id:
+                for key, value in updates.items():
+                    if hasattr(p, key):
+                        setattr(p, key, value)
                 break
 
     class Config:
