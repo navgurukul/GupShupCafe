@@ -160,6 +160,13 @@ class Room(BaseModel):
             if p.get("id") == user_id:
                 self.participants[i].update(updates)
                 break
+    
+    def is_current_speaker(self, user_id: str) -> bool:
+        """Check if user is the current speaker"""
+        if not self.participants or self.current_speaker_index >= len(self.participants):
+            return False
+        current_speaker = self.participants[self.current_speaker_index]
+        return current_speaker.get("id") == user_id
 
     class Config:
         from_attributes = True

@@ -17,6 +17,60 @@ class Database:
     def __init__(self):
         self.db: Optional[aiosqlite.Connection] = None
         self.db_path: str = ""
+    
+    async def execute_transaction(self, operations):
+        """
+        Execute multiple database operations in a transaction
+        Args:
+            operations: List of (sql, params) tuples
+        Returns: List of results from each operation
+        """
+        if not self.db:
+            raise Exception("Database not initialized")
+        
+        results = []
+        try:
+            # Begin transaction
+            await self.db.execute("BEGIN TRANSACTION")
+            
+            for sql, params in operations:
+                cursor = await self.db.execute(sql, params)
+                result = await cursor.fetchall()
+                results.append(result)
+            
+            # Commit transaction
+            await self.db.commit()
+            return results
+            
+        except Exception as e:
+            # Rollback on error
+            await self.db.rollback()
+            print(f"[Database] Transaction failed, rolled back: {e}")
+            raise e
+    
+    async def execute_with_retry(self, operation, max_retries=3):
+        """
+        Execute database operation with retry logic
+        Args:
+            operation: Async function to execute
+            max_retries: Maximum number of retry attempts
+        """
+        for attempt in range(max_retries):
+            try:
+                return await operation()
+            except aiosqlite.OperationalError as e:
+                if "database is locked" in str(e).lower() and attempt < max_retries - 1:
+                    # Wait with exponential backoff
+                    import asyncio
+                    await asyncio.sleep(0.1 * (2 ** attempt))
+                    continue
+                raise e
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    import asyncio
+                    await asyncio.sleep(0.1 * (2 ** attempt))
+                    continue
+                raise e
 
     async def initialize(self, db_path: str = "./data/gupshup-database.db"):
         """Initialize the database connection and create tables"""
@@ -292,48 +346,51 @@ class Database:
         print("Database tables created/verified")
 
     async def save_room(self, room_data: Dict[str, Any]) -> int:
-        """Save a discussion room"""
-        query = """
-            INSERT INTO rooms (
-                room_id, room_name, topic_title, topic_category, participant_count,
-                started_at, ended_at, duration_seconds, rounds_completed, status, cefr_level, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
+        """Save a discussion room with transaction support"""
+        async def _save_room():
+            query = """
+                INSERT INTO rooms (
+                    room_id, room_name, topic_title, topic_category, participant_count,
+                    started_at, ended_at, duration_seconds, rounds_completed, status, cefr_level, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
 
-        topic = room_data.get("topic", {})
-        # Get room_id and use it for room_name if not provided
-        room_id = room_data.get("room_id") or room_data.get("roomId")
-        room_name = room_data.get("room_name") or room_data.get(
-            "roomName") or room_id or "general"
+            topic = room_data.get("topic", {})
+            # Get room_id and use it for room_name if not provided
+            room_id = room_data.get("room_id") or room_data.get("roomId")
+            room_name = room_data.get("room_name") or room_data.get(
+                "roomName") or room_id or "general"
 
-        # Get a valid created_by user ID
-        created_by = room_data.get("createdBy") or room_data.get("created_by")
-        if not created_by or created_by == "system":
-            # Get the first available user ID
-            cursor = await self.db.execute("SELECT user_id FROM users LIMIT 1")
-            user_row = await cursor.fetchone()
-            created_by = user_row[0] if user_row else "system"
+            # Get a valid created_by user ID
+            created_by = room_data.get("createdBy") or room_data.get("created_by")
+            if not created_by or created_by == "system":
+                # Get the first available user ID
+                cursor = await self.db.execute("SELECT user_id FROM users LIMIT 1")
+                user_row = await cursor.fetchone()
+                created_by = user_row[0] if user_row else "system"
 
-        cursor = await self.db.execute(query, (
-            room_id,
-            room_name,
-            topic.get("title") if topic else "General Discussion",
-            topic.get("category") if topic else "general",
-            room_data.get("participantCount") or room_data.get(
-                "participant_count") or 0,
-            room_data.get("startedAt") or room_data.get("started_at"),
-            room_data.get("endedAt") or room_data.get("ended_at"),
-            room_data.get("durationSeconds") or room_data.get(
-                "duration_seconds") or 0,
-            room_data.get("roundsCompleted") or room_data.get(
-                "rounds_completed") or 0,
-            room_data.get("status", "waiting"),
-            room_data.get("cefrLevel") or room_data.get("cefr_level", "A1"),
-            created_by
-        ))
+            cursor = await self.db.execute(query, (
+                room_id,
+                room_name,
+                topic.get("title") if topic else "General Discussion",
+                topic.get("category") if topic else "general",
+                room_data.get("participantCount") or room_data.get(
+                    "participant_count") or 0,
+                room_data.get("startedAt") or room_data.get("started_at"),
+                room_data.get("endedAt") or room_data.get("ended_at"),
+                room_data.get("durationSeconds") or room_data.get(
+                    "duration_seconds") or 0,
+                room_data.get("roundsCompleted") or room_data.get(
+                    "rounds_completed") or 0,
+                room_data.get("status", "waiting"),
+                room_data.get("cefrLevel") or room_data.get("cefr_level", "A1"),
+                created_by
+            ))
 
-        await self.db.commit()
-        return cursor.lastrowid
+            await self.db.commit()
+            return cursor.lastrowid
+
+        return await self.execute_with_retry(_save_room)
 
     async def save_participant(self, participant_data: Dict[str, Any]) -> int:
         """Save participant data"""

@@ -108,6 +108,29 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                     user_id = user.get("id")
                     anonymous_name = user.get("anonymousName")
                     was_host = room_manager.is_host(room_id, user_id)
+                    was_current_speaker = room.is_current_speaker(user_id)
+                    
+                    # If current speaker disconnected, advance turn immediately
+                    if was_current_speaker and room.status.value == "in_progress":
+                        print(f"[Backend] Current speaker {anonymous_name} disconnected, advancing turn")
+                        # Cancel current timer
+                        await timer_manager.cancel_timer(room_id)
+                        # Advance to next speaker
+                        next_speaker = room.advance_turn()
+                        if next_speaker:
+                            await sio.emit("turn-started", {
+                                "speaker_index": room.current_speaker_index,
+                                "speaker": next_speaker,
+                                "timer": room.speaking_time
+                            }, room=room_id)
+                            # Start timer for next speaker
+                            await start_turn_timer(sio, room_id, room.speaking_time, active_rooms)
+                        else:
+                            # No more speakers, end discussion
+                            await sio.emit("discussion-ended", {
+                                "roomId": room_id,
+                                "reason": "no_speakers_available"
+                            }, room=room_id)
                     
                     # Preserve host state if this user was the host
                     if was_host:
@@ -151,7 +174,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
     
     @sio.on('join-room')
     async def join_room(sid, *args):
-        """Handle user joining a room"""
+        """Handle user joining a room with atomic operations"""
         try:
             # Robustly extract roomId and clientUserData
             room_id = "general"
@@ -167,134 +190,141 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             if len(args) > 2 and isinstance(args[2], dict):
                 room_data = args[2]
             
-            # Get auth data from session
-            try:
-                session = await sio.get_session(sid)
-                auth_data = session.get("auth", {}) if session else {}
-            except:
-                auth_data = {}
+            # Use room-level lock to prevent race conditions
+            room_lock_key = f"room_lock_{room_id}"
+            if not hasattr(join_room, '_locks'):
+                join_room._locks = {}
             
-            # Use clientUserData if provided, else fallback to auth
-            if client_user_data and client_user_data.get("userId"):
-                # Handle both campusOrLocation and separate campus/location fields
-                campus_or_location = client_user_data.get("campusOrLocation")
-                effective_user_data = {
-                    "id": client_user_data.get("userId"),
-                    "socketId": sid,
-                    "name": client_user_data.get("name"),
-                    "campus": client_user_data.get("campus") or campus_or_location,
-                    "location": client_user_data.get("location") or campus_or_location,
-                    "anonymousName": client_user_data.get("anonymousName"),
-                    "role": client_user_data.get("role", "listener"),
-                    "isReady": False,
-                    "joinedAt": datetime.now().isoformat()
-                }
-            else:
-                effective_user_data = {
-                    "id": auth_data.get("userId", sid),
-                    "socketId": sid,
-                    "name": auth_data.get("name"),
-                    "campus": auth_data.get("campus"),
-                    "location": auth_data.get("location"),
-                    "anonymousName": auth_data.get("anonymousName"),
-                    "role": auth_data.get("role", "listener"),
-                    "isReady": False,
-                    "joinedAt": datetime.now().isoformat()
-                }
+            if room_lock_key not in join_room._locks:
+                join_room._locks[room_lock_key] = asyncio.Lock()
             
-            print(f"[Backend] {effective_user_data['anonymousName']} joining room: {room_id}")
-            
-            # Leave any existing rooms
-            current_rooms = sio.rooms(sid)
-            for room in current_rooms:
-                if room != sid:
-                    print(f"[Backend] Leaving room: {room}")
-                    await sio.leave_room(sid, room)
-                    # Find and remove user from that room
-                    old_room = room_manager.get_room(room)
-                    old_user = old_room.get_participant_by_socket(sid)
-                    if old_user:
-                        room_manager.remove_user_from_room(room, old_user.get("id"))
-            
-            # Join the new room
-            await sio.enter_room(sid, room_id)
-            print(f"[Backend] Joined new room: {room_id}")
-            
-            # Check if user already exists in room (reconnection case)
-            existing_user = room_manager.get_room(room_id).get_participant_by_id(effective_user_data["id"])
-            
-            if existing_user:
-                # Update existing user's socket ID and preserve their state
-                print(f"[Backend] User {effective_user_data['anonymousName']} reconnecting to room {room_id}")
-                print(f"[Backend] Old socket ID: {existing_user.get('socketId')}, New socket ID: {sid}")
+            async with join_room._locks[room_lock_key]:
+                # Get auth data from session
+                try:
+                    session = await sio.get_session(sid)
+                    auth_data = session.get("auth", {}) if session else {}
+                except:
+                    auth_data = {}
                 
-                # Store previous state for comparison
-                previous_ready = existing_user.get("isReady", False)
-                previous_role = existing_user.get("role", "listener")
-                
-                # Update socket ID and user data
-                existing_user["socketId"] = sid
-                existing_user["name"] = effective_user_data["name"]
-                existing_user["campus"] = effective_user_data["campus"]
-                existing_user["location"] = effective_user_data["location"]
-                
-                # Preserve existing ready status and role
-                print(f"[Backend] Preserved user state - ready: {previous_ready}, role: {previous_role}")
-                
-                # Check if this user should have host privileges restored
-                host_restored = room_manager.restore_host_privileges(room_id, effective_user_data["id"])
-                if host_restored:
-                    print(f"[Backend] Restored host privileges for {effective_user_data['anonymousName']}")
-                
-                # Emit reconnection event to the user
-                await sio.emit("user-reconnected", {
-                    "userId": effective_user_data["id"],
-                    "anonymousName": effective_user_data["anonymousName"],
-                    "wasHost": host_restored,
-                    "preservedState": {
-                        "isReady": previous_ready,
-                        "role": previous_role
+                # Use clientUserData if provided, else fallback to auth
+                if client_user_data and client_user_data.get("userId"):
+                    effective_user_data = {
+                        "id": client_user_data.get("userId"),
+                        "socketId": sid,
+                        "name": client_user_data.get("name"),
+                        "campus": client_user_data.get("campus"),
+                        "location": client_user_data.get("location"),
+                        "anonymousName": client_user_data.get("anonymousName"),
+                        "role": client_user_data.get("role", "listener"),
+                        "isReady": False,
+                        "joinedAt": datetime.now().isoformat()
                     }
-                }, room=sid)
+                else:
+                    effective_user_data = {
+                        "id": auth_data.get("userId", sid),
+                        "socketId": sid,
+                        "name": auth_data.get("name"),
+                        "campus": auth_data.get("campus"),
+                        "location": auth_data.get("location"),
+                        "anonymousName": auth_data.get("anonymousName"),
+                        "role": auth_data.get("role", "listener"),
+                        "isReady": False,
+                        "joinedAt": datetime.now().isoformat()
+                    }
                 
-            else:
-                # Add new user to room manager
-                room_manager.add_user_to_room(room_id, effective_user_data)
-            
-            # Store room metadata if provided
-            room = room_manager.get_room(room_id)
-            if room_data:
-                # Store room metadata for later use when creating room
-                room.metadata = room_data
-            
-            # Get updated participants
-            participants = room_manager.get_room_participants(room_id)
-            
-            # Emit participant-joined event
-            await sio.emit("participant-joined", {
-                "participant": participants[-1] if participants else None
-            }, room=room_id)
-            
-            # Emit participants update to all users in the room
-            await sio.emit("participants-update", participants, room=room_id)
-            print("[Backend] Emitted participants-update")
-            
-            # Check if there's an active discussion and sync state
-            room = room_manager.get_room(room_id)
-            if room.status.value == "in_progress":
-                print(f"[Backend] Syncing active discussion state with {effective_user_data['anonymousName']}")
+                print(f"[Backend] {effective_user_data['anonymousName']} joining room: {room_id}")
                 
-                current_speaker = room.get_current_speaker()
+                # Leave any existing rooms
+                current_rooms = sio.rooms(sid)
+                for room in current_rooms:
+                    if room != sid:
+                        print(f"[Backend] Leaving room: {room}")
+                        await sio.leave_room(sid, room)
+                        # Find and remove user from that room
+                        old_room = room_manager.get_room(room)
+                        old_user = old_room.get_participant_by_socket(sid)
+                        if old_user:
+                            room_manager.remove_user_from_room(room, old_user.get("id"))
                 
-                discussion_state = {
-                    "topic": room.topic,
-                    "firstSpeaker": current_speaker if current_speaker else None,
-                    "duration": room.speaking_time,
-                    "currentSpeakerIndex": room.current_speaker_index,
-                    "round": room.current_round
-                }
+                # Join the new room
+                await sio.enter_room(sid, room_id)
+                print(f"[Backend] Joined new room: {room_id}")
                 
-                await sio.emit("discussion-started", discussion_state, room=sid)
+                # Check if user already exists in room (reconnection case)
+                existing_user = room_manager.get_room(room_id).get_participant_by_id(effective_user_data["id"])
+                
+                if existing_user:
+                    # Update existing user's socket ID and preserve their state
+                    print(f"[Backend] User {effective_user_data['anonymousName']} reconnecting to room {room_id}")
+                    print(f"[Backend] Old socket ID: {existing_user.get('socketId')}, New socket ID: {sid}")
+                    
+                    # Store previous state for comparison
+                    previous_ready = existing_user.get("isReady", False)
+                    previous_role = existing_user.get("role", "listener")
+                    
+                    # Update socket ID and user data
+                    existing_user["socketId"] = sid
+                    existing_user["name"] = effective_user_data["name"]
+                    existing_user["campus"] = effective_user_data["campus"]
+                    existing_user["location"] = effective_user_data["location"]
+                    
+                    # Preserve existing ready status and role
+                    print(f"[Backend] Preserved user state - ready: {previous_ready}, role: {previous_role}")
+                    
+                    # Check if this user should have host privileges restored
+                    host_restored = room_manager.restore_host_privileges(room_id, effective_user_data["id"])
+                    if host_restored:
+                        print(f"[Backend] Restored host privileges for {effective_user_data['anonymousName']}")
+                    
+                    # Emit reconnection event to the user
+                    await sio.emit("user-reconnected", {
+                        "userId": effective_user_data["id"],
+                        "anonymousName": effective_user_data["anonymousName"],
+                        "wasHost": host_restored,
+                        "preservedState": {
+                            "isReady": previous_ready,
+                            "role": previous_role
+                        }
+                    }, room=sid)
+                    
+                else:
+                    # Add new user to room manager
+                    room_manager.add_user_to_room(room_id, effective_user_data)
+                
+                # Store room metadata if provided
+                room = room_manager.get_room(room_id)
+                if room_data:
+                    # Store room metadata for later use when creating room
+                    room.metadata = room_data
+                
+                # Get updated participants
+                participants = room_manager.get_room_participants(room_id)
+                
+                # Emit participant-joined event
+                await sio.emit("participant-joined", {
+                    "participant": participants[-1] if participants else None
+                }, room=room_id)
+                
+                # Emit participants update to all users in the room
+                await sio.emit("participants-update", participants, room=room_id)
+                print("[Backend] Emitted participants-update")
+                
+                # Check if there's an active discussion and sync state
+                room = room_manager.get_room(room_id)
+                if room.status.value == "in_progress":
+                    print(f"[Backend] Syncing active discussion state with {effective_user_data['anonymousName']}")
+                    
+                    current_speaker = room.get_current_speaker()
+                    
+                    discussion_state = {
+                        "topic": room.topic,
+                        "firstSpeaker": current_speaker if current_speaker else None,
+                        "duration": room.speaking_time,
+                        "currentSpeakerIndex": room.current_speaker_index,
+                        "round": room.current_round
+                    }
+                    
+                    await sio.emit("discussion-started", discussion_state, room=sid)
             
         except Exception as e:
             print(f"Error in join-room: {str(e)}")
@@ -1206,15 +1236,24 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
             # Get current speaker
             current_speaker = room.get_current_speaker()
             if not current_speaker:
-                return
-            
-            # Emit turn-ended event
-            await sio.emit("turn-ended", {
-                "speaker": current_speaker
-            }, room=rid)
-            
-            # Advance to next speaker
-            next_speaker = room.advance_turn()
+                # No current speaker - check if we need to advance to next available speaker
+                print(f"[Backend] No current speaker in room {rid}, attempting to advance")
+                next_speaker = room.advance_turn()
+                if not next_speaker:
+                    print(f"[Backend] No speakers available in room {rid}, ending discussion")
+                    await sio.emit("discussion-ended", {
+                        "roomId": rid,
+                        "reason": "no_speakers_available"
+                    }, room=rid)
+                    return
+            else:
+                # Emit turn-ended event for current speaker
+                await sio.emit("turn-ended", {
+                    "speaker": current_speaker
+                }, room=rid)
+                
+                # Advance to next speaker
+                next_speaker = room.advance_turn()
             
             # Check if discussion is complete
             if room.status.value == "completed":
@@ -1267,3 +1306,338 @@ async def start_turn_timer(sio: socketio.AsyncServer, room_id: str, duration: in
         on_complete=on_complete,
         warning_threshold=10
     )
+
+    # WebRTC Connection State Events
+    @sio.on('webrtc-connection-state')
+    async def webrtc_connection_state(sid, data):
+        """Handle WebRTC connection state updates"""
+        try:
+            room_id = data.get('roomId')
+            state = data.get('state')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-state', {
+                    'peerId': peer_id,
+                    'state': state,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-state: {str(e)}")
+
+    @sio.on('webrtc-connection-failed')
+    async def webrtc_connection_failed(sid, data):
+        """Handle WebRTC connection failures"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            error = data.get('error')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-failed', {
+                    'peerId': peer_id,
+                    'error': error,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-failed: {str(e)}")
+
+    @sio.on('webrtc-connection-restored')
+    async def webrtc_connection_restored(sid, data):
+        """Handle WebRTC connection restoration"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-restored', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-restored: {str(e)}")
+
+    @sio.on('webrtc-connection-closed')
+    async def webrtc_connection_closed(sid, data):
+        """Handle WebRTC connection closure"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-closed', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-closed: {str(e)}")
+
+    @sio.on('webrtc-peer-disconnected')
+    async def webrtc_peer_disconnected(sid, data):
+        """Handle WebRTC peer disconnection"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-peer-disconnected', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-peer-disconnected: {str(e)}")
+
+    @sio.on('webrtc-cleanup-request')
+    async def webrtc_cleanup_request(sid, data):
+        """Handle WebRTC cleanup requests"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-cleanup-request', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-cleanup-request: {str(e)}")
+
+    @sio.on('webrtc-connection-test')
+    async def webrtc_connection_test(sid, data):
+        """Handle WebRTC connection testing"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-test', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-test: {str(e)}")
+
+    @sio.on('webrtc-connection-verified')
+    async def webrtc_connection_verified(sid, data):
+        """Handle WebRTC connection verification"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-verified', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-verified: {str(e)}")
+
+    @sio.on('webrtc-error')
+    async def webrtc_error(sid, data):
+        """Handle WebRTC errors"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            error = data.get('error')
+            
+            if room_id:
+                await sio.emit('webrtc-error', {
+                    'peerId': peer_id,
+                    'error': error,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-error: {str(e)}")
+
+    @sio.on('webrtc-stats-update')
+    async def webrtc_stats_update(sid, data):
+        """Handle WebRTC statistics updates"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            stats = data.get('stats')
+            
+            if room_id:
+                await sio.emit('webrtc-stats-update', {
+                    'peerId': peer_id,
+                    'stats': stats,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-stats-update: {str(e)}")
+
+    @sio.on('webrtc-quality-warning')
+    async def webrtc_quality_warning(sid, data):
+        """Handle WebRTC quality warnings"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            warning = data.get('warning')
+            
+            if room_id:
+                await sio.emit('webrtc-quality-warning', {
+                    'peerId': peer_id,
+                    'warning': warning,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-quality-warning: {str(e)}")
+
+    # Audio State Events
+    @sio.on('audio-state-change')
+    async def audio_state_change(sid, data):
+        """Handle audio state changes"""
+        try:
+            room_id = data.get('roomId')
+            state = data.get('state')
+            user_id = data.get('userId')
+            
+            if room_id:
+                await sio.emit('audio-state-change', {
+                    'userId': user_id,
+                    'state': state,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling audio-state-change: {str(e)}")
+
+    @sio.on('audio-level-update')
+    async def audio_level_update(sid, data):
+        """Handle audio level updates"""
+        try:
+            room_id = data.get('roomId')
+            level = data.get('level')
+            user_id = data.get('userId')
+            
+            if room_id:
+                await sio.emit('audio-level-update', {
+                    'userId': user_id,
+                    'level': level,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling audio-level-update: {str(e)}")
+
+    @sio.on('microphone-permission-change')
+    async def microphone_permission_change(sid, data):
+        """Handle microphone permission changes"""
+        try:
+            room_id = data.get('roomId')
+            permission = data.get('permission')
+            user_id = data.get('userId')
+            
+            if room_id:
+                await sio.emit('microphone-permission-change', {
+                    'userId': user_id,
+                    'permission': permission,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling microphone-permission-change: {str(e)}")
+
+    # WebRTC Acknowledgment Events
+    @sio.on('webrtc-offer-ack')
+    async def webrtc_offer_ack(sid, data):
+        """Handle WebRTC offer acknowledgments"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-offer-ack', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-offer-ack: {str(e)}")
+
+    @sio.on('webrtc-answer-ack')
+    async def webrtc_answer_ack(sid, data):
+        """Handle WebRTC answer acknowledgments"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-answer-ack', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-answer-ack: {str(e)}")
+
+    @sio.on('webrtc-ice-ack')
+    async def webrtc_ice_ack(sid, data):
+        """Handle WebRTC ICE candidate acknowledgments"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-ice-ack', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-ice-ack: {str(e)}")
+
+    # WebRTC Lifecycle Events
+    @sio.on('webrtc-connection-created')
+    async def webrtc_connection_created(sid, data):
+        """Handle WebRTC connection creation"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-created', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-created: {str(e)}")
+
+    @sio.on('webrtc-connection-destroyed')
+    async def webrtc_connection_destroyed(sid, data):
+        """Handle WebRTC connection destruction"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-destroyed', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-destroyed: {str(e)}")
+
+    @sio.on('webrtc-connection-paused')
+    async def webrtc_connection_paused(sid, data):
+        """Handle WebRTC connection pausing"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-paused', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-paused: {str(e)}")
+
+    @sio.on('webrtc-connection-resumed')
+    async def webrtc_connection_resumed(sid, data):
+        """Handle WebRTC connection resuming"""
+        try:
+            room_id = data.get('roomId')
+            peer_id = data.get('peerId')
+            
+            if room_id:
+                await sio.emit('webrtc-connection-resumed', {
+                    'peerId': peer_id,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room_id)
+        except Exception as e:
+            print(f"Error handling webrtc-connection-resumed: {str(e)}")

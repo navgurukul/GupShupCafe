@@ -23,7 +23,37 @@ export function SocketProvider({ children }) {
   });
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [reconnectionState, setReconnectionState] = useState({
+    isReconnecting: false,
+    lastRoom: null,
+    lastRole: null,
+    lastMetadata: null,
+  });
   const { isAuthenticated, user: userData } = useAuth();
+
+  // Load persisted state on mount
+  useEffect(() => {
+    const persistedState = localStorage.getItem("gupshup-socket-state");
+    if (persistedState) {
+      try {
+        const state = JSON.parse(persistedState);
+        setReconnectionState((prev) => ({
+          ...prev,
+          lastRoom: state.currentRoom,
+          lastRole: state.selectedRole,
+          lastMetadata: state.roomMetadata,
+        }));
+        metaRef.current = {
+          currentRoom: state.currentRoom,
+          selectedRole: state.selectedRole,
+          roomMetadata: state.roomMetadata,
+        };
+        console.log("[Socket] Restored state from localStorage:", state);
+      } catch (error) {
+        console.error("[Socket] Error parsing persisted state:", error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Only connect if user is authenticated
@@ -198,6 +228,23 @@ export function SocketProvider({ children }) {
 
       newSocket.on("reconnect", (attemptNumber) => {
         console.log("[Socket] Reconnected after", attemptNumber, "attempts");
+        setConnected(true);
+        setReconnectionState((prev) => ({ ...prev, isReconnecting: false }));
+
+        // Attempt to rejoin room if we were in one
+        if (metaRef.current.currentRoom) {
+          console.log(
+            "[Socket] Attempting to rejoin room:",
+            metaRef.current.currentRoom
+          );
+          setTimeout(() => {
+            joinRoom(
+              metaRef.current.currentRoom,
+              metaRef.current.selectedRole,
+              metaRef.current.roomMetadata
+            );
+          }, 500); // Small delay to ensure connection is stable
+        }
 
         // Emit reconnection success event
         window.dispatchEvent(
@@ -280,6 +327,19 @@ export function SocketProvider({ children }) {
       metaRef.current.selectedRole = role;
       metaRef.current.roomMetadata = roomMetadata;
 
+      // Persist state to localStorage for browser refresh recovery
+      const stateToPersist = {
+        currentRoom: roomId,
+        selectedRole: role,
+        roomMetadata: roomMetadata,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(
+        "gupshup-socket-state",
+        JSON.stringify(stateToPersist)
+      );
+      console.log("[Socket] Persisted state to localStorage:", stateToPersist);
+
       // Get stored data from localStorage
       const storedUserData = JSON.parse(
         localStorage.getItem("userData") || "{}"
@@ -292,8 +352,8 @@ export function SocketProvider({ children }) {
       const joinUserData = {
         userId: storedUserData.userId || userData?.userId || "anonymous-user",
         name: storedUserData.name || userData?.name || "Anonymous User",
-        campusOrLocation:
-          storedUserData.campusOrLocation || userData?.campusOrLocation || null,
+        campus: storedUserData.campus || userData?.campus || null,
+        location: storedUserData.location || userData?.location || null,
         anonymousName: anonymousName,
         role: role,
       };
@@ -308,6 +368,72 @@ export function SocketProvider({ children }) {
   };
 
   /**
+   * Retry failed socket operations with exponential backoff
+   */
+  const retryOperation = async (
+    operation,
+    maxRetries = 3,
+    baseDelay = 1000
+  ) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        console.log(
+          `[Socket] Operation failed (attempt ${attempt}/${maxRetries}):`,
+          error
+        );
+
+        if (attempt === maxRetries) {
+          throw error;
+        }
+
+        // Exponential backoff with jitter
+        const delay =
+          baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  };
+
+  /**
+   * Recover from connection errors
+   */
+  const recoverFromError = async () => {
+    console.log("[Socket] Attempting to recover from error");
+
+    try {
+      // Try to reconnect if disconnected
+      if (!connected) {
+        await retryOperation(() => {
+          if (socketRef.current) {
+            socketRef.current.connect();
+          }
+        });
+      }
+
+      // Rejoin room if we were in one
+      if (metaRef.current.currentRoom) {
+        await retryOperation(() => {
+          joinRoom(
+            metaRef.current.currentRoom,
+            metaRef.current.selectedRole,
+            metaRef.current.roomMetadata
+          );
+        });
+      }
+
+      console.log("[Socket] Recovery successful");
+    } catch (error) {
+      console.error("[Socket] Recovery failed:", error);
+      // Notify user of persistent connection issues
+      if (typeof window !== "undefined" && window.alert) {
+        window.alert("Connection lost. Please refresh the page to reconnect.");
+      }
+    }
+  };
+
+  /**
    * Leave current room
    */
   const leaveRoom = () => {
@@ -317,6 +443,11 @@ export function SocketProvider({ children }) {
       // clear stored room info
       metaRef.current.currentRoom = null;
       metaRef.current.selectedRole = null;
+      metaRef.current.roomMetadata = null;
+
+      // Clear persisted state
+      localStorage.removeItem("gupshup-socket-state");
+      console.log("[Socket] Cleared persisted state");
     }
   };
 
@@ -361,12 +492,15 @@ export function SocketProvider({ children }) {
   const value = {
     socket,
     connected,
+    reconnectionState,
     joinRoom,
     leaveRoom,
     sendMessage,
     signalReady,
     requestNextSpeaker,
     changeRole,
+    retryOperation,
+    recoverFromError,
   };
 
   return (
