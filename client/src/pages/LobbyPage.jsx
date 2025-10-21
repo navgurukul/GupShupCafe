@@ -405,13 +405,15 @@ function LobbyPage() {
         // Store session_id for later use
         if (sessionResult.status === 'success') {
           sessionStorage.setItem('current_session_id', sessionResult.data)
-          roomData.roomId = sessionResult.data; // Assign generated room ID
+          roomData.roomId = sessionResult.data?.["room_id"]; // Assign generated room ID
+
+          console.log(`[Lobby][Debug] Created room with ID: "${roomData.roomId}"`);
 
 
           // Create participant entry using helper function
           await createParticipantForRoom({
             userId: storedHostData.userId,
-            roomId: sessionResult.data,
+            roomId: roomData.roomId,
             anonymousName: hostAnonymousName,
             currentCefrLevel: storedHostData.currentCefrLevel,
             campusOrLocation: null

@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
+from .base_dict_model import BaseDictModel
+from .enums import ParticipantRole
 
 class CreateParticipantModel(BaseModel):
     """Complete Participant model matching the schema"""
@@ -13,8 +15,10 @@ class CreateParticipantModel(BaseModel):
     avatar_color: Optional[str] = Field(None, description="Hex color code for avatar")
     
     # Room Config
-    role: str = Field(default="participant", description="Role: participant, host, listener")
-    is_ready: bool = Field(default=False, description="Ready to start discussion")
+    role: ParticipantRole = Field(default=ParticipantRole.PARTICIPANT,
+                      description="Role: speaker, host, listener")
+    is_ready: bool = Field(
+        default=False, description="Ready to start discussion")
     turn_order: int = Field(default=0, description="Order in speaking turns")
     
     # Real-Time State
