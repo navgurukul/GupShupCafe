@@ -1,0 +1,44 @@
+{
+  "family": "gupshup-backend-task",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::619564767228:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::619564767228:role/ecsTaskExecutionRole",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "containerDefinitions": [
+    {
+      "name": "gupshup-backend",
+      "image": "619564767228.dkr.ecr.ap-south-1.amazonaws.com/gupshup-backend:latest",
+      "portMappings": [
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3003/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 40
+      },
+      "environment": [
+        { "name": "PYTHON_ENV", "value": "production" },
+        { "name": "PORT", "value": "3003" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/gupshup-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

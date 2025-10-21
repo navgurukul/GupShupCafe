@@ -1,16 +1,17 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { SocketProvider } from './contexts/SocketContext'
-import { AuthProvider } from './contexts/AuthContext'
-import { AudioProvider } from './contexts/AudioContext'
-import LoginPage from './pages/LoginPage'
-import SignupPage from './pages/SignupPage'
-import LobbyPage from './pages/LobbyPage'
-import RoundtablePage from './pages/RoundtablePage'
-import AudioTestPage from './pages/AudioTestPage'
-import BroadcastTestPage from './pages/BroadcastTestPage'
-import SpeechRecognitionTest from './pages/SpeechRecognitionTest'
-import ProtectedRoute from './components/common/ProtectedRoute'
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { SocketProvider } from "./contexts/SocketContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { AudioProvider } from "./contexts/AudioContext";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import LobbyPage from "./pages/LobbyPage";
+import RoomLobbyPage from "./pages/RoomLobbyPage";
+import RoundtablePage from "./pages/RoundtablePage";
+import AudioTestPage from "./pages/AudioTestPage";
+import BroadcastTestPage from "./pages/BroadcastTestPage";
+import SpeechRecognitionTest from "./pages/SpeechRecognitionTest";
+import ProtectedRoute from "./components/common/ProtectedRoute";
 
 /**
  * Main App Component
@@ -27,29 +28,45 @@ function App() {
                 {/* Public Routes */}
                 <Route path="/" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
-                
+
                 {/* Protected Routes - Require Authentication */}
-                <Route path="/lobby" element={
-                  <ProtectedRoute>
-                    <LobbyPage />
-                  </ProtectedRoute>
-                } />
-                
-                <Route path="/roundtable" element={
-                  <ProtectedRoute>
-                    <RoundtablePage />
-                  </ProtectedRoute>
-                } />
-                
+                <Route
+                  path="/lobby"
+                  element={
+                    <ProtectedRoute>
+                      <LobbyPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Room-specific lobby with dynamic roomId */}
+                <Route
+                  path="/lobby/:roomId"
+                  element={
+                    <ProtectedRoute>
+                      <RoomLobbyPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/roundtable"
+                  element={
+                    <ProtectedRoute>
+                      <RoundtablePage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Audio Test Route - For debugging audio issues */}
                 <Route path="/audio-test" element={<AudioTestPage />} />
-                
+
                 {/* Broadcast Test Route - Simple broadcast audio test */}
                 <Route path="/broadcast-test" element={<BroadcastTestPage />} />
 
-                 {/* Broadcast Test Route - Simple broadcast audio test */}
+                {/* Speech Recognition Test */}
                 <Route path="/zoe" element={<SpeechRecognitionTest />} />
-                
+
                 {/* Fallback Route */}
                 <Route path="*" element={<LoginPage />} />
               </Routes>
@@ -58,7 +75,7 @@ function App() {
         </SocketProvider>
       </AuthProvider>
     </Router>
-  )
+  );
 }
 
-export default App
+export default App;
