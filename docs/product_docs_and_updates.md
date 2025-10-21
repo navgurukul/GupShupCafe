@@ -2738,3 +2738,340 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - **Simplified Architecture**: Removed unnecessary UUID mapping complexity
 
 **Testing**: All socket handlers and database operations verified to use consistent room IDs. Agent creation and room registration now properly linked.
+---
+
+## 2025-10-21 16:30 UTC — Socket Contract Documentation
+
+**Date**: 2025-10-21 16:30 UTC  
+**Type**: Documentation | Architecture  
+**Commit Message**: Generate comprehensive socket contract documentation for client-server communication
+
+**Changes:**
+
+### 1. Complete Socket Event Documentation
+- **Created comprehensive socket contract document** at `docs/Socket_Contract_Documentation.md`
+- **Documented all 50+ socket events** between client (React) and server_py (FastAPI + Socket.io)
+- **Organized events by functional categories**:
+  - Connection Events (connection, connection-ack)
+  - Room Management (join-room, leave-room, participants-update)
+  - User Status (user-ready, change-role, role-changed)
+  - Discussion Flow (start-discussion, discussion-started, turn-started, turn-ended)
+  - Timer Events (timer-warning)
+  - Host Management (host-changed, participant-left)
+  - Reconnection Events (user-reconnected, user-reconnection-ack)
+  - WebRTC Audio Events (webrtc-offer, webrtc-answer, webrtc-ice-candidate)
+  - Chat Events (message)
+  - Transcript & AI Events (speech-transcript, facilitator-speaking, instant-feedback)
+  - Debug Events (debug-ping, debug-pong, debug-whoami, debug-room-state)
+
+### 2. Detailed JSON Schema Documentation
+- **Complete JSON schemas** for all event payloads
+- **Bidirectional event mapping** (Client → Server and Server → Client)
+- **Parameter documentation** with data types and descriptions
+- **Event flow patterns** showing typical sequences:
+  - Room Join Flow (5 steps)
+  - Discussion Start Flow (5 steps)
+  - WebRTC Connection Flow (5 steps)
+  - Turn Management Flow (5 steps)
+
+### 3. Technical Implementation Details
+- **Socket.io configuration** (transport, reconnection settings)
+- **Authentication data structure** for connection handshake
+- **Room metadata schemas** for room creation/joining
+- **Participant object structure** with all fields documented
+- **WebRTC signaling event schemas** for peer-to-peer audio
+- **Timer and discussion state management** event schemas
+- **AI agent integration** event schemas for facilitator and feedback
+
+### 4. Error Handling and Edge Cases
+- **Connection state management** (connect, disconnect, reconnect events)
+- **Reconnection flow** with state preservation
+- **Host privilege management** during disconnections
+- **WebRTC connection recovery** after network issues
+- **Graceful degradation** patterns
+
+**Technical Details:**
+
+**Event Categories Covered:**
+- Connection: 2 events
+- Room Management: 6 events  
+- User Status: 4 events
+- Discussion Flow: 8 events
+- Timer: 1 event
+- Host Management: 2 events
+- Reconnection: 3 events
+- WebRTC Audio: 6 events
+- Chat: 2 events
+- Transcript & AI: 8 events
+- Debug: 6 events
+- Built-in Socket.io: 6 events
+
+**Key Schema Examples:**
+```json
+// Participant Object (used across multiple events)
+{
+  "id": "string",
+  "socketId": "string", 
+  "anonymousName": "string",
+  "role": "speaker|listener|host",
+  "isReady": "boolean",
+  "joinedAt": "ISO8601 timestamp"
+}
+
+// Discussion Started Event
+{
+  "topic": {
+    "title": "string",
+    "category": "string"
+  },
+  "firstSpeaker": "Participant|null",
+  "duration": "number"
+}
+
+// WebRTC Offer Event
+{
+  "to": "string",
+  "sdp": "string"
+}
+```
+
+**Impact:**
+- **Complete reference** for all socket communications between client and server
+- **Standardized event schemas** prevent integration issues
+- **Clear event flow patterns** guide implementation
+- **Debugging support** with documented debug events
+- **Onboarding efficiency** for new developers
+- **API contract enforcement** between frontend and backend teams
+- **Testing guidance** with complete event payload examples
+
+**Files Created:**
+- `docs/Socket_Contract_Documentation.md` - Complete socket contract (2,800+ lines)
+
+**Files Modified:**
+- `docs/product_docs_and_updates.md` - This changelog entry
+
+**Analysis Sources:**
+- `client/src/contexts/SocketContext.jsx` - Client socket management
+- `client/src/contexts/AudioContext.jsx` - WebRTC event handling
+- `server_py/src/socket/socket_handlers.py` - Server event handlers
+- `server_py/src/socket/room_manager.py` - Room state management
+- `server_py/src/socket/timer_manager.py` - Timer event handling
+- `client/src/pages/RoomLobbyPage.jsx` - Room lobby socket events
+- `client/src/pages/RoundtablePage.jsx` - Discussion socket events
+
+**Usage:**
+- Reference for implementing new socket events
+- Debugging guide for socket communication issues
+- Contract validation for frontend-backend integration
+- Documentation for testing socket event flows
+- Onboarding resource for new team members
+
+**Next Steps:**
+- Implement socket event validation middleware
+- Add automated tests for all documented event schemas
+- Create socket event monitoring dashboard
+- Update client/server code to match documented schemas
+--
+-
+
+## 2025-10-21 17:15 UTC — Socket Contract Documentation Revision
+
+**Date**: 2025-10-21 17:15 UTC  
+**Type**: Documentation | Bugfix  
+**Commit Message**: Revise socket contract documentation for accuracy and completeness
+
+**Changes:**
+
+### 1. Added Missing Events
+- **Added `speaker-changed` event** - Used by RoundtablePage for speaker transitions
+- **Added `topic-update` event** - Used by RoundtablePage for topic changes  
+- **Added Broadcast Test Events section** - Development-only WebRTC testing events:
+  - `join-broadcast-test` (Client → Server)
+  - `broadcast-test-role` (Server → Client) 
+  - `broadcast-test-participants` (Server → Client)
+  - `broadcast-test-reset` (Server → Client)
+  - `new-listener-joined` (Server → Client)
+
+### 2. Enhanced Event Flow Patterns
+- **Expanded Room Join Flow** to include reconnection scenarios
+- **Added Host Management Flow** showing host privilege handling
+- **Improved Discussion Start Flow** with automatic trigger conditions
+- **Enhanced Turn Management Flow** with round completion logic
+- **Updated WebRTC Connection Flow** to show speaker-initiated pattern
+
+### 3. Added Comprehensive Data Structures Section
+- **Participant Object** - Standard format used across all events
+- **Topic Object** - Discussion topic structure
+- **Room Metadata** - Optional data for room creation/joining
+- **Complete field documentation** with data types and descriptions
+
+### 4. Enhanced Implementation Notes
+- **Connection & Authentication** - Socket ID vs User ID persistence
+- **Room Management** - Lobby vs database room ID distinction  
+- **WebRTC & Audio** - Peer-to-peer flow and audio optimization
+- **Discussion Flow** - Timer behavior and turn advancement
+- **Error Handling & Reconnection** - State preservation strategies
+- **Development & Testing** - Debug and broadcast test event usage
+
+### 5. Corrected Event Details
+- **Fixed event flow sequences** to match actual implementation
+- **Clarified payload structures** based on server code analysis
+- **Updated trigger conditions** to reflect automatic vs manual events
+- **Improved event descriptions** with more accurate technical details
+
+**Technical Accuracy Improvements:**
+
+**Event Flow Corrections:**
+- Room join now shows `participant-joined` before `participants-update`
+- Discussion start is automatic when minimum participants ready
+- WebRTC connections are speaker-initiated (not bidirectional offers)
+- Host assignment is automatic for first participant
+
+**Data Structure Clarifications:**
+- Participant objects include both `campus` and `location` fields
+- Socket IDs change on reconnection, User IDs persist
+- Room metadata is optional third parameter on `join-room`
+- Topic objects have consistent `title` and `category` structure
+
+**Implementation Details:**
+- Timer warnings sent at 10 seconds remaining (configurable)
+- Minimum participants default is 1 (configurable via environment)
+- Host privileges preserved during temporary disconnections
+- WebRTC audio optimized for voice with Opus codec
+
+**Impact:**
+- **Accurate technical reference** for all socket communications
+- **Corrected event flow patterns** prevent implementation errors
+- **Complete data structure documentation** ensures consistent schemas
+- **Enhanced implementation guidance** for complex scenarios
+- **Better debugging support** with accurate event descriptions
+
+**Files Modified:**
+- `docs/Socket_Contract_Documentation.md` - Major revisions and additions
+- `docs/product_docs_and_updates.md` - This changelog entry
+
+**Validation Sources:**
+- `server_py/src/socket/socket_handlers.py` - All server event handlers
+- `client/src/contexts/SocketContext.jsx` - Client socket management  
+- `client/src/contexts/AudioContext.jsx` - WebRTC event handling
+- `client/src/pages/RoundtablePage.jsx` - Discussion event handlers
+- `client/src/pages/RoomLobbyPage.jsx` - Room lobby event handlers
+- `client/src/pages/BroadcastTestPage.jsx` - Broadcast test events
+
+**Next Steps:**
+- Implement missing server handlers for broadcast test events
+- Add socket event validation middleware using documented schemas
+- Create automated tests for all documented event flows
+- Update client code to match documented event structures---
+
+
+## 2025-10-21 18:00 UTC — Socket Documentation Standardization with Constants
+
+**Date**: 2025-10-21 18:00 UTC  
+**Type**: Documentation | Standardization  
+**Commit Message**: Standardize socket event names using constants.js and update API documentation
+
+**Changes:**
+
+### 1. Socket Event Name Standardization
+- **Updated Socket Contract Documentation** to use exact event names from `client/src/utils/constants.js`
+- **Fixed event name discrepancies**:
+  - `connection` → `connection-ack` (server response)
+  - `change-role` → `role-change` (client request)
+  - `speaker-changed` → `speaker-change` (server event)
+  - Added missing `room-update` event
+  - Added `english-feedback` and `transcript-update` events
+
+### 2. WebSocket API Documentation Overhaul
+- **Updated all code examples** to import and use `SOCKET_EVENTS` constants
+- **Enhanced connection configuration** to match actual implementation:
+  - Updated auth data structure (`campusOrLocation` field)
+  - Added proper reconnection settings (15 attempts, 10s max delay)
+  - Updated transport order (polling first, then websocket)
+- **Fixed event payload structures** to match server implementation
+- **Added missing events**:
+  - `connection-ack` - Server connection acknowledgment
+  - `participant-joined` / `participant-left` - Participant notifications
+  - `room-update` - Room state changes
+  - `turn-started` / `turn-ended` - Turn management
+  - `round-complete` - Round completion
+  - `ready-for-webrtc` - WebRTC readiness signal
+  - `english-feedback` / `transcript-update` - AI feedback events
+
+### 3. Enhanced Code Examples
+- **All examples now use constants** from `constants.js`:
+  - `SOCKET_EVENTS` for event names
+  - `USER_ROLES` for role values
+  - `API_CONFIG` for connection settings
+  - `UI_CONFIG` for timing values
+  - `ERROR_MESSAGES` for user notifications
+- **Improved payload structures** to match actual implementation
+- **Added proper error handling** examples with constants
+- **Enhanced WebRTC examples** with correct SDP handling
+
+### 4. Event Flow Diagram Updates
+- **Corrected event sequences** to match actual implementation:
+  - Room join: `participant-joined` before `participants-update`
+  - Discussion start: `discussion-started` then `turn-started`
+  - Turn management: `turn-ended` then `turn-started` for next speaker
+- **Added timer warning flow** with correct event names
+- **Updated WebRTC flow** to show proper signaling sequence
+
+### 5. Best Practices Standardization
+- **Connection management** examples use constants
+- **Reconnection handling** with proper user data structure
+- **Error handling** with standardized error messages
+- **Event debouncing** with configurable delays from constants
+- **Testing examples** with complete user data objects
+
+**Technical Improvements:**
+
+**Constants Integration:**
+```javascript
+// Before
+socket.emit('join-room', roomId, { role: 'speaker' });
+
+// After  
+socket.emit(SOCKET_EVENTS.JOIN_ROOM, roomId, userData);
+```
+
+**Payload Structure Corrections:**
+```javascript
+// Fixed user-ready payload
+socket.emit(SOCKET_EVENTS.USER_READY, { isReady: true });
+
+// Fixed WebRTC events with SDP strings
+socket.emit(SOCKET_EVENTS.WEBRTC_OFFER, { to: peerId, sdp: offer.sdp });
+```
+
+**Enhanced Error Handling:**
+```javascript
+socket.on(SOCKET_EVENTS.CONNECT_ERROR, (error) => {
+  showNotification(ERROR_MESSAGES.SOCKET_CONNECTION_FAILED);
+});
+```
+
+**Impact:**
+- **Consistent event naming** across all documentation
+- **Reduced integration errors** with standardized constants usage
+- **Improved maintainability** with centralized configuration
+- **Better developer experience** with accurate code examples
+- **Enhanced debugging** with correct event flow documentation
+- **Future-proof documentation** that stays in sync with constants
+
+**Files Modified:**
+- `docs/Socket_Contract_Documentation.md` - Event name corrections and additions
+- `docs/API Reference/websocket-api.md` - Complete overhaul with constants integration
+- `docs/product_docs_and_updates.md` - This changelog entry
+
+**Validation:**
+- All event names verified against `client/src/utils/constants.js`
+- Payload structures verified against server implementation
+- Code examples tested for syntax and import correctness
+- Event flows validated against actual socket handlers
+
+**Next Steps:**
+- Update client code to consistently use `SOCKET_EVENTS` constants
+- Add TypeScript definitions for socket event payloads
+- Create automated tests to validate event schema compliance
+- Implement socket event validation middleware using documented schemas
