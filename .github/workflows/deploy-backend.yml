@@ -41,6 +41,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ecs-task-def.json
-          service: gupshup-service
+          service: gupshup-backend-service
           cluster: gupshup-cluster
           wait-for-service-stability: true
