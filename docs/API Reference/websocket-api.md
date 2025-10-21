@@ -73,24 +73,44 @@ Join a discussion room.
 
 **Emit:**
 ```javascript
-socket.emit('join-room', roomId, { role: 'speaker' });
+socket.emit('join-room', roomId, userData, roomMetadata);
 ```
 
 **Parameters:**
 - `roomId` (string) - Unique room identifier
-- `options` (object) - Join options
+- `userData` (object) - User information
+  - `userId` (string) - User ID
+  - `name` (string) - User's real name
+  - `campusOrLocation` (string) - Campus or location
+  - `anonymousName` (string) - Anonymous display name
   - `role` (string) - User role: 'speaker' or 'listener'
+- `roomMetadata` (object, optional) - Room configuration
+  - `name` (string) - Room name
+  - `topic_category` (string) - Topic category
+  - `cefr_level` (number) - CEFR level (1-6)
 
 **Server Response:**
 - Emits `participants-update` to all room members
-- Emits `user-joined` notification to room
+- Emits `participant-joined` notification to room
+- Emits `user-reconnected` if user is reconnecting
 
 **Example:**
 ```javascript
 const roomId = 'room-abc123';
-const options = { role: 'speaker' };
+const userData = {
+  userId: 'user-123',
+  name: 'John Doe',
+  campusOrLocation: 'Delhi Campus',
+  anonymousName: 'Wise Owl',
+  role: 'speaker'
+};
+const roomMetadata = {
+  name: 'Discussion Room 1',
+  topic_category: 'Education',
+  cefr_level: 3
+};
 
-socket.emit('join-room', roomId, options);
+socket.emit('join-room', roomId, userData, roomMetadata);
 
 // Listen for confirmation
 socket.on('participants-update', (participants) => {
@@ -132,34 +152,105 @@ Mark user as ready to start the discussion.
 
 **Emit:**
 ```javascript
-socket.emit('user-ready', true);
+socket.emit('user-ready', { isReady: true });
 ```
 
 **Parameters:**
-- `isReady` (boolean) - Ready state
+- `data` (object, optional) - Ready state data
+  - `isReady` (boolean) - Ready state (default: true)
 
 **Server Response:**
 - Emits `participants-update` with updated ready states
-- Automatically starts discussion when all users are ready
+- Automatically starts discussion when all users are ready (based on MIN_PARTICIPANTS config)
 
 **Flow Diagram:**
 ```
 User clicks "Ready" 
-    → emit('user-ready', true)
+    → emit('user-ready', { isReady: true })
     → Server updates participant state
     → Server emits 'participants-update'
     → Check if all ready
-    → If yes: emit 'discussion-start'
+    → If yes: emit 'discussion-started'
 ```
 
 **Example:**
 ```javascript
 // Mark as ready
-socket.emit('user-ready', true);
+socket.emit('user-ready', { isReady: true });
 
 // Listen for discussion start
-socket.on('discussion-start', (data) => {
+socket.on('discussion-started', (data) => {
   console.log('Discussion starting!', data);
+});
+
+// Mark as not ready
+socket.emit('user-ready', { isReady: false });
+```
+
+---
+
+#### `start-discussion`
+
+Host manually starts the discussion (host-only event).
+
+**Emit:**
+```javascript
+socket.emit('start-discussion');
+```
+
+**Authorization:**
+- Only the room host can start the discussion
+- All participants must be ready
+
+**Server Response:**
+- Starts the discussion if conditions are met
+- Emits `discussion-started` to all room members
+- Returns error if user is not host or not all ready
+
+**Example:**
+```javascript
+// Host starts discussion
+socket.emit('start-discussion');
+
+// Listen for discussion start
+socket.on('discussion-started', (data) => {
+  console.log('Discussion started:', data);
+});
+```
+
+---
+
+#### `change-role`
+
+Change user role in the current room.
+
+**Emit:**
+```javascript
+socket.emit('change-role', { userId: 'user-123', role: 'speaker' });
+```
+
+**Parameters:**
+- `userId` (string) - User identifier
+- `role` (string) - New role: 'speaker' or 'listener'
+
+**Server Response:**
+- Emits `participants-update` with updated roles
+- Emits `role-changed` notification
+- Emits `role-change-failed` if max speakers reached
+
+**Example:**
+```javascript
+socket.emit('change-role', {
+  userId: user.id,
+  role: 'speaker'
+});
+
+socket.on('role-changed', (data) => {
+  console.log(`User ${data.userId} is now ${data.role}`);
+});
+
+socket.on('role-change-failed', (error) => {
+  console.error('Role change failed:', error);
 });
 ```
 
@@ -167,7 +258,7 @@ socket.on('discussion-start', (data) => {
 
 #### `next-speaker`
 
-Request to advance to the next speaker.
+Request to advance to the next speaker (alias for `end-turn`).
 
 **Emit:**
 ```javascript
@@ -175,7 +266,8 @@ socket.emit('next-speaker');
 ```
 
 **Server Response:**
-- Emits `next-turn` with new speaker information
+- Emits `turn-ended` with current speaker information
+- Emits `turn-started` with next speaker information
 - Updates timer and speaker index
 
 **Example:**
@@ -184,38 +276,42 @@ socket.emit('next-speaker');
 socket.emit('next-speaker');
 
 // Listen for turn change
-socket.on('next-turn', (turnData) => {
-  console.log('Next speaker:', turnData.currentSpeaker);
-  console.log('Time:', turnData.timeRemaining);
+socket.on('turn-started', (turnData) => {
+  console.log('Next speaker:', turnData.speaker);
+  console.log('Time:', turnData.timer);
 });
 ```
 
 ---
 
-#### `mute-toggle`
+#### `end-turn`
 
-Toggle microphone mute state.
+End the current speaking turn.
 
 **Emit:**
 ```javascript
-socket.emit('mute-toggle', { userId: 'user-123', isMuted: true });
+socket.emit('end-turn');
 ```
 
-**Parameters:**
-- `userId` (string) - User ID
-- `isMuted` (boolean) - Mute state
-
 **Server Response:**
-- Broadcasts mute state to all room participants
+- Cancels current timer
+- Emits `turn-ended` with current speaker
+- Advances to next speaker
+- Emits `turn-started` for next speaker
+- Emits `round-complete` if round finished
+- Emits `discussion-ended` if all rounds complete
 
 **Example:**
 ```javascript
-const handleMuteToggle = (isMuted) => {
-  socket.emit('mute-toggle', {
-    userId: user.id,
-    isMuted: isMuted
-  });
-};
+socket.emit('end-turn');
+
+socket.on('turn-ended', (data) => {
+  console.log('Turn ended for:', data.speaker);
+});
+
+socket.on('turn-started', (data) => {
+  console.log('Next turn:', data.speaker);
+});
 ```
 
 ---
@@ -230,16 +326,16 @@ Send WebRTC connection offer to peer.
 ```javascript
 socket.emit('webrtc-offer', {
   to: 'peer-socket-id',
-  offer: rtcOffer
+  sdp: rtcOffer
 });
 ```
 
 **Parameters:**
 - `to` (string) - Target peer socket ID
-- `offer` (RTCSessionDescriptionInit) - WebRTC offer
+- `sdp` (RTCSessionDescription) - WebRTC SDP offer
 
 **Server Response:**
-- Forwards offer to target peer
+- Forwards offer to target peer with `from` field
 
 **Example:**
 ```javascript
@@ -250,7 +346,7 @@ peerConnection.createOffer()
   .then(() => {
     socket.emit('webrtc-offer', {
       to: targetSocketId,
-      offer: peerConnection.localDescription
+      sdp: peerConnection.localDescription
     });
   });
 ```
@@ -265,27 +361,27 @@ Send WebRTC connection answer to peer.
 ```javascript
 socket.emit('webrtc-answer', {
   to: 'peer-socket-id',
-  answer: rtcAnswer
+  sdp: rtcAnswer
 });
 ```
 
 **Parameters:**
 - `to` (string) - Target peer socket ID
-- `answer` (RTCSessionDescriptionInit) - WebRTC answer
+- `sdp` (RTCSessionDescription) - WebRTC SDP answer
 
 **Server Response:**
-- Forwards answer to target peer
+- Forwards answer to target peer with `from` field
 
 **Example:**
 ```javascript
-socket.on('webrtc-offer', async ({ from, offer }) => {
-  await peerConnection.setRemoteDescription(offer);
+socket.on('webrtc-offer', async ({ from, sdp }) => {
+  await peerConnection.setRemoteDescription(sdp);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
   
   socket.emit('webrtc-answer', {
     to: from,
-    answer: answer
+    sdp: answer
   });
 });
 ```
@@ -309,7 +405,7 @@ socket.emit('webrtc-ice-candidate', {
 - `candidate` (RTCIceCandidate) - ICE candidate
 
 **Server Response:**
-- Forwards candidate to target peer
+- Forwards candidate to target peer with `from` field
 
 **Example:**
 ```javascript
@@ -325,7 +421,205 @@ peerConnection.onicecandidate = (event) => {
 
 ---
 
-### Chat (Future Feature)
+#### `ready-for-webrtc`
+
+Signal that client is ready to establish WebRTC connections.
+
+**Emit:**
+```javascript
+socket.emit('ready-for-webrtc');
+```
+
+**Server Response:**
+- Emits `peer-ready` to other participants with socket ID
+
+**Example:**
+```javascript
+// After setting up local media stream
+socket.emit('ready-for-webrtc');
+
+socket.on('peer-ready', ({ socketId }) => {
+  console.log('Peer ready:', socketId);
+  // Initiate WebRTC offer
+});
+```
+
+---
+
+### Transcript & Feedback
+
+#### `speech-transcript`
+
+Submit speech transcript (deprecated, use `transcript-received`).
+
+**Emit:**
+```javascript
+socket.emit('speech-transcript', {
+  text: 'Transcript text',
+  speakerId: 'user-123'
+});
+```
+
+**Parameters:**
+- `text` (string) - Transcript text
+- `speakerId` (string) - Speaker user ID
+
+**Server Response:**
+- Saves transcript to database
+
+---
+
+#### `transcript-received`
+
+Submit speech transcript with metadata for processing.
+
+**Emit:**
+```javascript
+socket.emit('transcript-received', {
+  text: 'Transcript text',
+  participantId: 'user-123',
+  round: 1,
+  turnOrder: 0,
+  confidence: 0.95,
+  startedAt: '2024-01-15T10:00:00.000Z',
+  endedAt: '2024-01-15T10:01:00.000Z',
+  duration: 60
+});
+```
+
+**Parameters:**
+- `text` (string) - Transcript text
+- `participantId` (string) - Participant ID
+- `round` (number, optional) - Current round number
+- `turnOrder` (number, optional) - Turn order in round
+- `confidence` (number, optional) - STT confidence score
+- `startedAt` (string, optional) - Start timestamp
+- `endedAt` (string, optional) - End timestamp
+- `duration` (number, optional) - Duration in seconds
+
+**Server Response:**
+- Saves transcript to database
+- Triggers async English feedback agent processing
+- Emits `transcript-saved` with transcript ID
+
+**Example:**
+```javascript
+socket.emit('transcript-received', {
+  text: transcriptText,
+  participantId: userId,
+  round: currentRound,
+  turnOrder: turnIndex,
+  confidence: 0.95,
+  duration: 60
+});
+
+socket.on('transcript-saved', (data) => {
+  console.log('Transcript saved:', data.transcriptId);
+});
+```
+
+---
+
+#### `get-instant-feedback`
+
+Request instant feedback for a participant.
+
+**Emit:**
+```javascript
+socket.emit('get-instant-feedback', {
+  participantId: 'user-123'
+});
+```
+
+**Parameters:**
+- `participantId` (string) - Participant ID
+
+**Server Response:**
+- Emits `instant-feedback` with latest feedback
+
+**Example:**
+```javascript
+socket.emit('get-instant-feedback', {
+  participantId: userId
+});
+
+socket.on('instant-feedback', (data) => {
+  console.log('Feedback:', data.feedback);
+});
+```
+
+---
+
+#### `request-facilitator-response`
+
+Request AI facilitator to speak.
+
+**Emit:**
+```javascript
+socket.emit('request-facilitator-response');
+```
+
+**Server Response:**
+- Generates facilitator response based on recent transcripts
+- Emits `facilitator-speaking` with text for TTS
+
+**Example:**
+```javascript
+socket.emit('request-facilitator-response');
+
+socket.on('facilitator-speaking', (data) => {
+  console.log('Facilitator:', data.text);
+  // Play TTS audio
+});
+```
+
+---
+
+### Debug Events
+
+#### `debug-ping`
+
+Roundtrip latency check.
+
+**Emit:**
+```javascript
+socket.emit('debug-ping', { timestamp: Date.now() });
+```
+
+**Server Response:**
+- Emits `debug-pong` with echo data and server time
+
+---
+
+#### `debug-whoami`
+
+Get current socket information.
+
+**Emit:**
+```javascript
+socket.emit('debug-whoami');
+```
+
+**Server Response:**
+- Emits `debug-whoami` with socket ID and auth data
+
+---
+
+#### `debug-room-state`
+
+Get current room state for debugging.
+
+**Emit:**
+```javascript
+socket.emit('debug-room-state');
+```
+
+**Server Response:**
+- Emits `debug-room-state` with full room information
+
+---
+
+### Chat
 
 #### `message`
 
@@ -340,7 +634,16 @@ socket.emit('message', 'Hello everyone!');
 - `message` (string) - Chat message text
 
 **Server Response:**
-- Broadcasts message to all room participants
+- Broadcasts message to all room participants (excluding sender)
+
+**Example:**
+```javascript
+socket.emit('message', 'Great point!');
+
+socket.on('message', (data) => {
+  console.log(`${data.anonymousName}: ${data.message}`);
+});
+```
 
 ---
 
@@ -348,11 +651,35 @@ socket.emit('message', 'Hello everyone!');
 
 These events are emitted by the server to the client.
 
+### Connection Events
+
+#### `connection-ack`
+
+Acknowledgement sent immediately after connection.
+
+**Receive:**
+```javascript
+socket.on('connection-ack', (data) => {
+  console.log('Connected:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  sid: 'socket-abc',
+  connectedAt: '2024-01-15T10:00:00.000Z',
+  serverPid: 12345
+}
+```
+
+---
+
 ### Room Updates
 
 #### `participants-update`
 
-Sent when participants list changes (join, leave, ready state).
+Sent when participants list changes (join, leave, ready state, role change).
 
 **Receive:**
 ```javascript
@@ -368,10 +695,12 @@ socket.on('participants-update', (participants) => {
     id: 'user-123',
     socketId: 'socket-abc',
     anonymousName: 'Wise Owl',
+    name: 'John Doe',
     campus: 'Delhi Campus',
     location: 'India',
     isReady: true,
-    role: 'speaker'
+    role: 'speaker',
+    joinedAt: '2024-01-15T10:00:00.000Z'
   }
 ]
 ```
@@ -389,45 +718,165 @@ socket.on('participants-update', (participants) => {
 
 ---
 
-#### `user-joined`
+#### `participant-joined`
 
 Notification when a user joins the room.
 
 **Receive:**
 ```javascript
-socket.on('user-joined', (user) => {
-  console.log(`${user.anonymousName} joined!`);
+socket.on('participant-joined', (data) => {
+  console.log('New participant:', data.participant);
 });
 ```
 
 **Payload:**
 ```javascript
 {
-  id: 'user-123',
-  anonymousName: 'Wise Owl',
-  campus: 'Delhi Campus',
-  location: 'India'
+  participant: {
+    id: 'user-123',
+    anonymousName: 'Wise Owl',
+    campus: 'Delhi Campus',
+    location: 'India',
+    role: 'speaker',
+    isReady: false
+  }
 }
 ```
 
 ---
 
-#### `user-left`
+#### `participant-left`
 
 Notification when a user leaves the room.
 
 **Receive:**
 ```javascript
-socket.on('user-left', (user) => {
-  console.log(`${user.anonymousName} left!`);
+socket.on('participant-left', (data) => {
+  console.log(`${data.anonymousName} left!`);
 });
 ```
 
 **Payload:**
 ```javascript
 {
-  id: 'user-123',
-  anonymousName: 'Wise Owl'
+  participantId: 'user-123',
+  anonymousName: 'Wise Owl',
+  wasHost: false,
+  newHost: 'user-456'  // Only present if new host assigned
+}
+```
+
+---
+
+#### `user-reconnected`
+
+Emitted to a user who reconnected to preserve their state.
+
+**Receive:**
+```javascript
+socket.on('user-reconnected', (data) => {
+  console.log('Reconnected with preserved state:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  userId: 'user-123',
+  anonymousName: 'Wise Owl',
+  wasHost: true,
+  preservedState: {
+    isReady: true,
+    role: 'speaker'
+  }
+}
+```
+
+---
+
+#### `participant-reconnected`
+
+Notification to other users when someone reconnects.
+
+**Receive:**
+```javascript
+socket.on('participant-reconnected', (data) => {
+  console.log('Participant reconnected:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  participantId: 'user-123',
+  anonymousName: 'Wise Owl',
+  socketId: 'socket-new-123'
+}
+```
+
+---
+
+#### `host-changed`
+
+Notification when room host changes.
+
+**Receive:**
+```javascript
+socket.on('host-changed', (data) => {
+  console.log('New host assigned:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  newHost: {
+    id: 'user-456',
+    anonymousName: 'Clever Fox',
+    role: 'speaker'
+  },
+  previousHost: 'Wise Owl'
+}
+```
+
+---
+
+#### `role-changed`
+
+Notification when user role changes.
+
+**Receive:**
+```javascript
+socket.on('role-changed', (data) => {
+  console.log('Role changed:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  userId: 'user-123',
+  role: 'speaker'
+}
+```
+
+---
+
+#### `role-change-failed`
+
+Emitted when role change fails.
+
+**Receive:**
+```javascript
+socket.on('role-change-failed', (data) => {
+  console.error('Role change failed:', data.error);
+});
+```
+
+**Payload:**
+```javascript
+{
+  error: 'Maximum number of speakers reached'
 }
 ```
 
@@ -435,13 +884,13 @@ socket.on('user-left', (user) => {
 
 ### Discussion Events
 
-#### `discussion-start`
+#### `discussion-started`
 
 Emitted when the discussion begins.
 
 **Receive:**
 ```javascript
-socket.on('discussion-start', (data) => {
+socket.on('discussion-started', (data) => {
   console.log('Discussion started!', data);
 });
 ```
@@ -458,23 +907,22 @@ socket.on('discussion-start', (data) => {
       'How can we maintain human connection?'
     ]
   },
-  participants: [...],
-  speakingTime: 60,
-  currentSpeaker: {
+  firstSpeaker: {
     id: 'user-123',
-    anonymousName: 'Wise Owl'
-  }
+    anonymousName: 'Wise Owl',
+    socketId: 'socket-abc'
+  },
+  duration: 60
 }
 ```
 
 **Example:**
 ```javascript
-socket.on('discussion-start', (data) => {
+socket.on('discussion-started', (data) => {
   setDiscussionActive(true);
   setTopic(data.topic);
-  setParticipants(data.participants);
-  setCurrentSpeaker(data.currentSpeaker);
-  setSpeakingTime(data.speakingTime);
+  setCurrentSpeaker(data.firstSpeaker);
+  setSpeakingTime(data.duration);
   
   // Navigate to roundtable
   navigate('/roundtable');
@@ -483,13 +931,13 @@ socket.on('discussion-start', (data) => {
 
 ---
 
-#### `discussion-end`
+#### `discussion-ended`
 
 Emitted when the discussion ends.
 
 **Receive:**
 ```javascript
-socket.on('discussion-end', (data) => {
+socket.on('discussion-ended', (data) => {
   console.log('Discussion ended!', data);
 });
 ```
@@ -497,84 +945,121 @@ socket.on('discussion-end', (data) => {
 **Payload:**
 ```javascript
 {
-  reason: 'completed' | 'insufficient_participants',
-  stats: {
-    duration: 1800,
-    roundsCompleted: 3,
-    participantCount: 5
-  }
+  roomId: 'active-room-uuid',
+  roundsCompleted: 3
 }
 ```
 
 ---
 
-#### `next-turn`
+#### `turn-started`
 
-Emitted when it's the next speaker's turn.
+Emitted when a new speaking turn begins.
 
 **Receive:**
 ```javascript
-socket.on('next-turn', (turnData) => {
-  console.log('Next turn:', turnData);
+socket.on('turn-started', (data) => {
+  console.log('Turn started:', data);
 });
 ```
 
 **Payload:**
 ```javascript
 {
-  currentSpeaker: {
-    id: 'user-456',
-    anonymousName: 'Clever Fox',
-    socketId: 'socket-xyz'
+  speaker_index: 0,
+  speaker: {
+    id: 'user-123',
+    anonymousName: 'Wise Owl',
+    socketId: 'socket-abc',
+    role: 'speaker'
   },
-  speakerIndex: 1,
-  round: 1,
-  timeRemaining: 60,
-  totalRounds: 3
+  timer: 60
 }
 ```
 
 **Example:**
 ```javascript
-socket.on('next-turn', (turnData) => {
-  setCurrentSpeaker(turnData.currentSpeaker);
-  setTimeRemaining(turnData.timeRemaining);
-  setCurrentRound(turnData.round);
+socket.on('turn-started', (data) => {
+  setCurrentSpeaker(data.speaker);
+  setTimeRemaining(data.timer);
   
   // Update audio state
-  const isMyTurn = turnData.currentSpeaker.id === user.id;
+  const isMyTurn = data.speaker.id === user.id;
   updateAudioState(isMyTurn ? 'speaker' : 'listener');
 });
 ```
 
 ---
 
-#### `timer-update`
+#### `turn-ended`
 
-Periodic updates of speaking time remaining.
+Emitted when a speaking turn ends.
 
 **Receive:**
 ```javascript
-socket.on('timer-update', (data) => {
-  console.log('Time remaining:', data.timeRemaining);
+socket.on('turn-ended', (data) => {
+  console.log('Turn ended:', data);
 });
 ```
 
 **Payload:**
 ```javascript
 {
-  timeRemaining: 45,
-  speakerId: 'user-123'
+  speaker: {
+    id: 'user-123',
+    anonymousName: 'Wise Owl'
+  }
+}
+```
+
+---
+
+#### `round-complete`
+
+Emitted when a discussion round is complete.
+
+**Receive:**
+```javascript
+socket.on('round-complete', (data) => {
+  console.log('Round complete:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  round: 1,
+  next: 2
+}
+```
+
+---
+
+#### `timer-warning`
+
+Sent when timer reaches warning threshold (default: 10 seconds).
+
+**Receive:**
+```javascript
+socket.on('timer-warning', (data) => {
+  console.log('Time warning:', data.remaining);
+});
+```
+
+**Payload:**
+```javascript
+{
+  remaining: 10
 }
 ```
 
 **Example:**
 ```javascript
-socket.on('timer-update', (data) => {
-  setTimeRemaining(data.timeRemaining);
+socket.on('timer-warning', (data) => {
+  setTimeRemaining(data.remaining);
   
   // Visual warning when time is low
-  if (data.timeRemaining <= 10) {
+  if (data.remaining <= 10) {
     showTimeWarning();
   }
 });
@@ -584,13 +1069,33 @@ socket.on('timer-update', (data) => {
 
 ### WebRTC Events
 
+#### `peer-ready`
+
+Emitted when a peer is ready for WebRTC connection.
+
+**Receive:**
+```javascript
+socket.on('peer-ready', (data) => {
+  console.log('Peer ready:', data.socketId);
+});
+```
+
+**Payload:**
+```javascript
+{
+  socketId: 'socket-abc'
+}
+```
+
+---
+
 #### `webrtc-offer`
 
 Received WebRTC offer from peer.
 
 **Receive:**
 ```javascript
-socket.on('webrtc-offer', async ({ from, offer }) => {
+socket.on('webrtc-offer', async ({ from, sdp }) => {
   // Handle offer
 });
 ```
@@ -599,7 +1104,7 @@ socket.on('webrtc-offer', async ({ from, offer }) => {
 ```javascript
 {
   from: 'socket-abc',
-  offer: {
+  sdp: {
     type: 'offer',
     sdp: '...'
   }
@@ -614,7 +1119,7 @@ Received WebRTC answer from peer.
 
 **Receive:**
 ```javascript
-socket.on('webrtc-answer', async ({ from, answer }) => {
+socket.on('webrtc-answer', async ({ from, sdp }) => {
   // Handle answer
 });
 ```
@@ -623,7 +1128,7 @@ socket.on('webrtc-answer', async ({ from, answer }) => {
 ```javascript
 {
   from: 'socket-xyz',
-  answer: {
+  sdp: {
     type: 'answer',
     sdp: '...'
   }
@@ -652,6 +1157,177 @@ socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
     sdpMLineIndex: 0,
     sdpMid: '0'
   }
+}
+```
+
+---
+
+### Transcript & Feedback Events
+
+#### `transcript-saved`
+
+Confirmation that transcript was saved.
+
+**Receive:**
+```javascript
+socket.on('transcript-saved', (data) => {
+  console.log('Transcript saved:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  transcriptId: 'transcript-uuid',
+  participantId: 'user-123'
+}
+```
+
+---
+
+#### `instant-feedback`
+
+Instant feedback for participant.
+
+**Receive:**
+```javascript
+socket.on('instant-feedback', (data) => {
+  console.log('Feedback:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  participantId: 'user-123',
+  feedback: 'Great use of vocabulary! Try to speak a bit slower.',
+  timestamp: '2024-01-15T10:00:00.000Z'
+}
+```
+
+---
+
+#### `facilitator-speaking`
+
+AI facilitator response for TTS.
+
+**Receive:**
+```javascript
+socket.on('facilitator-speaking', (data) => {
+  console.log('Facilitator:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  text: 'That\'s an interesting point. Let\'s explore that further.',
+  timestamp: '2024-01-15T10:00:00.000Z'
+}
+```
+
+---
+
+### Chat Events
+
+#### `message`
+
+Chat message from another participant.
+
+**Receive:**
+```javascript
+socket.on('message', (data) => {
+  console.log(`${data.anonymousName}: ${data.message}`);
+});
+```
+
+**Payload:**
+```javascript
+{
+  id: 'message-uuid',
+  userId: 'user-123',
+  anonymousName: 'Wise Owl',
+  message: 'Hello everyone!',
+  timestamp: '2024-01-15T10:00:00.000Z'
+}
+```
+
+---
+
+### Debug Events
+
+#### `debug-pong`
+
+Response to debug-ping.
+
+**Receive:**
+```javascript
+socket.on('debug-pong', (data) => {
+  console.log('Pong:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  echo: { /* original data */ },
+  serverTime: '2024-01-15T10:00:00.000Z',
+  sid: 'socket-abc'
+}
+```
+
+---
+
+#### `debug-whoami`
+
+Current socket information.
+
+**Receive:**
+```javascript
+socket.on('debug-whoami', (data) => {
+  console.log('Whoami:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  sid: 'socket-abc',
+  auth: {
+    userId: 'user-123',
+    name: 'John Doe'
+  },
+  serverTime: '2024-01-15T10:00:00.000Z'
+}
+```
+
+---
+
+#### `debug-room-state`
+
+Full room state for debugging.
+
+**Receive:**
+```javascript
+socket.on('debug-room-state', (data) => {
+  console.log('Room state:', data);
+});
+```
+
+**Payload:**
+```javascript
+{
+  roomId: 'room-123',
+  status: 'in_progress',
+  topic: { /* topic object */ },
+  participantsCount: 5,
+  participants: [ /* participant objects */ ],
+  currentSpeakerIndex: 0,
+  currentRound: 1,
+  speakingTime: 60,
+  timeRemaining: 45,
+  activeRoomId: 'active-uuid',
+  serverTime: '2024-01-15T10:00:00.000Z'
 }
 ```
 

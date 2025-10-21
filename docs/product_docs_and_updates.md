@@ -2692,3 +2692,170 @@ agent_ids = await agent_service.create_room_agents(room_id, topic)
 - Compatible with RoomLobbyPage participant management
 - Integrates with participantHelpers.js data storage pattern
 - Maintains existing Socket.io event structure
+
+---
+
+## 2025-10-21 - API Reference Documentation Update
+
+**Update Type:** Documentation
+**Date:** October 21, 2025, 04:52 UTC
+**Commit:** Update WebSocket and REST API documentation based on current codebase
+
+**Summary:**
+Comprehensive update of the WebSocket API and REST API reference documentation to accurately reflect the current implementation in the `server_py` and `client` folders. This update ensures developers have accurate, up-to-date documentation for all available endpoints and socket events.
+
+**Changes:**
+
+### WebSocket API Documentation (`docs/API Reference/websocket-api.md`)
+
+**Client to Server Events:**
+- Updated `join-room` event with new parameters:
+  - Added `userData` object parameter with full user information
+  - Added optional `roomMetadata` parameter for room configuration
+  - Documented `user-reconnected` event for reconnection scenarios
+- Added new events:
+  - `start-discussion` - Host-only manual discussion start
+  - `change-role` - Change participant role between speaker/listener
+  - `end-turn` - End current speaking turn
+  - `ready-for-webrtc` - Signal WebRTC readiness
+  - `transcript-received` - Submit transcript with metadata
+  - `get-instant-feedback` - Request participant feedback
+  - `request-facilitator-response` - Request AI facilitator speech
+  - `debug-ping`, `debug-whoami`, `debug-room-state` - Debug utilities
+- Updated existing events:
+  - `user-ready` now accepts object parameter with `isReady` field
+  - `webrtc-offer`, `webrtc-answer`, `webrtc-ice-candidate` use `sdp` field
+  - `message` event documented as active feature (not future)
+
+**Server to Client Events:**
+- Added connection events:
+  - `connection-ack` - Connection acknowledgement
+  - `participant-joined` - New participant notification
+  - `participant-left` - Participant departure with host transfer logic
+  - `user-reconnected` - User reconnection with preserved state
+  - `participant-reconnected` - Notification of peer reconnection
+  - `host-changed` - Host transfer notification
+  - `role-changed` - Role change confirmation
+  - `role-change-failed` - Role change error
+- Updated discussion events:
+  - `discussion-started` (was `discussion-start`)
+  - `turn-started` - Turn beginning event
+  - `turn-ended` - Turn completion event
+  - `round-complete` - Round completion notification
+  - `timer-warning` - Low time warning
+  - Removed `next-turn` and `timer-update` (replaced by turn-started/ended)
+- Added WebRTC events:
+  - `peer-ready` - Peer WebRTC readiness notification
+- Added transcript & feedback events:
+  - `transcript-saved` - Transcript save confirmation
+  - `instant-feedback` - Real-time feedback delivery
+  - `facilitator-speaking` - AI facilitator TTS text
+- Added debug events:
+  - `debug-pong`, `debug-whoami`, `debug-room-state`
+
+### REST API Documentation (`docs/API Reference/rest-api.md`)
+
+**Structural Changes:**
+- Updated base URLs to reflect actual server paths
+- Added API prefix organization for different resource types
+- Updated authentication section to reference user endpoints
+
+**New Endpoint Categories:**
+
+1. **User Management (`/users`)**:
+   - `POST /users/signup` - User registration
+   - `POST /users/login` - User authentication
+   - `GET /users/:userId` - Get user details
+   - `GET /users` - List all users
+   - `PATCH /users/cefr-level` - Update CEFR level
+   - `PATCH /users/last-active` - Update last active timestamp
+   - `PATCH /users/password` - Update password
+   - `DELETE /users/:userId` - Delete user
+
+2. **Room Management (`/rooms`)**:
+   - `POST /rooms` - Create new room
+   - `GET /rooms/:roomId` - Get room details
+   - `GET /rooms` - List all rooms
+   - `GET /rooms/waiting` - List waiting rooms
+   - `GET /rooms/:roomId/state` - Get room state with discussion info
+   - `PATCH /rooms/:roomId` - Update room
+   - `PATCH /rooms/:roomId/status` - Update room status
+   - `PATCH /rooms/:roomId/state` - Update discussion state
+   - `PATCH /rooms/:roomId/end` - End room
+   - `DELETE /rooms/:roomId` - Delete room
+
+3. **Participant Management (`/participants`)**:
+   - `POST /participants` - Create participant
+   - `GET /participants/:userId/:roomId` - Get participant
+   - `GET /participants/room/:roomId` - List room participants
+   - `PATCH /participants/:participantId` - Update participant
+   - `PATCH /participants/ready` - Update ready status
+   - `PATCH /participants/muted` - Update muted status
+   - `PATCH /participants/speaking` - Update speaking status
+   - `PATCH /participants/left` - Mark as left
+   - `DELETE /participants/:participantId` - Delete participant
+
+4. **Transcript Management (`/transcripts`)**:
+   - `POST /transcripts` - Create transcript
+   - `GET /transcripts/:transcriptId` - Get transcript
+   - `GET /transcripts/room/:roomId` - List room transcripts
+   - `PATCH /transcripts/processing` - Update processing status
+   - `PATCH /transcripts/audio-url` - Update audio URL
+   - `DELETE /transcripts/:transcriptId` - Delete transcript
+
+5. **Feedback Management (`/feedback`)**:
+   - `POST /feedback/instant` - Create instant feedback
+   - `POST /feedback/comprehensive` - Create comprehensive feedback
+   - `GET /feedback/:feedbackId` - Get feedback
+   - `GET /feedback/participant/:participantId` - List participant feedback
+   - `GET /feedback/room/:roomId` - List room feedback
+   - `DELETE /feedback/:feedbackId` - Delete feedback
+
+6. **AI Agent Management (`/agents`)**:
+   - `POST /agents` - Create agent
+   - `GET /agents/:agentId` - Get agent
+   - `GET /agents/room/:roomId` - List room agents
+   - `GET /agents/room/:roomId/type/:agentType` - Get agents by type
+   - `GET /agents/room/:roomId/active` - Get active agents
+   - `PATCH /agents/:agentId` - Update agent
+   - `DELETE /agents/:agentId` - Delete agent
+   - `POST /agents/:agentId/process-transcript` - Process transcript
+
+**Updated Existing Endpoints:**
+- `GET /health` - Added uptime and environment fields
+- `GET /` - Root endpoint with API information
+- `GET /api/topics/generate` - Changed from POST to GET
+- `GET /api/config` - Updated maxParticipants from 8 to 6
+
+**Removed Deprecated Endpoints:**
+- `/api/analytics/sessions` - Analytics endpoints commented out
+- `/api/analytics/topics` - Analytics endpoints commented out
+- `/api/analytics/stats` - Analytics endpoints commented out
+- `/api/room/:roomId/state` - Moved to `/rooms/:roomId/state`
+
+**Impact:**
+- **Developer Experience**: Accurate documentation reduces integration errors
+- **Onboarding**: New developers can quickly understand available APIs
+- **Maintenance**: Documentation now matches actual codebase
+- **Testing**: Clear examples for manual and automated testing
+- **API Consistency**: Documentation reflects current architectural patterns
+
+**Files Modified:**
+- `docs/API Reference/websocket-api.md` - Complete WebSocket event documentation
+- `docs/API Reference/rest-api.md` - Complete REST endpoint documentation
+- `docs/product_docs_and_updates.md` - This update entry
+
+**Verification:**
+- ✅ All socket events cross-referenced with `server_py/src/socket/socket_handlers.py`
+- ✅ All REST routes verified against route files in `server_py/src/api/`
+- ✅ Client usage patterns verified in `client/src/contexts/SocketContext.jsx`
+- ✅ Event payloads match actual implementation
+- ✅ HTTP methods and paths accurate
+- ✅ Response formats consistent with actual responses
+
+**Notes:**
+- Documentation now serves as the single source of truth for API contracts
+- All endpoints include example requests and responses
+- Socket events include payload structures and flow diagrams
+- Error handling and status codes documented
+- Future migration path outlined for API versioning
