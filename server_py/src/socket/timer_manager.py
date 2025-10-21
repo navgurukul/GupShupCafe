@@ -34,8 +34,25 @@ class TimerManager:
             on_complete: Callback when timer completes
             warning_threshold: Seconds remaining to trigger warning (default: 10)
         """
+        # Validate inputs
+        if not room_id or not isinstance(room_id, str):
+            raise ValueError("room_id must be a non-empty string")
+        if not isinstance(duration, int) or duration <= 0:
+            raise ValueError("duration must be a positive integer")
+        if not isinstance(warning_threshold, int) or warning_threshold < 0:
+            raise ValueError("warning_threshold must be a non-negative integer")
+        if warning_threshold >= duration:
+            raise ValueError("warning_threshold must be less than duration")
+        
         # Cancel existing timer if any
         await self.cancel_timer(room_id)
+        
+        # Validate room exists and has participants before starting timer
+        from .room_manager import room_manager
+        room = room_manager.get_room(room_id)
+        if not room or not room.participants:
+            print(f"[TimerManager] Cannot start timer for room {room_id}: room empty or not found")
+            return
         
         async def timer_task():
             try:
@@ -120,6 +137,50 @@ class TimerManager:
             await self.cancel_timer(room_id)
         
         print(f"[TimerManager] Cancelled all timers ({len(room_ids)} total)")
+    
+    async def cleanup_orphaned_timers(self):
+        """Clean up any orphaned timers that are no longer valid"""
+        orphaned_rooms = []
+        for room_id, timer_task in self.active_timers.items():
+            if timer_task.done():
+                orphaned_rooms.append(room_id)
+
+        for room_id in orphaned_rooms:
+            del self.active_timers[room_id]
+            print(f"[TimerManager] Cleaned up orphaned timer for room {room_id}")
+    
+    async def validate_timer_room(self, room_id: str) -> bool:
+        """
+        Validate that a room still exists and has participants
+        Args:
+            room_id: Room identifier
+        Returns: True if room is valid for timer
+        """
+        from .room_manager import room_manager
+        room = room_manager.get_room(room_id)
+        return room is not None and len(room.participants) > 0
+    
+    async def cleanup_invalid_timers(self):
+        """Clean up timers for rooms that no longer exist or are empty"""
+        invalid_rooms = []
+        for room_id in self.active_timers.keys():
+            if not await self.validate_timer_room(room_id):
+                invalid_rooms.append(room_id)
+        
+        for room_id in invalid_rooms:
+            await self.cancel_timer(room_id)
+            print(f"[TimerManager] Cleaned up invalid timer for room {room_id}")
+    
+    def get_timer_status(self, room_id: str) -> Optional[Dict]:
+        """Get timer status for a room"""
+        if not self.is_timer_active(room_id):
+            return None
+        
+        return {
+            "room_id": room_id,
+            "active": True,
+            "remaining_time": "unknown"  # Would need to track this properly
+        }
 
 
 # Singleton instance

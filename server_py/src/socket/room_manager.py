@@ -43,6 +43,101 @@ class RoomManager:
                 created_by="system"
             )
         return self.rooms[room_id]
+    
+    async def sync_room_to_database(self, room_id: str, db):
+        """
+        Synchronize room state to database
+        Args:
+            room_id: Room identifier
+            db: Database instance
+        """
+        if room_id not in self.rooms:
+            return
+        
+        room = self.rooms[room_id]
+        try:
+            # Update room in database
+            await db.update_room(
+                room_id=room_id,
+                room_name=room.room_name,
+                topic=room.topic,
+                status=room.status.value,
+                current_round=room.current_round,
+                current_speaker_index=room.current_speaker_index,
+                started_at=room.started_at,
+                ended_at=room.ended_at
+            )
+            
+            # Update participants in database
+            for participant in room.participants:
+                await db.update_participant(
+                    participant_id=participant.id,
+                    room_id=room_id,
+                    name=participant.name,
+                    role=participant.role.value,
+                    is_ready=participant.is_ready,
+                    is_host=participant.is_host
+                )
+            
+            print(f"[RoomManager] Synced room {room_id} to database")
+        except Exception as e:
+            print(f"[RoomManager] Error syncing room {room_id} to database: {e}")
+    
+    async def recover_room_from_database(self, room_id: str, db):
+        """
+        Recover room state from database
+        Args:
+            room_id: Room identifier
+            db: Database instance
+        """
+        try:
+            # Get room from database
+            room_data = await db.get_room(room_id)
+            if not room_data:
+                return None
+            
+            # Get participants from database
+            participants_data = await db.get_participants_by_room(room_id)
+            
+            # Reconstruct room object
+            room = Room(
+                room_id=room_id,
+                room_name=room_data.get('room_name', 'General'),
+                topic=room_data.get('topic', {}),
+                max_participants=room_data.get('max_participants', 6),
+                speaking_time=room_data.get('speaking_time', 60),
+                num_rounds=room_data.get('num_rounds', 3),
+                cefr_level=room_data.get('cefr_level', 'A1'),
+                status=RoomStatus(room_data.get('status', 'waiting')),
+                current_round=room_data.get('current_round', 0),
+                current_speaker_index=room_data.get('current_speaker_index', 0),
+                participants=[],
+                started_at=room_data.get('started_at'),
+                ended_at=room_data.get('ended_at'),
+                time_remaining=room_data.get('time_remaining', 60),
+                created_by=room_data.get('created_by', 'system')
+            )
+            
+            # Reconstruct participants
+            for p_data in participants_data:
+                participant = Participant(
+                    id=p_data.get('id'),
+                    socket_id=p_data.get('socket_id'),
+                    name=p_data.get('name'),
+                    role=ParticipantRole(p_data.get('role', 'listener')),
+                    is_ready=p_data.get('is_ready', False),
+                    is_host=p_data.get('is_host', False),
+                    joined_at=p_data.get('joined_at')
+                )
+                room.participants.append(participant)
+            
+            self.rooms[room_id] = room
+            print(f"[RoomManager] Recovered room {room_id} from database")
+            return room
+            
+        except Exception as e:
+            print(f"[RoomManager] Error recovering room {room_id} from database: {e}")
+            return None
 
     def add_user_to_room(self, room_id: str, user_data: Dict[str, Any]):
         """
@@ -151,6 +246,17 @@ class RoomManager:
             "round": room.current_round,
             "participantCount": len(room.participants)
         }
+    
+    def is_current_speaker(self, room_id: str, user_id: str) -> bool:
+        """
+        Check if user is the current speaker
+        Args:
+            room_id: Room identifier
+            user_id: User identifier
+        Returns: True if user is current speaker
+        """
+        room = self.get_room(room_id)
+        return room.is_current_speaker(user_id)
 
     def change_user_role(self, room_id: str, user_id: str, new_role: str) -> bool:
         """
@@ -280,6 +386,7 @@ class RoomManager:
     def assign_new_host(self, room_id: str) -> Optional[Dict[str, Any]]:
         """
         Assign a new host when the current host leaves
+        Preserves discussion state and host privileges
         Args:
             room_id: Room identifier
         Returns: New host participant or None
@@ -298,7 +405,14 @@ class RoomManager:
         if new_host:
             # Update the participant's role to host
             new_host["role"] = "host"
-            print(f"Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
+            
+            # Preserve discussion state if discussion is active
+            if room.status.value == "in_progress":
+                print(f"Assigned new host during active discussion: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
+                # The new host inherits all host privileges including discussion control
+            else:
+                print(f"Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
+            
             return new_host
         
         return None
@@ -367,6 +481,13 @@ class RoomManager:
         if hasattr(room, 'metadata') and room.metadata.get('previous_host'):
             prev_host = room.metadata['previous_host']
             if prev_host.get('id') == user_id:
+                # Check if there's already a current host
+                current_host = self.get_host(room_id)
+                if current_host and current_host.get('id') != user_id:
+                    # Demote current host to regular participant
+                    current_host["role"] = "listener"
+                    print(f"Demoted current host {current_host.get('anonymousName', 'Unknown')} to make way for returning host")
+                
                 # Restore host role
                 participant["role"] = "host"
                 participant["isReady"] = prev_host.get("isReady", False)

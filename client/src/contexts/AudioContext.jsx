@@ -25,6 +25,30 @@ export function AudioProvider({ children }) {
       });
       socket.on("disconnect", () => {
         console.log("[Audio][Debug] Socket disconnected");
+        cleanupWebRTC();
+      });
+
+      // Clean up when participant leaves
+      socket.on("participant-left", (data) => {
+        console.log(
+          "[Audio] Participant left, cleaning up connection:",
+          data.socketId
+        );
+        if (peers[data.socketId]) {
+          peers[data.socketId].close();
+          setPeers((prev) => {
+            const newPeers = { ...prev };
+            delete newPeers[data.socketId];
+            return newPeers;
+          });
+        }
+        if (remoteStreams[data.socketId]) {
+          setRemoteStreams((prev) => {
+            const newStreams = { ...prev };
+            delete newStreams[data.socketId];
+            return newStreams;
+          });
+        }
       });
     }
   }, [socket]);
@@ -529,7 +553,18 @@ export function AudioProvider({ children }) {
             (p) => p.socketId === socket.id
           );
           if (ourParticipant && ourParticipant.role !== userRole) {
-            console.log(`[Audio] Role changed to ${ourParticipant.role}`);
+            console.log(
+              `[Audio] Role changed from ${userRole} to ${ourParticipant.role}`
+            );
+
+            // Clean up WebRTC connections if changing from speaker to listener
+            if (userRole === "speaker" && ourParticipant.role === "listener") {
+              console.log(
+                "[Audio] Cleaning up WebRTC connections due to role change"
+              );
+              cleanupWebRTC();
+            }
+
             updateUserRole(ourParticipant.role);
           }
         }
@@ -569,6 +604,59 @@ export function AudioProvider({ children }) {
     });
   };
 
+  /**
+   * Clean up all WebRTC connections and streams
+   */
+  const cleanupWebRTC = () => {
+    console.log("[Audio] Cleaning up WebRTC connections");
+
+    // Close all peer connections
+    Object.values(peers).forEach((pc) => {
+      if (pc && pc.connectionState !== "closed") {
+        pc.close();
+      }
+    });
+
+    // Stop all remote streams
+    Object.values(remoteStreams).forEach((stream) => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    });
+
+    // Stop local stream
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+
+    // Clear state
+    setPeers({});
+    setRemoteStreams({});
+    setLocalStream(null);
+    setAudioEnabled(false);
+    setWebrtcReadySignaled(false);
+  };
+
+  /**
+   * Clean up when component unmounts or user leaves room
+   */
+  useEffect(() => {
+    return () => {
+      cleanupWebRTC();
+    };
+  }, []);
+
+  /**
+   * Clean up when user role changes from speaker to listener
+   */
+  useEffect(() => {
+    if (userRole === "listener" && localStreamRef.current) {
+      console.log("[Audio] Role changed to listener, cleaning up audio");
+      cleanupWebRTC();
+    }
+  }, [userRole]);
+
   const value = {
     audioEnabled,
     micPermission,
@@ -585,6 +673,7 @@ export function AudioProvider({ children }) {
     enableSpeaking,
     disableSpeaking,
     enableAudioPlayback,
+    cleanupWebRTC,
   };
 
   return (
