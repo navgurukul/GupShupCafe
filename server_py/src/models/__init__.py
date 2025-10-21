@@ -2,6 +2,7 @@
 Data Models
 Domain models for the application
 """
+from .base_dict_model import BaseDictModel, DictMixin
 from .participant_pydantic_models import (
     CreateParticipantModel, 
     CreateParticipantResponseModel,
@@ -12,13 +13,14 @@ from .participant_pydantic_models import (
     ParticipantIsReadyModel
 )
 from .room_pydantic_models import (
-    RoomResponseModel, 
-    CreateRoomModel, 
-    RoomStatus,
+    CreateRoomModel,
+    CreateRoomResponseModel,
     RoomModel,
-    UpdateRoomStatusModel,
-    UpdateRoomStateModel,
-    UpdateRoomEndModel
+    ListRoomsResponseModel,
+    UpdateRoomModel,
+    UpdateRoomResponseModel,
+    DeleteRoomResponseModel,
+    RoomStatus
 )
 from .user_pydantic_models import (
     LoginSignUpResponseModel, 
@@ -59,10 +61,13 @@ from .enums import CEFRLevel, ParticipantRole
 
 
 __all__ = [
+    # Base Classes
+    "BaseDictModel",
+    "DictMixin",
     # Participant Models
     "CreateParticipantModel",
-    "CreateParticipantResponseModel",
     "ParticipantModel",
+    "CreateParticipantResponseModel",
     "ParticipantUpdateModel",
     "ParticipantLeftModel",
     "ParticipantIsMutedModel",
@@ -70,13 +75,14 @@ __all__ = [
     "ParticipantIsReadyModel",
     "ParticipantRole",
     # Room Models
-    "RoomResponseModel",
     "CreateRoomModel",
+    "CreateRoomResponseModel",
     "RoomModel",
+    "ListRoomsResponseModel",
+    "UpdateRoomModel",
+    "UpdateRoomResponseModel",
+    "DeleteRoomResponseModel",
     "RoomStatus",
-    "UpdateRoomStatusModel",
-    "UpdateRoomStateModel",
-    "UpdateRoomEndModel",
     # User Models
     "LoginSignUpResponseModel",
     "LoginModel",

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional, List
 from enum import Enum
 
+from .base_dict_model import BaseDictModel
 
 # --- Enums Referenced by the Models ---
 from .enums import CEFRLevel
@@ -16,7 +17,7 @@ class RoomStatus(str, Enum):
 
 # --- Model for Creating a Room ---
 
-class CreateRoomModel(BaseModel):
+class CreateRoomModel(BaseDictModel):
     """Complete Room model matching the schema"""
     room_name: Optional[str] = Field(None, description="Human-readable room name")
     
@@ -29,7 +30,7 @@ class CreateRoomModel(BaseModel):
     cefr_level: CEFRLevel = Field(..., description="CEFR level for the room")
 
     # Room State
-    status: RoomStatus = Field(..., description="Room status")
+    status: RoomStatus = Field(default=RoomStatus.WAITING, description="Room status")
     current_round: int = Field(default=0, description="Current round number")
     current_speaker_index: int = Field(default=0, description="Current speaker index")
     
@@ -48,7 +49,7 @@ class CreateRoomModel(BaseModel):
     # Metadata
     created_by: str = Field(..., description="User ID who created the room")
 
-# --- Model for Reading from DB ---
+# --- Model for data read from DB (includes PK and creation time) ---
 
 class RoomModel(CreateRoomModel):
     """Full Room model as represented in the database, including PK."""
@@ -58,32 +59,52 @@ class RoomModel(CreateRoomModel):
     class Config:
         from_attributes = True
 
-# --- NEW: Update Models ---
-
-class UpdateRoomStatusModel(BaseModel):
-    """Model for updating the room's status."""
-    room_id: str = Field(..., description="Room UUID, Primary Key")
-    status: RoomStatus = Field(..., description="New room status")
-    started_at: Optional[datetime] = Field(None, description="Timestamp when room started (if applicable)")
-    
-class UpdateRoomStateModel(BaseModel):
-    """Model for updating the room's live discussion state."""
-    room_id: str = Field(..., description="Room UUID, Primary Key")
-    current_round: Optional[int] = Field(None, description="Current round number")
-    current_speaker_index: Optional[int] = Field(None, description="Current speaker index")
-    participant_count: Optional[int] = Field(None, description="Current number of participants")
-
-class UpdateRoomEndModel(BaseModel):
-    """Model for marking a room as finished."""
-    room_id: str = Field(..., description="Room UUID, Primary Key")
-    status: RoomStatus = Field(..., description="Set to 'finished' or 'cancelled'")
-    ended_at: datetime = Field(..., description="Timestamp when room ended")
-    duration_seconds: int = Field(..., description="Total room duration in seconds")
-
-class RoomResponseModel(BaseModel):
+class CreateRoomResponseModel(BaseDictModel):
     """Response model for room creation"""
     status: str = Field(..., description="Room creation status message")
-    data: str = Field(..., description="Room ID of the created room")
+    data: RoomModel = Field(..., description="Created room data")
     message: Optional[str] = Field(None, description="Additional message")
 
-   
+
+# --- List Models ---
+
+class ListRoomsResponseModel(BaseDictModel):
+    """Response model for listing rooms"""
+    status: str = Field(..., description="List operation status")
+    data: List[RoomModel] = Field(..., description="List of rooms")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Update Models ---
+
+class UpdateRoomModel(BaseDictModel):
+    """Model for updating room details."""
+    room_name: Optional[str] = Field(None, description="Updated room name")
+    topic_title: Optional[str] = Field(None, description="Updated discussion topic")
+    topic_category: Optional[str] = Field(None, description="Updated topic category")
+    max_participants: Optional[int] = Field(None, description="Updated maximum participants")
+    speaking_time_per_turn: Optional[int] = Field(None, description="Updated speaking time per turn")
+    num_rounds: Optional[int] = Field(None, description="Updated number of rounds")
+    cefr_level: Optional[CEFRLevel] = Field(None, description="Updated CEFR level")
+    status: Optional[RoomStatus] = Field(None, description="Updated room status")
+    current_round: Optional[int] = Field(None, description="Updated current round")
+    current_speaker_index: Optional[int] = Field(None, description="Updated current speaker index")
+    participant_count: Optional[int] = Field(None, description="Updated participant count")
+    started_at: Optional[datetime] = Field(None, description="Updated start time")
+    ended_at: Optional[datetime] = Field(None, description="Updated end time")
+    duration_seconds: Optional[int] = Field(None, description="Updated duration")
+    facilitator_agent_id: Optional[str] = Field(None, description="Updated facilitator agent ID")
+    english_agent_id: Optional[str] = Field(None, description="Updated English agent ID")
+
+class UpdateRoomResponseModel(BaseDictModel):
+    """Response model for updating room"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateRoomModel = Field(..., description="Updated room data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Delete Models ---
+
+class DeleteRoomResponseModel(BaseDictModel):
+    """Response model for deleting room"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted room ID")
+    message: Optional[str] = Field(None, description="Additional message")
