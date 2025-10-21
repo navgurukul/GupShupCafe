@@ -4,7 +4,7 @@ RESTful endpoints for participant management
 """
 from fastapi import APIRouter, HTTPException
 from ..models.participant_pydantic_models import (
-    CreateParticipantModel, CreateParticipantResponseModel, ParticipantUpdateModel,
+    CreateParticipantModel, CreateParticipantResponseModel, UpdateParticipantModel,
     ParticipantLeftModel, ParticipantIsMutedModel, ParticipantIsSpeakingModel, ParticipantIsReadyModel
 )
 from ..services.participant_service import Participant_service
@@ -30,12 +30,6 @@ async def get_participant(user_id: str, room_id: str):
 async def list_participants(room_id: str):
     return participant_service.list_participants_for_room(room_id)
 
-@router.patch("/{participant_id}", description="Update participant")
-async def update_participant(participant_id: str, payload: ParticipantUpdateModel):
-    resp = participant_service.update_participant(participant_id, payload)
-    if resp["status"] == "failure":
-        raise HTTPException(status_code=400, detail=resp["message"])
-    return resp
 
 @router.delete("/{participant_id}", description="Delete participant")
 async def delete_participant(participant_id: str):
@@ -65,6 +59,14 @@ async def update_participant_speaking(payload: ParticipantIsSpeakingModel):
 @router.patch("/ready", description="Update participant ready status")
 async def update_participant_ready(payload: ParticipantIsReadyModel):
     resp = participant_service.update_participant_ready(payload)
+    if resp["status"] == "failure":
+        raise HTTPException(status_code=400, detail=resp["message"])
+    return resp
+
+
+@router.patch("/{participant_id}", description="Update participant")
+async def update_participant(participant_id: str, payload: UpdateParticipantModel):
+    resp = participant_service.update_participant(participant_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp

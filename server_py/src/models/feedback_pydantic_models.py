@@ -69,7 +69,7 @@ class CreateInstantFeedbackModel(BaseModel):
 
 # --- Model for data read from DB (includes PK and creation time) ---
 
-class FeedbackModel(InstantFeedbackModel):
+class InstantFeedbackModel(CreateInstantFeedbackModel):
     """Full feedback model as represented in the database."""
     feedback_id: str = Field(..., description="UUID, Primary Key")
     created_at: datetime = Field(..., description="Feedback creation timestamp")

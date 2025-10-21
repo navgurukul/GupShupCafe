@@ -113,7 +113,8 @@ class Database:
                     duration_seconds INTEGER DEFAULT 0,
                     
                     -- Facilitator Agent
-                    agent_id TEXT,
+                    facilitator_agent_id TEXT,
+                    english_agent_id TEXT,
                     
                     -- Metadata
                     created_by TEXT NOT NULL

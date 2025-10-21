@@ -2,12 +2,13 @@ import uuid
 import sys
 import os
 from datetime import datetime
+from typing import Optional, Iterable
 
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.models.participant_pydantic_models import (
-    CreateParticipantModel, CreateParticipantResponseModel, ParticipantUpdateModel,
+    CreateParticipantModel, CreateParticipantResponseModel, UpdateParticipantModel,
     ParticipantLeftModel, ParticipantIsMutedModel, ParticipantIsSpeakingModel, ParticipantIsReadyModel
 )
 from src.database.db_connection import conn, cursor
@@ -181,7 +182,7 @@ class Participant_service:
             print(f"[Backend] Error listing participants: {e}")
             return {"status": "failure", "data": [], "message": f"Failed to list participants: {e}"}
 
-    def update_participant(self, participant_id: str, update: ParticipantUpdateModel) -> dict:
+    def update_participant(self, participant_id: str, update: UpdateParticipantModel) -> dict:
         try:
             fields = []
             values = []

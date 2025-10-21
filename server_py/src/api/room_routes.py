@@ -109,3 +109,11 @@ async def end_room(room_id: str, payload: UpdateRoomEndModel):
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
+
+@router.post("/{room_id}/start", description="Start the discussion", response_model=RoomResponseModel)
+async def start_discussion(room_id: str, payload: dict):
+    """Start the discussion in a room"""
+    resp = await service.start_discussion(room_id, payload)
+    if resp["status"] == "failure":
+        raise HTTPException(status_code=400, detail=resp["message"])
+    return resp

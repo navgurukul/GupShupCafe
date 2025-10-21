@@ -50,7 +50,7 @@ function App() {
                 />
 
                 <Route
-                  path="/roundtable"
+                  path="/roundtable/:roomId"
                   element={
                     <ProtectedRoute>
                       <RoundtablePage />

@@ -6,12 +6,10 @@ from .participant_pydantic_models import (
     CreateParticipantModel, 
     CreateParticipantResponseModel,
     ParticipantModel,
-    ParticipantUpdateModel,
     ParticipantLeftModel,
     ParticipantIsMutedModel,
     ParticipantIsSpeakingModel,
-    ParticipantIsReadyModel,
-    Participant
+    ParticipantIsReadyModel
 )
 from .room_pydantic_models import (
     RoomResponseModel, 
@@ -32,14 +30,14 @@ from .user_pydantic_models import (
     UpdateUserPasswordModel
 )
 from .feedback_pydantic_models import (
+    CreateInstantFeedbackModel,
     InstantFeedbackModel,
+    CreateComprehensiveFeedbackModel,
     ComprehensiveFeedbackModel,
-    FeedbackModel
 )
 from .transcript_pydantic_models import (
     CreateTranscriptModel,
     TranscriptModel,
-    TranscriptOut,
     UpdateTranscriptProcessingModel,
     UpdateTranscriptAudioURLModel
 )
@@ -59,15 +57,12 @@ from .agent_pydantic_models import (
 )
 from .enums import CEFRLevel, ParticipantRole
 
-# Aliases for backward compatibility
-Participant = ParticipantModel
 
 __all__ = [
     # Participant Models
     "CreateParticipantModel",
     "CreateParticipantResponseModel",
     "ParticipantModel",
-    "Participant",  # Alias
     "ParticipantUpdateModel",
     "ParticipantLeftModel",
     "ParticipantIsMutedModel",
@@ -91,13 +86,13 @@ __all__ = [
     "UpdateUserLastActiveModel",
     "UpdateUserPasswordModel",
     # Feedback Models
+    "CreateInstantFeedbackModel",
     "InstantFeedbackModel",
+    "CreateComprehensiveFeedbackModel",
     "ComprehensiveFeedbackModel",
-    "FeedbackModel",
     # Transcript Models
     "CreateTranscriptModel",
     "TranscriptModel",
-    "TranscriptOut",
     "UpdateTranscriptProcessingModel",
     "UpdateTranscriptAudioURLModel",
     # Agent Models

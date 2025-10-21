@@ -26,7 +26,7 @@ if (typeof window !== "undefined") {
  */
 function RoomLobbyPage() {
   const navigate = useNavigate();
-  const { roomId: urlRoomId } = useParams();
+  const { roomId: urlRoomId, role: urlRole } = useParams();
   const location = useLocation();
   const { socket, connected, joinRoom, signalReady } = useSocket();
   const { user, anonymousName, logout } = useAuth();
@@ -316,55 +316,6 @@ function RoomLobbyPage() {
         );
       } else {
         setSystemMessage("Connecting to discussion room...");
-      }
-    });
-
-    // Handle discussion start
-    socket.on("discussion-started", () => {
-      console.log(
-        "[Lobby][Debug] Received discussion-started event - navigating to /roundtable"
-      );
-      if (!isNavigating) {
-        setIsNavigating(true);
-        setSystemMessage("Discussion starting! Redirecting to roundtable...");
-        console.log("[Lobby][Debug] Navigating to /roundtable now");
-
-        // Mark discussion start time for polling
-        setDiscussionStartTime(Date.now());
-
-        // Store discussion start time in sessionStorage for roundtable page
-        sessionStorage.setItem("discussion-start-time", Date.now().toString());
-
-        // Update room status to 'in_progress' via API
-        const updateRoomStatus = async () => {
-          try {
-            const apiUrl =
-              import.meta.env.VITE_API_URL || "http://localhost:3003";
-            const response = await fetch(`${apiUrl}/rooms/${roomId}/status`, {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                status: "in_progress",
-              }),
-            });
-
-            const result = await response.json();
-            console.log(
-              "[RoomLobby][Debug] Room status updated to in_progress:",
-              result
-            );
-          } catch (error) {
-            console.error(
-              "[RoomLobby][Debug] Error updating room status:",
-              error
-            );
-          }
-        };
-
-        updateRoomStatus();
-        navigate("/roundtable", { replace: true });
       }
     });
 
@@ -668,6 +619,56 @@ function RoomLobbyPage() {
     }
 
     await requestMicrophoneAccess("speaker");
+  };
+
+  /**
+   * Handle discussion start
+   */
+  const startDiscussion = async () => {
+    console.log("[Lobby][Debug] Starting discussion");
+    // Send an API call to start discussion
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
+      const response = await fetch(`${apiUrl}/rooms/${roomId}/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          roomId,
+          initiatedBy: user?.userId,
+          role: urlRole,
+          topic_category: roomDetails?.topicCategory,
+        }),
+      });
+
+      const result = await response?.json();
+      if (result?.status !== "success") {
+        console.error(
+          "[RoomLobby][Debug] Failed to start discussion via API:",
+          result
+        );
+        return;
+      }
+
+      console.log("[RoomLobby][Debug] Discussion started via API:", result);
+      if (!isNavigating) {
+        setIsNavigating(true);
+        setSystemMessage("Discussion starting! Redirecting to roundtable...");
+        console.log(`[RoomLobby][Debug] Navigating to /roundtable/${urlRoomId} now`);
+
+        // Mark discussion start time for polling
+        setDiscussionStartTime(Date.now());
+
+        // Store discussion start time in sessionStorage for roundtable page
+        sessionStorage.setItem("discussion-start-time", Date.now().toString());
+
+        // Navigate to roundtable
+        navigate(`/roundtable/${urlRoomId}?role=${urlRole}`, { replace: true });
+      }
+    } catch (error) {
+      console.error("[Lobby][Debug] Error starting discussion:", error);
+    }
   };
 
   /**
@@ -1116,7 +1117,7 @@ function RoomLobbyPage() {
               <button
                 onClick={() => {
                   console.log("[Lobby] Host starting discussion");
-                  socket?.emit("start-discussion");
+                  startDiscussion();
                 }}
                 className="px-8 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg 
                            hover:bg-blue-700 transition-colors shadow-lg"

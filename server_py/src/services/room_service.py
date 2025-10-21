@@ -1,6 +1,7 @@
 import uuid
 import sys
 import os
+from typing import List, Dict, Any, Optional
 
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -9,6 +10,10 @@ from src.models.room_pydantic_models import (
     CreateRoomModel, RoomResponseModel, UpdateRoomStatusModel,
     UpdateRoomStateModel, UpdateRoomEndModel
 )
+
+from src.models.participant_pydantic_models import ParticipantModel
+
+from src.services.agent_service import AgentService, agent_service
 
 from src.services.participant_service import participant_service
 from src.database.db_connection import conn, cursor
@@ -31,8 +36,8 @@ class Room_service:
                     max_participants, speaking_time_per_turn, num_rounds, cefr_level,
                     status, current_round, current_speaker_index,
                     participant_count, created_at, started_at, ended_at, 
-                    duration_seconds, agent_id, created_by
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_seconds, facilitator_agent_id, english_agent_id, created_by
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     room_id, 
                     room_model.room_name, 
@@ -50,7 +55,8 @@ class Room_service:
                     room_model.started_at,
                     room_model.ended_at,
                     room_model.duration_seconds,
-                    room_model.agent_id,
+                    room_model.facilitator_agent_id,
+                    room_model.english_agent_id,
                     room_model.created_by
                 )
             )
@@ -143,7 +149,7 @@ class Room_service:
                 "room_name", "topic_title", "topic_category", "max_participants",
                 "speaking_time_per_turn", "num_rounds", "cefr_level", "status",
                 "current_round", "current_speaker_index", "participant_count",
-                "started_at", "ended_at", "duration_seconds", "agent_id"
+                "started_at", "ended_at", "duration_seconds", "facilitator_agent_id", "english_agent_id"
             }
             fields = []
             values = []
@@ -234,47 +240,7 @@ class Room_service:
             print(f"Error ending room: {e}")
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": "Failed to end room"}
-    
 
-    def add_user_to_room(self, room_id: str, user_data: Dict[str, Any]):
-        """
-        Add user to room
-        Args:
-            room_id: Room identifier
-            user_data: User data
-        """
-        room = self.get_room(room_id)
-
-        # Get role as string
-        role = user_data.get("role", "listener")
-        if isinstance(role, str):
-            # Map role string to standardized values
-            role_map = {
-                "host": "host",
-                "speaker": "speaker",
-                "listener": "listener"
-            }
-            role = role_map.get(role.lower(), "listener")
-
-        # Create participant dictionary for the room
-        participant_dict = {
-            "id": user_data.get("id"),
-            "socketId": user_data.get("socketId"),
-            "anonymousName": user_data.get("anonymousName"),
-            "name": user_data.get("name"),
-            "campus": user_data.get("campus"),
-            "location": user_data.get("location"),
-            "role": role,
-            "isReady": user_data.get("isReady", False),
-            "joinedAt": user_data.get("joinedAt", datetime.now().isoformat())
-        }
-
-        # Add participant (handles reconnection)
-        room.add_participant(participant_dict)
-
-        print(
-            f"Added {participant_dict['anonymousName']} to room {room_id}. Total: {len(room.participants)}")
-        return participant_dict
 
     def remove_user_from_room(self, room_id: str, user_id: str):
         """
@@ -570,6 +536,27 @@ class Room_service:
                 return True
         
         return False
+
+    async def start_discussion(self, room_id: str, payload: dict) -> RoomResponseModel:
+        """Start the discussion in a room"""
+        # Call agent.create_room_agents
+        facilitator_id, english_id = await AgentService.create_room_agents(room_id, payload.get("topic_category", None))
+        if facilitator_id is None or english_id is None:
+            return RoomResponseModel(status="failure", data=None, message="Failed to create room agents")
+
+        try:
+            self.cursor.execute(
+                "UPDATE rooms SET status=?, started_at=?, facilitator_id=?, english_id=? WHERE room_id=?",
+                ("in_progress", datetime.now(), facilitator_id, english_id, room_id)
+            )
+            self.conn.commit()
+            if self.cursor.rowcount > 0:
+                return RoomResponseModel(status="success", data={"updated": self.cursor.rowcount}, message="Discussion started")
+            return RoomResponseModel(status="failure", data=None, message="Room not found")
+        except Exception as e:
+            print(f"Error starting discussion: {e}")
+            self.conn.rollback()
+            return RoomResponseModel(status="failure", data=None, message="Failed to start discussion")
 
 # Singleton instance
 room_service = Room_service()

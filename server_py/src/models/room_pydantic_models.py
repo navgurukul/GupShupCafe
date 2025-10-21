@@ -42,8 +42,9 @@ class CreateRoomModel(BaseModel):
     duration_seconds: int = Field(default=0, description="Room duration in seconds")
     
     # Facilitator Agent
-    agent_id: Optional[str] = Field(None, description="AWS Strands agent instance ID")
-    
+    facilitator_agent_id: Optional[str] = Field(None, description="AWS Strands facilitator agent instance ID")
+    english_agent_id: Optional[str] = Field(None, description="AWS Strands English agent instance ID")
+
     # Metadata
     created_by: str = Field(..., description="User ID who created the room")
 
@@ -61,22 +62,26 @@ class RoomModel(CreateRoomModel):
 
 class UpdateRoomStatusModel(BaseModel):
     """Model for updating the room's status."""
+    room_id: str = Field(..., description="Room UUID, Primary Key")
     status: RoomStatus = Field(..., description="New room status")
     started_at: Optional[datetime] = Field(None, description="Timestamp when room started (if applicable)")
     
 class UpdateRoomStateModel(BaseModel):
     """Model for updating the room's live discussion state."""
+    room_id: str = Field(..., description="Room UUID, Primary Key")
     current_round: Optional[int] = Field(None, description="Current round number")
     current_speaker_index: Optional[int] = Field(None, description="Current speaker index")
     participant_count: Optional[int] = Field(None, description="Current number of participants")
 
 class UpdateRoomEndModel(BaseModel):
     """Model for marking a room as finished."""
+    room_id: str = Field(..., description="Room UUID, Primary Key")
     status: RoomStatus = Field(..., description="Set to 'finished' or 'cancelled'")
     ended_at: datetime = Field(..., description="Timestamp when room ended")
     duration_seconds: int = Field(..., description="Total room duration in seconds")
 
 class RoomResponseModel(BaseModel):
+    """Response model for room creation"""
     status: str = Field(..., description="Room creation status message")
     data: str = Field(..., description="Room ID of the created room")
     message: Optional[str] = Field(None, description="Additional message")

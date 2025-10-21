@@ -6,7 +6,7 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, ParticipantModel, RoomModel
 from ..models.enums import CEFRLevel, ParticipantRole
 
 
@@ -14,10 +14,10 @@ class RoomManager:
     """Manages discussion rooms and participants"""
 
     def __init__(self):
-        self.rooms: Dict[str, Room] = {}
+        self.rooms: Dict[str, RoomModel] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> Room:
+    def get_room(self, room_id: str) -> RoomModel:
         """
         Get or create a room
         Args:

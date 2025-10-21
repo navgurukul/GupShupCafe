@@ -38,10 +38,12 @@ class TestUserServiceExtensions:
         """Test UpdateUserPasswordModel creation"""
         model = UpdateUserPasswordModel(
             user_id="test-user-id",
-            hashed_password="hashed123"
+            old_password="12345678",
+            new_password="87654321"
         )
         assert model.user_id == "test-user-id"
-        assert model.hashed_password == "hashed123"
+        assert model.old_password == "12345678"
+        assert model.new_password == "87654321"
 
 
 class TestRoomServiceExtensions:
@@ -62,10 +64,12 @@ class TestRoomServiceExtensions:
     def test_update_room_state_model(self):
         """Test UpdateRoomStateModel creation"""
         model = UpdateRoomStateModel(
+            room_id="test-room-id",
             current_round=2,
             current_speaker_index=1,
             participant_count=5
         )
+        assert model.room_id == "test-room-id"
         assert model.current_round == 2
         assert model.current_speaker_index == 1
         assert model.participant_count == 5
@@ -74,10 +78,12 @@ class TestRoomServiceExtensions:
         """Test UpdateRoomEndModel creation"""
         now = datetime.now()
         model = UpdateRoomEndModel(
+            room_id="test-room-id",
             status=RoomStatus.COMPLETED,
             ended_at=now,
             duration_seconds=300
         )
+        assert model.room_id == "test-room-id"
         assert model.status == RoomStatus.COMPLETED
         assert model.ended_at == now
         assert model.duration_seconds == 300
