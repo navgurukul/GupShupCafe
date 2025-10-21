@@ -53,8 +53,8 @@ async def update_room(room_id: str, payload: UpdateRoomModel):
 async def delete_room(room_id: str):
     return service.delete_room(room_id)
 
-@router.patch("/{room_id}/status", description="Update room status")
-async def update_room_status(room_id: str, payload: UpdateRoomStatusModel):
+@router.patch("/{room_id}/status", description="Update room status", response_model=UpdateRoomResponseModel)
+async def update_room_status(room_id: str, payload: UpdateRoomModel):
     resp = service.update_room_status(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
@@ -103,20 +103,20 @@ async def get_room_state(room_id: str):
 
 
 @router.patch("/{room_id}/state", description="Update room discussion state")
-async def update_room_state(room_id: str, payload: UpdateRoomStateModel):
+async def update_room_state(room_id: str, payload: UpdateRoomModel):
     resp = service.update_room_state(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
 @router.patch("/{room_id}/end", description="End room and mark as finished")
-async def end_room(room_id: str, payload: UpdateRoomEndModel):
+async def end_room(room_id: str, payload: UpdateRoomModel):
     resp = service.end_room(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
-@router.post("/{room_id}/start", description="Start the discussion", response_model=RoomResponseModel)
+@router.post("/{room_id}/start", description="Start the discussion", response_model=UpdateRoomResponseModel)
 async def start_discussion(room_id: str, payload: dict):
     """Start the discussion in a room"""
     resp = await service.start_discussion(room_id, payload)

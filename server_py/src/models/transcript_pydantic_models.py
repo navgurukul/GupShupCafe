@@ -1,15 +1,23 @@
-from pydantic import BaseModel, Field
+from pydantic import Field, UUID4
 from datetime import datetime
-from typing import Optional
-
-from pydantic import BaseModel, Field, UUID4
-from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import uuid
+
+from .base_dict_model import BaseDictModel
+
+# --- Base Name Models ---
+
+class BaseTranscriptModel(BaseDictModel):
+    """Base Transcript class that combines Pydantic BaseModel with dict-like functionality"""
+    
+    class Config:
+        """Pydantic configuration"""
+        from_attributes = True
+        arbitrary_types_allowed = True
 
 # --- Model for creating a new transcript ---
 
-class CreateTranscriptModel(BaseModel):
+class CreateTranscriptModel(BaseTranscriptModel):
     """
     Pydantic model for creating a new transcript record.
     Combines and cleans the provided fields.
@@ -44,7 +52,7 @@ class CreateTranscriptModel(BaseModel):
     audio_file_url: Optional[str] = Field(None, description="URL to the raw audio file")
 
 
-class CreateTranscriptModelResponse(BaseModel):
+class CreateTranscriptModelResponse(BaseTranscriptModel):
     status: str = Field(..., description="Transcript creation status message")
     data: str = Field(..., description="Transcript ID of the created transcript")
     message: Optional[str] = Field(None, description="Additional message")
@@ -61,18 +69,66 @@ class TranscriptModel(CreateTranscriptModel):
 
 # --- NEW: Update Models ---
 
-class UpdateTranscriptProcessingModel(BaseModel):
+class UpdateTranscriptProcessingModel(BaseTranscriptModel):
     """Model for updating the processing status of a transcript."""
     transcript_id: str = Field(..., description="Transcript ID")
     is_processed: bool = Field(..., description="Set to True when feedback is generated")
     processed_at: datetime = Field(..., description="Timestamp of feedback creation")
 
-class UpdateTranscriptAudioURLModel(BaseModel):
+class UpdateTranscriptAudioURLModel(BaseTranscriptModel):
 		"""Model for updating the audio file URL after async upload."""
 		transcript_id: str = Field(..., description="Transcript ID")
 		audio_file_url: str = Field(..., description="URL to the raw audio file")
 
 
-class TranscriptIsProcessedModel(BaseModel):
+class TranscriptIsProcessedModel(BaseTranscriptModel):
 		transcript_id: str = Field(..., description="Transcript ID")
 		is_processed: bool = Field(..., description="Has the transcript been processed?")
+
+
+# --- List Models ---
+
+class ListTranscriptsResponseModel(BaseDictModel):
+    """Response model for listing transcripts"""
+    status: str = Field(..., description="List operation status")
+    data: List[TranscriptModel] = Field(..., description="List of transcripts")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Update Models ---
+
+class UpdateTranscriptModel(BaseDictModel):
+    """Model for updating transcript details."""
+    transcript_text: Optional[str] = Field(None, description="Updated transcript text")
+    language: Optional[str] = Field(None, description="Updated language code")
+    stt_confidence: Optional[float] = Field(None, description="Updated STT confidence")
+    started_at: Optional[datetime] = Field(None, description="Updated start timestamp")
+    ended_at: Optional[datetime] = Field(None, description="Updated end timestamp")
+    duration_seconds: Optional[int] = Field(None, description="Updated duration")
+    word_count: Optional[int] = Field(None, description="Updated word count")
+    speech_rate: Optional[float] = Field(None, description="Updated speech rate")
+    is_processed: Optional[bool] = Field(None, description="Updated processing status")
+    processed_at: Optional[datetime] = Field(None, description="Updated processed timestamp")
+    audio_file_url: Optional[str] = Field(None, description="Updated audio file URL")
+
+class UpdateTranscriptResponseModel(BaseDictModel):
+    """Response model for updating transcript"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateTranscriptModel = Field(..., description="Updated transcript data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Delete Models ---
+
+class DeleteTranscriptResponseModel(BaseDictModel):
+    """Response model for deleting transcript"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted transcript ID")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Get Models ---
+
+class GetTranscriptResponseModel(BaseDictModel):
+    """Response model for getting a single transcript"""
+    status: str = Field(..., description="Get operation status")
+    data: TranscriptModel = Field(..., description="Transcript data")
+    message: Optional[str] = Field(None, description="Additional message")
+   

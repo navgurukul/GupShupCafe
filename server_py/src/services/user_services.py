@@ -113,7 +113,11 @@ class User_services:
             )
     
     def get_user(self, user_id: str) -> UserModel:
-        """Service to get user details"""
+        """Service to get user details
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use GetUserResponseModel
+        """
         try:
             self.cursor.execute(
                 "SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
@@ -158,6 +162,11 @@ class User_services:
             }
 
     def list_users(self) -> dict:
+        """List all users
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use ListUsersResponseModel
+        """
         try:
             self.cursor.execute("SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
             rows = self.cursor.fetchall()
@@ -169,6 +178,11 @@ class User_services:
 
     
     def delete_user(self, user_id: str) -> dict:
+        """Delete user
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use DeleteUserResponseModel
+        """
         try:
             self.cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
             self.conn.commit()
@@ -179,7 +193,11 @@ class User_services:
             return {"status": "failure", "data": None, "message": f"Failed to delete user: {e}"}
 
     def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
-        """Update user's CEFR level"""
+        """Update user's CEFR level
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateUserResponseModel
+        """
         try:
             self.cursor.execute(
                 "UPDATE users SET current_cefr_level=? WHERE user_id=?",
@@ -195,7 +213,11 @@ class User_services:
             return {"status": "failure", "data": None, "message": f"Failed to update CEFR level: {e}"}
 
     def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
-        """Update user's last active timestamp"""
+        """Update user's last active timestamp
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateUserResponseModel
+        """
         try:
             self.cursor.execute(
                 "UPDATE users SET last_active=? WHERE user_id=?",
@@ -211,7 +233,11 @@ class User_services:
             return {"status": "failure", "data": None, "message": f"Failed to update last active: {e}"}
 
     def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
-        """Update user's password"""
+        """Update user's password
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateUserResponseModel
+        """
         try:
             if update.old_password == update.new_password:
                 return {"status": "failure", "data": None, "message": "New password must be different from old password"}

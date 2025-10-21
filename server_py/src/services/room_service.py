@@ -580,8 +580,14 @@ class Room_service:
 
     async def start_discussion(self, room_id: str, payload: dict) -> UpdateRoomResponseModel:
         """Start the discussion in a room"""
+
         # Call agent.create_room_agents
-        facilitator_id, english_id = await AgentService.create_room_agents(room_id, payload.get("topic_category", None))
+        create_room_agents_response = await AgentService.create_room_agents(room_id)
+
+        facilitator_id = create_room_agents_response.get("facilitator_agent_id")
+        english_id = create_room_agents_response.get("english_agent_id")
+
+
         if facilitator_id is None or english_id is None:
             return UpdateRoomResponseModel(
                 status="failure", 

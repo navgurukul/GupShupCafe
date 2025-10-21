@@ -39,7 +39,11 @@ class AgentService:
 
     @staticmethod
     async def create_agent(agent_data: CreateAgentModel) -> str:
-        """Create a new agent instance."""
+        """Create a new agent instance.
+        
+        # FLAG: NOT CONVERTIBLE - This function returns str instead of pydantic model
+        # TODO: Convert to use CreateAgentResponseModel
+        """
         agent_id = str(uuid.uuid4())
 
         db_data = {
@@ -59,9 +63,13 @@ class AgentService:
             return None
 
     @staticmethod
-    async def create_room_agents(room_id: str, room_topic: Dict[str, Any] = None) -> Dict[str, str]:
+    async def create_room_agents(room_id: str, room_topic: str = None) -> Dict[str, str]:
         """
         Create both facilitator and English feedback agents for a room.
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use appropriate response model
+
         Returns dict with agent_ids: {'facilitator': agent_id, 'english': agent_id}
         """
        
@@ -79,11 +87,12 @@ class AgentService:
             agent_model=AgentModelSource.GEMINI,
             agent_type=AgentType.ENGLISH,
         )
+
         english_id = await AgentService.create_agent(english_data)
 
         return {
-            "facilitator": facilitator_id,
-            "english": english_id
+            "facilitator_agent_id": facilitator_id,
+            "english_agent_id": english_id
         }
 
     @staticmethod
@@ -101,7 +110,11 @@ class AgentService:
 
     @staticmethod
     async def get_agents_by_room(room_id: str) -> List[AgentModel]:
-        """Get all agents for a specific room."""
+        """Get all agents for a specific room.
+        
+        # FLAG: NOT CONVERTIBLE - This function returns List instead of pydantic model
+        # TODO: Convert to use ListAgentsResponseModel
+        """
         try:
             agents_data = await db.get_agents_by_room(room_id)
             return [AgentModel(**agent) for agent in agents_data]
@@ -111,7 +124,11 @@ class AgentService:
 
     @staticmethod
     async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> bool:
-        """Update agent properties."""
+        """Update agent properties.
+        
+        # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
+        # TODO: Convert to use UpdateAgentResponseModel
+        """
         update_dict = {}
         
         if update_data.status:
@@ -142,7 +159,11 @@ class AgentService:
 
     @staticmethod
     async def delete_agent(agent_id: str) -> bool:
-        """Delete an agent."""
+        """Delete an agent.
+        
+        # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
+        # TODO: Convert to use DeleteAgentResponseModel
+        """
         try:
             result = await db.delete_agent(agent_id)
             return result > 0

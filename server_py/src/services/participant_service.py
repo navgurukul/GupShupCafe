@@ -89,7 +89,11 @@ class Participant_service:
             )
     
     def get_participant(self, user_id: str, room_id: str) -> dict:
-        """Get participant details"""
+        """Get participant details
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use GetParticipantResponseModel
+        """
         try:
             self.cursor.execute(
                 """SELECT participant_id, user_id, room_id, anonymous_name, avatar_color,
@@ -170,6 +174,11 @@ class Participant_service:
             )
 
     def list_participants_for_room(self, room_id: str) -> dict:
+        """List participants for a room
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use ListParticipantsResponseModel
+        """
         try:
             self.cursor.execute(
                 "SELECT * FROM participants WHERE room_id=? ORDER BY joined_at ASC",
@@ -183,6 +192,11 @@ class Participant_service:
             return {"status": "failure", "data": [], "message": f"Failed to list participants: {e}"}
 
     def update_participant(self, participant_id: str, update: UpdateParticipantModel) -> dict:
+        """Update participant details
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateParticipantResponseModel
+        """
         try:
             fields = []
             values = []
@@ -217,6 +231,11 @@ class Participant_service:
             return {"status": "failure", "data": None, "message": f"Failed to update participant: {e}"}
 
     def delete_participant(self, participant_id: str) -> dict:
+        """Delete participant
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use DeleteParticipantResponseModel
+        """
         try:
             self.cursor.execute("DELETE FROM participants WHERE participant_id=?", (participant_id,))
             self.conn.commit()
@@ -227,7 +246,11 @@ class Participant_service:
             return {"status": "failure", "data": None, "message": f"Failed to delete participant: {e}"}
 
     def update_participant_left(self, update: ParticipantLeftModel) -> dict:
-        """Update participant left status"""
+        """Update participant left status
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateParticipantResponseModel
+        """
         try:
             fields = []
             values = []
@@ -250,7 +273,11 @@ class Participant_service:
             return {"status": "failure", "data": None, "message": f"Failed to update participant left status: {e}"}
 
     def update_participant_muted(self, update: ParticipantIsMutedModel) -> dict:
-        """Update participant muted status"""
+        """Update participant muted status
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateParticipantResponseModel
+        """
         try:
             # Convert boolean to integer for SQLite
             is_muted_int = 1 if update.is_muted else 0
@@ -266,7 +293,11 @@ class Participant_service:
             return {"status": "failure", "data": None, "message": f"Failed to update participant muted status: {e}"}
 
     def update_participant_speaking(self, update: ParticipantIsSpeakingModel) -> dict:
-        """Update participant speaking status"""
+        """Update participant speaking status
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateParticipantResponseModel
+        """
         try:
             # Convert boolean to integer for SQLite
             is_speaking_int = 1 if update.is_speaking else 0
@@ -282,7 +313,11 @@ class Participant_service:
             return {"status": "failure", "data": None, "message": f"Failed to update participant speaking status: {e}"}
 
     def update_participant_ready(self, update: ParticipantIsReadyModel) -> dict:
-        """Update participant ready status"""
+        """Update participant ready status
+        
+        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
+        # TODO: Convert to use UpdateParticipantResponseModel
+        """
         try:
             # Convert boolean to integer for SQLite
             is_ready_int = 1 if update.is_ready else 0

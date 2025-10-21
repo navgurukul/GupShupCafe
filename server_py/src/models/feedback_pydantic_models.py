@@ -1,10 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from typing import Optional, List, Dict
 from enum import Enum
-from .enums import CEFRLevel
 
+from .base_dict_model import BaseDictModel
+from .enums import CEFRLevel
 from .agent_pydantic_models import AgentModelSource
+
+# --- Base Name Models ---
+
+class BaseFeedbackModel(BaseDictModel):
+    """Base model with name field for any model type"""
+    name: str = Field(..., min_length=1, description="Model name (e.g., Transcript, User, etc.)")
+
 # --- New Enums Defined ---
 
 class FeedbackType(str, Enum):
@@ -48,7 +56,7 @@ class ExplanationQuality(str, Enum):
 
 # --- Updated Pydantic Models ---
 
-class CreateInstantFeedbackModel(BaseModel):
+class CreateInstantFeedbackModel(BaseFeedbackModel):
     """Quick feedback during speaking (2-3 seconds response time)"""
     room_id: str = Field(..., description="Foreign Key from {{Room}}")
     participant_id: str = Field(..., description="Foreign Key from {{Participant}}")
@@ -77,7 +85,7 @@ class InstantFeedbackModel(CreateInstantFeedbackModel):
     class Config:
         from_attributes = True
 
-class CreateComprehensiveFeedbackModel(BaseModel):
+class CreateComprehensiveFeedbackModel(BaseFeedbackModel):
     """Detailed feedback at the end of discussion"""
     room_id: str = Field(..., description="Foreign Key from {{Room}}")
     participant_id: str = Field(..., description="Foreign Key from {{Participant}}")
@@ -142,3 +150,97 @@ class ComprehensiveFeedbackModel(CreateComprehensiveFeedbackModel):
 		class Config:
 				from_attributes = True
 
+
+# --- Response Models for Instant Feedback ---
+
+class CreateInstantFeedbackResponseModel(BaseDictModel):
+    """Response model for instant feedback creation"""
+    status: str = Field(..., description="Feedback creation status message")
+    data: InstantFeedbackModel = Field(..., description="Created instant feedback data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Response Models for Comprehensive Feedback ---
+
+class CreateComprehensiveFeedbackResponseModel(BaseDictModel):
+    """Response model for comprehensive feedback creation"""
+    status: str = Field(..., description="Feedback creation status message")
+    data: ComprehensiveFeedbackModel = Field(..., description="Created comprehensive feedback data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- List Models ---
+
+class ListFeedbackResponseModel(BaseDictModel):
+    """Response model for listing feedback"""
+    status: str = Field(..., description="List operation status")
+    data: List[Dict] = Field(..., description="List of feedback (mixed instant and comprehensive)")
+    message: Optional[str] = Field(None, description="Additional message")
+
+class ListInstantFeedbackResponseModel(BaseDictModel):
+    """Response model for listing instant feedback"""
+    status: str = Field(..., description="List operation status")
+    data: List[InstantFeedbackModel] = Field(..., description="List of instant feedback")
+    message: Optional[str] = Field(None, description="Additional message")
+
+class ListComprehensiveFeedbackResponseModel(BaseDictModel):
+    """Response model for listing comprehensive feedback"""
+    status: str = Field(..., description="List operation status")
+    data: List[ComprehensiveFeedbackModel] = Field(..., description="List of comprehensive feedback")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Update Models ---
+
+class UpdateInstantFeedbackModel(BaseDictModel):
+    """Model for updating instant feedback details."""
+    display_message: Optional[str] = Field(None, description="Updated display message")
+    agent_id: Optional[str] = Field(None, description="Updated AI Agent instance")
+    agent_model: Optional[AgentModelSource] = Field(None, description="Updated agent model")
+
+class UpdateInstantFeedbackResponseModel(BaseDictModel):
+    """Response model for updating instant feedback"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateInstantFeedbackModel = Field(..., description="Updated instant feedback data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+class UpdateComprehensiveFeedbackModel(BaseDictModel):
+    """Model for updating comprehensive feedback details."""
+    cefr_speaking: Optional[CEFRLevel] = Field(None, description="Updated CEFR speaking level")
+    cefr_listening: Optional[CEFRLevel] = Field(None, description="Updated CEFR listening level")
+    listening_activity: Optional[str] = Field(None, description="Updated listening activity description")
+    response_effectiveness: Optional[str] = Field(None, description="Updated response effectiveness")
+    listening_positive_observation: Optional[str] = Field(None, description="Updated positive listening observation")
+    listening_improvement_suggestion: Optional[str] = Field(None, description="Updated listening improvement suggestion")
+    fluency: Optional[FluencyLevel] = Field(None, description="Updated speaking fluency")
+    sentence_complexity: Optional[ComplexityLevel] = Field(None, description="Updated sentence complexity")
+    pace: Optional[SpeakingPace] = Field(None, description="Updated speaking pace")
+    filler_examples: Optional[str] = Field(None, description="Updated filler examples")
+    grammar: Optional[GrammarAccuracy] = Field(None, description="Updated grammar accuracy")
+    vocab_examples: Optional[str] = Field(None, description="Updated vocabulary examples")
+    vocab_analysis: Optional[str] = Field(None, description="Updated vocabulary analysis")
+    vocab_positive_observation: Optional[str] = Field(None, description="Updated vocabulary positive observation")
+    vocab_improvement_suggestion: Optional[str] = Field(None, description="Updated vocabulary improvement suggestion")
+    understanding_level: Optional[UnderstandingLevel] = Field(None, description="Updated understanding level")
+    explanation_quality: Optional[ExplanationQuality] = Field(None, description="Updated explanation quality")
+    interaction_style: Optional[str] = Field(None, description="Updated interaction style")
+    depth_of_understanding_suggestion: Optional[str] = Field(None, description="Updated depth understanding suggestion")
+    comparative_performance: Optional[str] = Field(None, description="Updated comparative performance")
+    comparative_suggestion: Optional[str] = Field(None, description="Updated comparative suggestion")
+    summary_strength: Optional[str] = Field(None, description="Updated summary strength")
+    summary_improvement_area: Optional[str] = Field(None, description="Updated summary improvement area")
+    target_cefr_level: Optional[CEFRLevel] = Field(None, description="Updated target CEFR level")
+    agent_id: Optional[str] = Field(None, description="Updated AI Agent instance")
+    agent_model: Optional[AgentModelSource] = Field(None, description="Updated agent model")
+
+class UpdateComprehensiveFeedbackResponseModel(BaseDictModel):
+    """Response model for updating comprehensive feedback"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateComprehensiveFeedbackModel = Field(..., description="Updated comprehensive feedback data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Delete Models ---
+
+class DeleteFeedbackResponseModel(BaseDictModel):
+    """Response model for deleting feedback"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted feedback ID")
+    message: Optional[str] = Field(None, description="Additional message")
+   

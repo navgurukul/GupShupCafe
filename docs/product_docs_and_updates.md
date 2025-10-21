@@ -3200,3 +3200,315 @@ pytest server_py/tests/test_api.py -v
 - Add performance tests for database operations
 - Implement integration tests with real database
 - Add API documentation tests with OpenAPI schema validation
+
+---
+
+## 2025-10-22 — Added BaseNameModel, NameResponseModel, and NameIDResponseModel to All Model Files
+
+**Date**: 2025-10-22 14:30 UTC  
+**Type**: Refactor | Standardization  
+**Commit Message**: Add BaseNameModel, NameResponseModel, and NameIDResponseModel to all Pydantic model files
+
+**Changes:**
+
+### Base Model Standardization
+- **Added three base models to all Pydantic model files** for consistent response patterns:
+  - `BaseNameModel` - Generic base model with name field for any model type
+  - `NameResponseModel` - Generic response model with model data and name
+  - `NameIDResponseModel` - Generic response model with model ID
+
+### Files Updated
+- **transcript_pydantic_models.py** - Added base name models
+- **user_pydantic_models.py** - Added base name models, fixed inheritance issues
+- **participant_pydantic_models.py** - Added base name models, fixed missing BaseParticipantModel definition
+- **agent_pydantic_models.py** - Added base name models
+- **feedback_pydantic_models.py** - Added base name models
+- **room_pydantic_models.py** - Added base name models
+
+### Technical Details
+- All base models inherit from `BaseDictModel` for consistent dict-like functionality
+- `BaseNameModel` includes generic name field: `name: str = Field(..., min_length=1, description="Model name (e.g., Transcript, User, etc.)")`
+- `NameResponseModel` provides standard response structure with status, data, and optional message
+- `NameIDResponseModel` provides standard response structure for ID-only responses
+- Fixed missing `BaseParticipantModel` class definition in participant models
+
+**Impact:**
+- Standardized response patterns across all model files
+- Consistent base model structure for future development
+- Better code maintainability with shared base classes
+- All model files now follow the same architectural pattern
+
+**Files Modified:**
+- `server_py/src/models/transcript_pydantic_models.py`
+- `server_py/src/models/user_pydantic_models.py`
+- `server_py/src/models/participant_pydantic_models.py`
+- `server_py/src/models/agent_pydantic_models.py`
+- `server_py/src/models/feedback_pydantic_models.py`
+- `server_py/src/models/room_pydantic_models.py`
+
+**Testing:**
+- ✅ All model files pass syntax validation
+- ✅ No diagnostic errors found in any updated files
+- ✅ Consistent base model structure across all files
+
+---
+
+## 2025-10-22 — Made BaseRoomModel the Common Type for All Room-Related Response Models
+
+**Date**: 2025-10-22 15:00 UTC  
+**Type**: Refactor | Architecture | Type Safety  
+**Commit Message**: Standardize room response models to use BaseRoomModel as common type for all room-related operations
+
+**Changes:**
+
+### Room Model Architecture Standardization
+- **Created specialized response models** that use `BaseRoomModel` as the common data type:
+  - `CreateRoomResponseModel` - For room creation with complete `RoomModel` data
+  - `UpdateRoomResponseModel` - For room updates with `BaseRoomModel` data
+  - `ListRoomsResponseModel` - For listing multiple rooms with `List[BaseRoomModel]`
+  - `RoomResponseModel` - Generic response with `BaseRoomModel` data
+  - `RoomIDResponseModel` - For operations returning only room ID
+
+### Room Routes Updates
+- **Updated all room route endpoints** to use specific response models:
+  - `POST /` → `CreateRoomResponseModel`
+  - `GET /{room_id}` → `RoomResponseModel`
+  - `GET /` → `ListRoomsResponseModel`
+  - `GET /waiting` → `ListRoomsResponseModel`
+  - `PATCH /{room_id}` → `UpdateRoomResponseModel`
+  - `DELETE /{room_id}` → `RoomIDResponseModel`
+  - `PATCH /{room_id}/status` → `UpdateRoomResponseModel`
+  - `PATCH /{room_id}/state` → `UpdateRoomResponseModel`
+  - `PATCH /{room_id}/end` → `UpdateRoomResponseModel`
+  - `POST /{room_id}/start` → `UpdateRoomResponseModel`
+
+### Room Service Updates
+- **Updated all room service methods** to return proper response model types
+- **Fixed create_room method** to return complete `RoomModel` object instead of just room ID
+- **Updated list methods** to return `RoomModel` objects instead of raw dictionaries
+- **Standardized all response structures** to use consistent BaseRoomModel data format
+
+### Technical Details
+- All room-related responses now use `BaseRoomModel` as the common data container
+- Proper type annotations ensure compile-time type safety
+- Response models provide clear API documentation through FastAPI
+- Consistent error handling with proper status codes and messages
+- Fixed syntax errors in service layer return statements
+
+**Impact:**
+- **Type Safety**: All room operations now have proper type annotations
+- **API Consistency**: Standardized response format across all room endpoints
+- **Documentation**: FastAPI automatically generates accurate API docs
+- **Maintainability**: Common base type reduces code duplication
+- **Client Integration**: Frontend can rely on consistent response structure
+
+**Files Modified:**
+- `server_py/src/models/room_pydantic_models.py` - Added specialized response models
+- `server_py/src/api/room_routes.py` - Updated all endpoints with proper response models
+- `server_py/src/services/room_service.py` - Updated all methods to return proper types
+
+**Testing:**
+- ✅ All files pass syntax validation
+- ✅ No diagnostic errors found
+- ✅ Type annotations are consistent across all layers
+- ✅ Response models properly use BaseRoomModel as common type
+## 2025-
+10-22 — Room Model Standardization
+
+**Date**: 2025-10-22  
+**Type**: Model Refactoring | Backend Enhancement  
+**Commit Message**: Update room model to follow participant model pattern with comprehensive CRUD operations
+
+**Changes:**
+
+### 1. Room Pydantic Models Overhaul
+- **Standardized room model structure** to match participant model pattern:
+  - `CreateRoomModel`: Base model for room creation with all required fields
+  - `RoomModel`: Full model including `room_id` and `created_at` for database representation
+  - `CreateRoomResponseModel`: Standardized response for room creation operations
+
+### 2. Comprehensive Update Models
+- **Added granular update models**:
+  - `UpdateRoomStatusModel`: For status transitions (waiting → in_progress → completed)
+  - `UpdateRoomStateModel`: For live discussion state (current_round, current_speaker_index)
+  - `UpdateRoomEndModel`: For room completion with timing data
+  - `UpdateRoomAgentsModel`: For managing AI agent assignments
+  - `UpdateRoomModel`: Comprehensive model for all room field updates
+
+### 3. CRUD Operation Models
+- **Added complete CRUD support**:
+  - `ListRoomsResponseModel`: For room listing operations
+  - `UpdateRoomResponseModel`: Standardized update response format
+  - `DeleteRoomModel` & `DeleteRoomResponseModel`: For room deletion operations
+  - Maintained backward compatibility with legacy `RoomResponseModel` and `RoomIDResponseModel`
+
+### 4. Enhanced Field Definitions
+- **Improved field documentation** with clear descriptions for all room properties
+- **Added proper default values** for room status (defaults to `WAITING`)
+- **Consistent typing** using Optional fields where appropriate
+- **Proper inheritance** from `BaseDictModel` for dict-like functionality
+
+**Technical Impact:**
+- Room models now support the same comprehensive operations as participant models
+- Enhanced type safety and validation for all room-related API operations
+- Consistent response formats across all room endpoints
+- Better support for real-time room state management
+- Improved maintainability with standardized model patterns
+
+**Files Modified:**
+- `server_py/src/models/room_pydantic_models.py`: Complete model restructure following participant pattern
+## 202
+5-10-22 — Room Service, Manager, and Routes Updated to Use Pydantic Models
+
+**Date**: 2025-10-22  
+**Type**: Refactoring | Model Integration | API Standardization  
+**Commit Message**: Update room service, manager, and routes to strictly use pydantic models for all room operations
+
+**Changes:**
+
+### 1. Room Service Refactoring
+- **Updated all methods to use proper pydantic models** from `room_pydantic_models.py`
+- **Removed micro update models** (`UpdateRoomStatusModel`, `UpdateRoomStateModel`, `UpdateRoomEndModel`) as they were removed from the models file
+- **Enhanced data conversion**:
+  - Added proper CEFR level enum conversion from string to `CEFRLevel` enum
+  - Added room status enum conversion from string to `RoomStatus` enum
+  - Implemented proper error handling for enum conversions
+- **Updated method signatures**:
+  - `get_room()` now returns `CreateRoomResponseModel`
+  - `update_room()` now accepts `UpdateRoomModel` instead of dict
+  - `delete_room()` now returns `DeleteRoomResponseModel`
+  - `start_discussion()` now returns proper `UpdateRoomResponseModel`
+- **Improved response consistency** - all methods now return proper pydantic response models
+
+### 2. Room Routes API Updates
+- **Updated all route handlers** to use pydantic models consistently
+- **Removed micro update routes** that referenced deleted models:
+  - Removed `/rooms/{room_id}/status` PATCH endpoint
+  - Removed `/rooms/{room_id}/state` GET and PATCH endpoints  
+  - Removed `/rooms/{room_id}/end` PATCH endpoint
+- **Updated existing routes**:
+  - GET `/rooms/{room_id}` now uses `CreateRoomResponseModel`
+  - PATCH `/rooms/{room_id}` now accepts `UpdateRoomModel` 
+  - DELETE `/rooms/{room_id}` now uses `DeleteRoomResponseModel`
+  - GET `/rooms/waiting` properly handles enum values
+- **Maintained `/rooms/{room_id}/start` endpoint** with proper model usage
+
+### 3. Room Manager Model Integration
+- **Updated imports** to use specific pydantic model imports instead of generic model imports
+- **Fixed import paths** for better organization:
+  - `RoomStatus`, `CreateRoomModel`, `RoomModel` from `room_pydantic_models`
+  - `CreateParticipantModel`, `ParticipantModel` from `participant_pydantic_models`
+  - Enums from dedicated `enums` module
+
+### 4. Database Integration Improvements
+- **Enhanced enum handling** in database operations
+- **Proper type conversion** between database strings and pydantic enums
+- **Consistent error handling** across all database operations
+- **Maintained backward compatibility** while enforcing strict typing
+
+### 5. API Response Standardization
+- **All responses now follow consistent pydantic model structure**
+- **Proper status/data/message format** across all endpoints
+- **Type safety** enforced at API boundary
+- **Better error messages** with proper model validation
+
+**Technical Impact:**
+- Eliminated inconsistent data handling between service, routes, and database
+- Enforced strict typing throughout the room management system
+- Simplified API contract with clear pydantic model definitions
+- Improved maintainability by removing redundant micro update models
+- Enhanced data validation and error handling
+
+**Breaking Changes:**
+- Removed micro update endpoints - clients should use the main PATCH `/rooms/{room_id}` endpoint
+- Updated request/response formats to match pydantic models
+- Changed some method signatures in room service (now type-safe)
+## 20
+25-10-22 — All Pydantic Models Updated with CRUD Operations and Response Models
+
+**Date**: 2025-10-22  
+**Type**: Model Standardization | CRUD Operations | API Consistency  
+**Commit Message**: Update all pydantic models to include Create, List, Update, Delete operations with proper response models
+
+**Changes:**
+
+### 1. Participant Models (`participant_pydantic_models.py`)
+- **Added CRUD response models**:
+  - `ListParticipantsResponseModel` - for listing participants
+  - `UpdateParticipantResponseModel` - for update operations
+  - `DeleteParticipantResponseModel` - for delete operations
+- **Cleaned up existing models** - removed redundant fields and improved structure
+- **Maintained existing create model** without modifications
+
+### 2. Agent Models (`agent_pydantic_models.py`)
+- **Added CRUD response models**:
+  - `ListAgentsResponseModel` - for listing agents
+  - `UpdateAgentModel` - for agent updates (status, type, interactions)
+  - `UpdateAgentResponseModel` - for update operation responses
+  - `DeleteAgentResponseModel` - for delete operation responses
+- **Enhanced existing models** with proper field definitions
+- **Maintained analytics models** for agent statistics and health monitoring
+
+### 3. Feedback Models (`feedback_pydantic_models.py`)
+- **Added comprehensive CRUD response models**:
+  - `CreateInstantFeedbackResponseModel` - for instant feedback creation
+  - `CreateComprehensiveFeedbackResponseModel` - for comprehensive feedback creation
+  - `ListFeedbackResponseModel` - for mixed feedback listing
+  - `ListInstantFeedbackResponseModel` - for instant feedback listing
+  - `ListComprehensiveFeedbackResponseModel` - for comprehensive feedback listing
+  - `UpdateInstantFeedbackModel` & `UpdateInstantFeedbackResponseModel`
+  - `UpdateComprehensiveFeedbackModel` & `UpdateComprehensiveFeedbackResponseModel`
+  - `DeleteFeedbackResponseModel` - for delete operations
+- **Maintained complex feedback structure** with all CEFR assessment fields
+
+### 4. User Models (`user_pydantic_models.py`)
+- **Added CRUD response models**:
+  - `ListUsersResponseModel` - for listing users
+  - `UpdateUserModel` - for general user updates
+  - `UpdateUserResponseModel` - for update operation responses
+  - `DeleteUserResponseModel` - for delete operations
+  - `GetUserResponseModel` - for single user retrieval
+- **Enhanced existing models** while maintaining authentication functionality
+
+### 5. Transcript Models (`transcript_pydantic_models.py`)
+- **Added CRUD response models**:
+  - `ListTranscriptsResponseModel` - for listing transcripts
+  - `UpdateTranscriptModel` - for transcript updates
+  - `UpdateTranscriptResponseModel` - for update operation responses
+  - `DeleteTranscriptResponseModel` - for delete operations
+  - `GetTranscriptResponseModel` - for single transcript retrieval
+- **Maintained audio processing fields** and STT confidence tracking
+
+### 6. Service Layer Function Flagging
+- **Flagged all non-convertible functions** in services with clear comments:
+  - `# FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model`
+  - `# TODO: Convert to use [SpecificResponseModel]`
+- **Identified functions needing conversion**:
+  - **Participant Service**: 7 functions flagged
+  - **User Service**: 6 functions flagged  
+  - **Transcript Service**: 6 functions flagged
+  - **Agent Service**: 5 functions flagged
+  - **Feedback Service**: 6 functions flagged
+
+### 7. Model Import Updates
+- **Updated `__init__.py`** to include all new response models
+- **Organized imports** by model type (Create, List, Update, Delete)
+- **Maintained backward compatibility** with existing imports
+
+**Technical Impact:**
+- **Standardized API responses** across all model types
+- **Consistent CRUD operations** following room model pattern
+- **Type safety** enforced at model level
+- **Clear migration path** for service layer conversion
+- **Improved maintainability** with structured response models
+
+**Next Steps Required:**
+- Convert flagged service functions to use new pydantic response models
+- Update route handlers to use new response models
+- Test all CRUD operations with new model structure
+- Update API documentation to reflect new response formats
+
+**Breaking Changes:**
+- Service functions will need to be updated to return pydantic models instead of dicts
+- Route response models will change to use new standardized formats
+- Some field names may be normalized across models

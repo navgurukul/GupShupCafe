@@ -10,7 +10,11 @@ from .participant_pydantic_models import (
     ParticipantLeftModel,
     ParticipantIsMutedModel,
     ParticipantIsSpeakingModel,
-    ParticipantIsReadyModel
+    ParticipantIsReadyModel,
+    ListParticipantsResponseModel,
+    UpdateParticipantModel,
+    UpdateParticipantResponseModel,
+    DeleteParticipantResponseModel
 )
 from .room_pydantic_models import (
     CreateRoomModel,
@@ -29,19 +33,39 @@ from .user_pydantic_models import (
     UserModel,
     UpdateUserCEFRModel,
     UpdateUserLastActiveModel,
-    UpdateUserPasswordModel
+    UpdateUserPasswordModel,
+    ListUsersResponseModel,
+    UpdateUserModel,
+    UpdateUserResponseModel,
+    DeleteUserResponseModel,
+    GetUserResponseModel
 )
 from .feedback_pydantic_models import (
     CreateInstantFeedbackModel,
     InstantFeedbackModel,
     CreateComprehensiveFeedbackModel,
     ComprehensiveFeedbackModel,
+    CreateInstantFeedbackResponseModel,
+    CreateComprehensiveFeedbackResponseModel,
+    ListFeedbackResponseModel,
+    ListInstantFeedbackResponseModel,
+    ListComprehensiveFeedbackResponseModel,
+    UpdateInstantFeedbackModel,
+    UpdateInstantFeedbackResponseModel,
+    UpdateComprehensiveFeedbackModel,
+    UpdateComprehensiveFeedbackResponseModel,
+    DeleteFeedbackResponseModel
 )
 from .transcript_pydantic_models import (
     CreateTranscriptModel,
     TranscriptModel,
     UpdateTranscriptProcessingModel,
-    UpdateTranscriptAudioURLModel
+    UpdateTranscriptAudioURLModel,
+    ListTranscriptsResponseModel,
+    UpdateTranscriptModel,
+    UpdateTranscriptResponseModel,
+    DeleteTranscriptResponseModel,
+    GetTranscriptResponseModel
 )
 from .agent_pydantic_models import (
     CreateAgentModel,
@@ -55,7 +79,11 @@ from .agent_pydantic_models import (
     AgentHealthModel,
     AgentStatus,
     AgentType,
-    AgentModelSource
+    AgentModelSource,
+    ListAgentsResponseModel,
+    UpdateAgentModel,
+    UpdateAgentResponseModel,
+    DeleteAgentResponseModel
 )
 from .enums import CEFRLevel, ParticipantRole
 
@@ -68,11 +96,14 @@ __all__ = [
     "CreateParticipantModel",
     "ParticipantModel",
     "CreateParticipantResponseModel",
-    "ParticipantUpdateModel",
     "ParticipantLeftModel",
     "ParticipantIsMutedModel",
     "ParticipantIsSpeakingModel",
     "ParticipantIsReadyModel",
+    "ListParticipantsResponseModel",
+    "UpdateParticipantModel",
+    "UpdateParticipantResponseModel",
+    "DeleteParticipantResponseModel",
     "ParticipantRole",
     # Room Models
     "CreateRoomModel",
@@ -91,16 +122,36 @@ __all__ = [
     "UpdateUserCEFRModel",
     "UpdateUserLastActiveModel",
     "UpdateUserPasswordModel",
+    "ListUsersResponseModel",
+    "UpdateUserModel",
+    "UpdateUserResponseModel",
+    "DeleteUserResponseModel",
+    "GetUserResponseModel",
     # Feedback Models
     "CreateInstantFeedbackModel",
     "InstantFeedbackModel",
     "CreateComprehensiveFeedbackModel",
     "ComprehensiveFeedbackModel",
+    "CreateInstantFeedbackResponseModel",
+    "CreateComprehensiveFeedbackResponseModel",
+    "ListFeedbackResponseModel",
+    "ListInstantFeedbackResponseModel",
+    "ListComprehensiveFeedbackResponseModel",
+    "UpdateInstantFeedbackModel",
+    "UpdateInstantFeedbackResponseModel",
+    "UpdateComprehensiveFeedbackModel",
+    "UpdateComprehensiveFeedbackResponseModel",
+    "DeleteFeedbackResponseModel",
     # Transcript Models
     "CreateTranscriptModel",
     "TranscriptModel",
     "UpdateTranscriptProcessingModel",
     "UpdateTranscriptAudioURLModel",
+    "ListTranscriptsResponseModel",
+    "UpdateTranscriptModel",
+    "UpdateTranscriptResponseModel",
+    "DeleteTranscriptResponseModel",
+    "GetTranscriptResponseModel",
     # Agent Models
     "CreateAgentModel",
     "CreateAgentResponseModel",
@@ -114,6 +165,10 @@ __all__ = [
     "AgentStatus",
     "AgentType",
     "AgentModelSource",
+    "ListAgentsResponseModel",
+    "UpdateAgentModel",
+    "UpdateAgentResponseModel",
+    "DeleteAgentResponseModel",
     # Enums
     "CEFRLevel",
 ]

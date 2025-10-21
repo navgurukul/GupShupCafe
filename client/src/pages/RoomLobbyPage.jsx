@@ -635,9 +635,6 @@ function RoomLobbyPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          roomId,
-          initiatedBy: user?.userId,
-          role: urlRole,
           topic_category: roomDetails?.topicCategory,
         }),
       });

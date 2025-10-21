@@ -6,7 +6,7 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, ParticipantModel, RoomModel
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
 from ..models.enums import CEFRLevel, ParticipantRole
 
 
@@ -14,10 +14,10 @@ class RoomManager:
     """Manages discussion rooms and participants"""
 
     def __init__(self):
-        self.rooms: Dict[str, RoomModel] = {}
+        self.rooms: Dict[str, Room] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> RoomModel:
+    def get_room(self, room_id: str) -> Room:
         """
         Get or create a room
         Args:
@@ -25,9 +25,23 @@ class RoomManager:
         Returns: Room object
         """
         if room_id not in self.rooms:
-            # return an error
-            raise ValueError(f"Room {room_id} does not exist.")
-            
+            self.rooms[room_id] = Room(
+                room_id=room_id,
+                room_name="General",
+                topic={"title": "General Discussion", "category": "general"},
+                max_participants=6,
+                speaking_time=60,
+                num_rounds=3,
+                cefr_level="A1",
+                status=RoomStatus.WAITING,
+                current_round=0,
+                current_speaker_index=0,
+                participants=[],
+                started_at=None,
+                ended_at=None,
+                time_remaining=60,
+                created_by="system"
+            )
         return self.rooms[room_id]
     
     async def sync_room_to_database(self, room_id: str, db):
@@ -324,7 +338,7 @@ class RoomManager:
         """
         return [
             {
-                "roomId": room.room_id,
+                "id": room.room_code,
                 "participantCount": len(room.participants),
                 "discussionActive": room.status == RoomStatus.IN_PROGRESS,
                 "round": room.current_round,

@@ -17,6 +17,11 @@ class Transcript_service:
         self.cursor = cursor
 
     def create_transcript(self, model: CreateTranscriptModel) -> Dict[str, Any]:
+        """Create a new transcript
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use CreateTranscriptModelResponse
+        """
         try:
             from datetime import datetime
             transcript_id = uuid.uuid4().hex
@@ -63,6 +68,11 @@ class Transcript_service:
             return {"success": False, "error": f"Failed to save transcript: {e}"}
 
     def list_transcripts_for_room(self, room_id: str) -> Dict[str, Any]:
+        """List transcripts for a room
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use ListTranscriptsResponseModel
+        """
         try:
             self.cursor.execute(
                 "SELECT * FROM transcripts WHERE room_id=? ORDER BY created_at ASC",
@@ -76,6 +86,11 @@ class Transcript_service:
             return {"success": False, "error": "Failed to fetch transcripts"}
 
     def get_transcript(self, transcript_id: str) -> Dict[str, Any]:
+        """Get a single transcript
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use GetTranscriptResponseModel
+        """
         try:
             self.cursor.execute("SELECT * FROM transcripts WHERE transcript_id=?", (transcript_id,))
             row = self.cursor.fetchone()
@@ -88,6 +103,11 @@ class Transcript_service:
             return {"success": False, "error": "Failed to fetch transcript"}
 
     def delete_transcript(self, transcript_id: str) -> Dict[str, Any]:
+        """Delete a transcript
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use DeleteTranscriptResponseModel
+        """
         try:
             self.cursor.execute("DELETE FROM transcripts WHERE transcript_id=?", (transcript_id,))
             self.conn.commit()
@@ -98,7 +118,11 @@ class Transcript_service:
             return {"success": False, "error": "Failed to delete transcript"}
 
     def update_transcript_processing(self, update: UpdateTranscriptProcessingModel) -> Dict[str, Any]:
-        """Update transcript processing status"""
+        """Update transcript processing status
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use UpdateTranscriptResponseModel
+        """
         try:
             # Convert boolean to integer for SQLite
             is_processed_int = 1 if update.is_processed else 0
@@ -114,7 +138,11 @@ class Transcript_service:
             return {"success": False, "error": "Failed to update transcript processing"}
 
     def update_transcript_audio_url(self, update: UpdateTranscriptAudioURLModel) -> Dict[str, Any]:
-        """Update transcript audio file URL"""
+        """Update transcript audio file URL
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use UpdateTranscriptResponseModel
+        """
         try:
             self.cursor.execute(
                 "UPDATE transcripts SET audio_file_url=? WHERE transcript_id=?",
