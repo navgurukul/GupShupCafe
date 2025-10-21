@@ -2,12 +2,23 @@
 
 ## Overview
 
-The GupShup Cafe REST API provides endpoints for health checks, topic management, analytics, and configuration. All endpoints follow RESTful conventions and return JSON responses.
+The GupShup Cafe REST API provides endpoints for health checks, topic management, room management, participant management, user authentication, feedback, transcripts, and AI agents. All endpoints follow RESTful conventions and return JSON responses.
 
 ## Base URL
 
-- **Development:** `http://localhost:3003/api`
-- **Production:** `https://your-backend-domain.com/api`
+- **Development:** `http://localhost:3003`
+- **Production:** `https://your-backend-domain.com`
+
+## API Prefix
+
+All API routes are prefixed with their respective paths:
+- General API: `/api`
+- Users: `/users`
+- Rooms: `/rooms`
+- Participants: `/participants`
+- Transcripts: `/transcripts`
+- Feedback: `/feedback`
+- Agents: `/agents`
 
 ## Response Format
 
@@ -33,7 +44,7 @@ All API responses follow a consistent format:
 
 ## Authentication
 
-Currently, the API does not require authentication for most endpoints. User identification is handled through Socket.io authentication tokens for real-time features.
+User authentication is handled through the `/users/login` and `/users/signup` endpoints. The API currently uses session-based authentication. For Socket.io connections, user identification is handled through auth tokens passed during connection.
 
 ---
 
@@ -41,7 +52,7 @@ Currently, the API does not require authentication for most endpoints. User iden
 
 ### Health & Status
 
-#### `GET /api/health`
+#### `GET /health`
 
 Health check endpoint to verify server status.
 
@@ -50,7 +61,8 @@ Health check endpoint to verify server status.
 {
   "status": "healthy",
   "timestamp": "2024-01-15T10:30:00.000Z",
-  "service": "AI Roundtable API"
+  "uptime": 1234.56,
+  "environment": "development"
 }
 ```
 
@@ -59,7 +71,27 @@ Health check endpoint to verify server status.
 
 **Example:**
 ```bash
-curl http://localhost:3003/api/health
+curl http://localhost:3003/health
+```
+
+---
+
+#### `GET /`
+
+Root endpoint with API information.
+
+**Response:**
+```json
+{
+  "name": "AI Roundtable Discussion Server",
+  "version": "1.0.0",
+  "description": "Backend server for AI-powered educational discussions",
+  "endpoints": {
+    "health": "/health",
+    "api": "/api",
+    "socket": "ws://localhost:3003"
+  }
+}
 ```
 
 ---
@@ -101,17 +133,9 @@ curl http://localhost:3003/api/topics
 
 ---
 
-#### `POST /api/topics/generate`
+#### `GET /api/topics/generate`
 
 Generate a new discussion topic using AI.
-
-**Request Body:**
-```json
-{
-  "category": "Technology",  // Optional
-  "context": "Education"     // Optional
-}
-```
 
 **Response:**
 ```json
@@ -137,9 +161,7 @@ Generate a new discussion topic using AI.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3003/api/topics/generate \
-  -H "Content-Type: application/json" \
-  -d '{"category": "Technology"}'
+curl http://localhost:3003/api/topics/generate
 ```
 
 **Notes:**
@@ -185,111 +207,6 @@ curl http://localhost:3003/api/topics/category/Environment
 
 ---
 
-### Analytics
-
-#### `GET /api/analytics/sessions`
-
-Get session analytics data.
-
-**Query Parameters:**
-- `limit` (integer, optional) - Number of sessions to return (default: 10)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "session-uuid",
-      "room_id": "room-123",
-      "topic_title": "The Future of Education",
-      "topic_category": "Education",
-      "participant_count": 5,
-      "started_at": "2024-01-15T10:00:00.000Z",
-      "ended_at": "2024-01-15T10:30:00.000Z",
-      "duration_seconds": 1800,
-      "rounds_completed": 3,
-      "created_at": "2024-01-15T10:00:00.000Z"
-    }
-  ],
-  "count": 10
-}
-```
-
-**Status Codes:**
-- `200 OK` - Analytics retrieved successfully
-- `500 Internal Server Error` - Database error
-
-**Example:**
-```bash
-curl "http://localhost:3003/api/analytics/sessions?limit=20"
-```
-
----
-
-#### `GET /api/analytics/topics`
-
-Get topic usage analytics.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "title": "The Future of Education",
-      "description": "How will technology reshape learning...",
-      "category": "Education",
-      "source": "fallback",
-      "used_count": 15,
-      "created_at": "2024-01-01T00:00:00.000Z"
-    }
-  ],
-  "count": 10
-}
-```
-
-**Status Codes:**
-- `200 OK` - Analytics retrieved successfully
-- `500 Internal Server Error` - Database error
-
-**Example:**
-```bash
-curl http://localhost:3003/api/analytics/topics
-```
-
----
-
-#### `GET /api/analytics/stats`
-
-Get server statistics.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "totalSessions": 50,
-    "totalParticipants": 250,
-    "totalTopics": 10,
-    "averageSessionDuration": 1500,
-    "averageParticipantsPerSession": 5
-  }
-}
-```
-
-**Status Codes:**
-- `200 OK` - Statistics retrieved successfully
-- `500 Internal Server Error` - Database error
-
-**Example:**
-```bash
-curl http://localhost:3003/api/analytics/stats
-```
-
----
-
 ### Configuration
 
 #### `GET /api/config`
@@ -302,7 +219,7 @@ Get public server configuration.
   "success": true,
   "data": {
     "minParticipants": 1,
-    "maxParticipants": 8,
+    "maxParticipants": 6,
     "defaultSpeakingTime": 60,
     "features": {
       "aiTopics": true,
@@ -329,6 +246,180 @@ curl http://localhost:3003/api/config
 - `features.aiTopics` - Whether AI topic generation is enabled
 - `features.analytics` - Whether analytics are enabled
 - `features.feedback` - Whether feedback submission is enabled
+
+---
+
+### User Management
+
+#### `POST /users/signup`
+
+Create a new user account.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "name": "John Doe"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "userId": "user-uuid",
+    "email": "user@example.com",
+    "name": "John Doe"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - User created successfully
+- `400 Bad Request` - Invalid input
+- `500 Internal Server Error` - Server error
+
+---
+
+#### `POST /users/login`
+
+User login.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "userId": "user-uuid",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "cefrLevel": 3
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Login successful
+- `401 Unauthorized` - Invalid credentials
+- `500 Internal Server Error` - Server error
+
+---
+
+#### `GET /users/:userId`
+
+Get user details by ID.
+
+**Parameters:**
+- `userId` (string) - User identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "userId": "user-uuid",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "cefrLevel": 3,
+    "lastActive": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - User found
+- `404 Not Found` - User not found
+- `500 Internal Server Error` - Server error
+
+---
+
+#### `GET /users`
+
+List all users.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "userId": "user-uuid",
+      "email": "user@example.com",
+      "name": "John Doe"
+    }
+  ]
+}
+```
+
+---
+
+#### `PATCH /users/cefr-level`
+
+Update user's CEFR level.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "cefrLevel": 4
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "CEFR level updated"
+}
+```
+
+---
+
+#### `PATCH /users/last-active`
+
+Update user's last active timestamp.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Last active updated"
+}
+```
+
+---
+
+#### `DELETE /users/:userId`
+
+Delete a user.
+
+**Parameters:**
+- `userId` (string) - User identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "User deleted"
+}
+```
 
 ---
 
@@ -384,7 +475,922 @@ curl http://localhost:3003/api/room/room-123/state
 
 ---
 
-### Feedback
+### Room Management
+
+#### `POST /rooms`
+
+Create a new room.
+
+**Request Body:**
+```json
+{
+  "roomName": "Discussion Room 1",
+  "topicCategory": "Education",
+  "cefrLevel": 3,
+  "hostUserId": "user-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "roomId": "room-uuid",
+    "roomName": "Discussion Room 1",
+    "status": "waiting"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Room created successfully
+- `400 Bad Request` - Invalid input
+- `500 Internal Server Error` - Server error
+
+---
+
+#### `GET /rooms/:roomId`
+
+Get room details by ID.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "roomId": "room-uuid",
+    "roomName": "Discussion Room 1",
+    "status": "waiting",
+    "participantCount": 3,
+    "createdAt": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Room found
+- `404 Not Found` - Room not found
+- `500 Internal Server Error` - Server error
+
+---
+
+#### `GET /rooms`
+
+List all rooms.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "roomId": "room-uuid",
+      "roomName": "Discussion Room 1",
+      "status": "waiting",
+      "participantCount": 3
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /rooms/waiting`
+
+List rooms with status 'waiting'.
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "roomId": "room-uuid",
+      "roomName": "Discussion Room 1",
+      "status": "waiting",
+      "participantCount": 2
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /rooms/:roomId/state`
+
+Get current room state including discussion status.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "participants": [
+    {
+      "id": "user-123",
+      "anonymousName": "Wise Owl",
+      "role": "speaker",
+      "isReady": true
+    }
+  ],
+  "discussion": {
+    "active": true,
+    "topic": {
+      "title": "The Future of Education",
+      "category": "Education"
+    },
+    "currentSpeakerIndex": 0,
+    "speakingTime": 60,
+    "timeRemaining": 45,
+    "round": 1,
+    "startedAt": "2024-01-15T10:00:00.000Z",
+    "endedAt": null
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Room state retrieved successfully
+- `404 Not Found` - Room not found
+- `500 Internal Server Error` - Server error
+
+**Example:**
+```bash
+curl http://localhost:3003/rooms/room-123/state
+```
+
+---
+
+#### `PATCH /rooms/:roomId/status`
+
+Update room status.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Request Body:**
+```json
+{
+  "status": "active"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Room status updated"
+}
+```
+
+---
+
+#### `PATCH /rooms/:roomId/state`
+
+Update room discussion state.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Request Body:**
+```json
+{
+  "currentSpeakerIndex": 1,
+  "round": 2
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Room state updated"
+}
+```
+
+---
+
+#### `PATCH /rooms/:roomId/end`
+
+End room and mark as finished.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Request Body:**
+```json
+{
+  "roundsCompleted": 3
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Room ended"
+}
+```
+
+---
+
+#### `DELETE /rooms/:roomId`
+
+Delete a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Room deleted"
+}
+```
+
+---
+
+### Participant Management
+
+#### `POST /participants`
+
+Create a new participant.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "roomId": "room-uuid",
+  "anonymousName": "Wise Owl",
+  "role": "speaker"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "participantId": "participant-uuid",
+    "userId": "user-uuid",
+    "roomId": "room-uuid",
+    "role": "speaker"
+  }
+}
+```
+
+---
+
+#### `GET /participants/:userId/:roomId`
+
+Get participant details.
+
+**Parameters:**
+- `userId` (string) - User identifier
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "participantId": "participant-uuid",
+    "userId": "user-uuid",
+    "roomId": "room-uuid",
+    "anonymousName": "Wise Owl",
+    "role": "speaker",
+    "isReady": true
+  }
+}
+```
+
+---
+
+#### `GET /participants/room/:roomId`
+
+List participants for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "participantId": "participant-uuid",
+      "userId": "user-uuid",
+      "anonymousName": "Wise Owl",
+      "role": "speaker"
+    }
+  ]
+}
+```
+
+---
+
+#### `PATCH /participants/:participantId`
+
+Update participant.
+
+**Parameters:**
+- `participantId` (string) - Participant identifier
+
+**Request Body:**
+```json
+{
+  "role": "listener"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant updated"
+}
+```
+
+---
+
+#### `PATCH /participants/ready`
+
+Update participant ready status.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "roomId": "room-uuid",
+  "isReady": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant ready status updated"
+}
+```
+
+---
+
+#### `PATCH /participants/muted`
+
+Update participant muted status.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "roomId": "room-uuid",
+  "isMuted": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant muted status updated"
+}
+```
+
+---
+
+#### `PATCH /participants/speaking`
+
+Update participant speaking status.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "roomId": "room-uuid",
+  "isSpeaking": true
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant speaking status updated"
+}
+```
+
+---
+
+#### `PATCH /participants/left`
+
+Mark participant as left.
+
+**Request Body:**
+```json
+{
+  "userId": "user-uuid",
+  "roomId": "room-uuid",
+  "leftAt": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant marked as left"
+}
+```
+
+---
+
+#### `DELETE /participants/:participantId`
+
+Delete a participant.
+
+**Parameters:**
+- `participantId` (string) - Participant identifier
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Participant deleted"
+}
+```
+
+---
+
+### Transcript Management
+
+#### `POST /transcripts`
+
+Create a new transcript.
+
+**Request Body:**
+```json
+{
+  "roomId": "room-uuid",
+  "participantId": "participant-uuid",
+  "transcriptText": "This is what was said...",
+  "roundNumber": 1,
+  "turnOrder": 0,
+  "language": "en",
+  "sttConfidence": 0.95,
+  "durationSeconds": 60
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "transcriptId": "transcript-uuid"
+  }
+}
+```
+
+---
+
+#### `GET /transcripts/:transcriptId`
+
+Get transcript by ID.
+
+**Parameters:**
+- `transcriptId` (string) - Transcript identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "transcriptId": "transcript-uuid",
+    "roomId": "room-uuid",
+    "participantId": "participant-uuid",
+    "transcriptText": "This is what was said...",
+    "roundNumber": 1,
+    "createdAt": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### `GET /transcripts/room/:roomId`
+
+List transcripts for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "transcriptId": "transcript-uuid",
+      "participantId": "participant-uuid",
+      "transcriptText": "This is what was said...",
+      "roundNumber": 1
+    }
+  ]
+}
+```
+
+---
+
+#### `PATCH /transcripts/processing`
+
+Update transcript processing status.
+
+**Request Body:**
+```json
+{
+  "transcriptId": "transcript-uuid",
+  "isProcessed": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Transcript processing status updated"
+}
+```
+
+---
+
+#### `PATCH /transcripts/audio-url`
+
+Update transcript audio file URL.
+
+**Request Body:**
+```json
+{
+  "transcriptId": "transcript-uuid",
+  "audioFileUrl": "https://example.com/audio.mp3"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Transcript audio URL updated"
+}
+```
+
+---
+
+#### `DELETE /transcripts/:transcriptId`
+
+Delete a transcript.
+
+**Parameters:**
+- `transcriptId` (string) - Transcript identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Transcript deleted"
+}
+```
+
+---
+
+### Feedback Management
+
+#### `POST /feedback/instant`
+
+Create instant feedback.
+
+**Request Body:**
+```json
+{
+  "participantId": "participant-uuid",
+  "feedbackType": "instant",
+  "displayMessage": "Great use of vocabulary!"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedbackId": "feedback-uuid"
+  }
+}
+```
+
+---
+
+#### `POST /feedback/comprehensive`
+
+Create comprehensive feedback.
+
+**Request Body:**
+```json
+{
+  "participantId": "participant-uuid",
+  "feedbackType": "comprehensive",
+  "displayMessage": "Overall excellent performance...",
+  "detailedAnalysis": "Strengths: ..., Areas for improvement: ..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedbackId": "feedback-uuid"
+  }
+}
+```
+
+---
+
+#### `GET /feedback/:feedbackId`
+
+Get feedback by ID.
+
+**Parameters:**
+- `feedbackId` (string) - Feedback identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedbackId": "feedback-uuid",
+    "participantId": "participant-uuid",
+    "feedbackType": "instant",
+    "displayMessage": "Great use of vocabulary!",
+    "createdAt": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+#### `GET /feedback/participant/:participantId`
+
+List feedback for a participant.
+
+**Parameters:**
+- `participantId` (string) - Participant identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "feedbackId": "feedback-uuid",
+      "feedbackType": "instant",
+      "displayMessage": "Great use of vocabulary!"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /feedback/room/:roomId`
+
+List feedback for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "feedbackId": "feedback-uuid",
+      "participantId": "participant-uuid",
+      "feedbackType": "instant",
+      "displayMessage": "Great use of vocabulary!"
+    }
+  ]
+}
+```
+
+---
+
+#### `DELETE /feedback/:feedbackId`
+
+Delete feedback.
+
+**Parameters:**
+- `feedbackId` (string) - Feedback identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback deleted"
+}
+```
+
+---
+
+### AI Agent Management
+
+#### `POST /agents`
+
+Create a new AI agent.
+
+**Request Body:**
+```json
+{
+  "roomId": "room-uuid",
+  "agentType": "english",
+  "agentName": "English Coach",
+  "isActive": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": "agent-uuid",
+  "message": "Agent created successfully"
+}
+```
+
+---
+
+#### `GET /agents/:agentId`
+
+Get agent by ID.
+
+**Parameters:**
+- `agentId` (string) - Agent identifier
+
+**Response:**
+```json
+{
+  "agentId": "agent-uuid",
+  "roomId": "room-uuid",
+  "agentType": "english",
+  "agentName": "English Coach",
+  "isActive": true,
+  "createdAt": "2024-01-15T10:00:00.000Z"
+}
+```
+
+---
+
+#### `GET /agents/room/:roomId`
+
+Get all agents for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+[
+  {
+    "agentId": "agent-uuid",
+    "agentType": "english",
+    "agentName": "English Coach",
+    "isActive": true
+  }
+]
+```
+
+---
+
+#### `GET /agents/room/:roomId/type/:agentType`
+
+Get agents by type for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+- `agentType` (string) - Agent type (english, facilitator, etc.)
+
+**Response:**
+```json
+[
+  {
+    "agentId": "agent-uuid",
+    "agentType": "english",
+    "agentName": "English Coach",
+    "isActive": true
+  }
+]
+```
+
+---
+
+#### `GET /agents/room/:roomId/active`
+
+Get all active agents for a room.
+
+**Parameters:**
+- `roomId` (string) - Room identifier
+
+**Response:**
+```json
+[
+  {
+    "agentId": "agent-uuid",
+    "agentType": "english",
+    "isActive": true
+  }
+]
+```
+
+---
+
+#### `PATCH /agents/:agentId`
+
+Update agent properties.
+
+**Parameters:**
+- `agentId` (string) - Agent identifier
+
+**Request Body:**
+```json
+{
+  "isActive": false
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Agent updated successfully"
+}
+```
+
+---
+
+#### `DELETE /agents/:agentId`
+
+Delete an agent.
+
+**Parameters:**
+- `agentId` (string) - Agent identifier
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Agent deleted successfully"
+}
+```
+
+---
+
+#### `POST /agents/:agentId/process-transcript`
+
+Process a transcript with an agent.
+
+**Parameters:**
+- `agentId` (string) - Agent identifier
+
+**Request Body:**
+```json
+{
+  "transcriptId": "transcript-uuid",
+  "feedbackType": "instant"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedback": "Great use of vocabulary!",
+    "processingTime": 1.23
+  }
+}
+```
+
+---
+
+### Feedback (Legacy)
 
 #### `POST /api/feedback`
 
@@ -559,33 +1565,53 @@ console.log(`Retrieved ${data.count} sessions`);
 
 ```bash
 # Health check
-curl http://localhost:3003/api/health
+curl http://localhost:3003/health
 
 # Get topics
 curl http://localhost:3003/api/topics
 
 # Generate topic
-curl -X POST http://localhost:3003/api/topics/generate \
-  -H "Content-Type: application/json" \
-  -d '{"category": "Technology"}'
+curl http://localhost:3003/api/topics/generate
 
-# Get analytics
-curl http://localhost:3003/api/analytics/stats
+# Get config
+curl http://localhost:3003/api/config
+
+# Create a user
+curl -X POST http://localhost:3003/users/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "pass123", "name": "Test User"}'
+
+# Create a room
+curl -X POST http://localhost:3003/rooms \
+  -H "Content-Type: application/json" \
+  -d '{"roomName": "Test Room", "topicCategory": "Education", "cefrLevel": 3}'
+
+# Get room state
+curl http://localhost:3003/rooms/room-123/state
 ```
 
 ### Using JavaScript Fetch
 
 ```javascript
 // Health check
-fetch('http://localhost:3003/api/health')
+fetch('http://localhost:3003/health')
   .then(res => res.json())
   .then(data => console.log(data));
 
 // Generate topic
-fetch('http://localhost:3003/api/topics/generate', {
+fetch('http://localhost:3003/api/topics/generate')
+  .then(res => res.json())
+  .then(data => console.log(data));
+
+// Create a room
+fetch('http://localhost:3003/rooms', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ category: 'Education' })
+  body: JSON.stringify({
+    roomName: 'Test Room',
+    topicCategory: 'Education',
+    cefrLevel: 3
+  })
 })
   .then(res => res.json())
   .then(data => console.log(data));
@@ -595,12 +1621,22 @@ fetch('http://localhost:3003/api/topics/generate', {
 
 ## Migration Notes
 
-### From v1.0 to v2.0 (Future)
+### API Version 1.0
+
+Current implementation uses FastAPI with the following architecture:
+- `/api/*` - General API endpoints (topics, config)
+- `/users/*` - User management
+- `/rooms/*` - Room management
+- `/participants/*` - Participant management
+- `/transcripts/*` - Transcript management
+- `/feedback/*` - Feedback management
+- `/agents/*` - AI agent management
+
+### Future Breaking Changes
 
 When breaking changes are introduced, version-specific endpoints will be provided:
-
-- `/api/v1/topics` - Legacy endpoint
-- `/api/v2/topics` - New endpoint with additional features
+- `/api/v1/*` - Legacy endpoints
+- `/api/v2/*` - New endpoints with additional features
 
 ---
 
