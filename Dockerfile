@@ -90,4 +90,4 @@ ENV PYTHON_ENV=production \
     PYTHONDONTWRITEBYTECODE=1
 
 # Start the FastAPI server
-CMD ["python", "main.py"]
+CMD ["uvicorn", "main:socket_app", "--port", "3003", "--reload", "--host", "0.0.0.0", "--log-level", "debug"]
