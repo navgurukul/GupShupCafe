@@ -3,10 +3,10 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { SocketProvider } from "./contexts/SocketContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AudioProvider } from "./contexts/AudioContext";
+
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import LobbyPage from "./pages/LobbyPage";
-import RoomLobbyPage from "./pages/RoomLobbyPage";
 import RoundtablePage from "./pages/RoundtablePage";
 import AudioTestPage from "./pages/AudioTestPage";
 import BroadcastTestPage from "./pages/BroadcastTestPage";
@@ -39,16 +39,6 @@ function App() {
                   }
                 />
 
-                {/* Room-specific lobby with dynamic roomId */}
-                <Route
-                  path="/lobby/:roomId"
-                  element={
-                    <ProtectedRoute>
-                      <RoomLobbyPage />
-                    </ProtectedRoute>
-                  }
-                />
-
                 <Route
                   path="/roundtable"
                   element={
@@ -58,13 +48,13 @@ function App() {
                   }
                 />
 
-                {/* Audio Test Route - For debugging audio issues */}
+                {/* Audio Test Route */}
                 <Route path="/audio-test" element={<AudioTestPage />} />
 
-                {/* Broadcast Test Route - Simple broadcast audio test */}
+                {/* Broadcast Test Route */}
                 <Route path="/broadcast-test" element={<BroadcastTestPage />} />
 
-                {/* Speech Recognition Test */}
+                {/* Speech Recognition Test Route */}
                 <Route path="/zoe" element={<SpeechRecognitionTest />} />
 
                 {/* Fallback Route */}
