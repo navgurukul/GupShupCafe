@@ -20,8 +20,7 @@ from .room_pydantic_models import (
     RoomModel,
     UpdateRoomStatusModel,
     UpdateRoomStateModel,
-    UpdateRoomEndModel,
-    Room
+    UpdateRoomEndModel
 )
 from .user_pydantic_models import (
     LoginSignUpResponseModel, 

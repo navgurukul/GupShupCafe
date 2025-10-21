@@ -48,7 +48,7 @@ class UserModel(BaseModel):
 
 
 # --- NEW: Update Models ---
-class UserTopicCategoriesModel(BaseModel):
+class UpdateUserTopicCategoriesModel(BaseModel):
     """Model for updating a user's topic categories and CEFR level."""
     user_id: str = Field(..., description="User UUID, Primary Key")
     topic_categories: Optional[List[str]] = None

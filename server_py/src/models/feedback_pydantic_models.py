@@ -4,6 +4,7 @@ from typing import Optional, List, Dict
 from enum import Enum
 from .enums import CEFRLevel
 
+from .agent_pydantic_models import AgentModelSource
 # --- New Enums Defined ---
 
 class FeedbackType(str, Enum):
@@ -14,10 +15,6 @@ class VocabularyLevel(str, Enum):
     BASIC = "basic"
     INTERMEDIATE = "intermediate"
     ADVANCED = "advanced"
-
-class AgentModel(str, Enum):
-    GEMINI = "gemini-2.5-flash"
-    BEDROCK = "bedrock-models"  
 
 class FluencyLevel(str, Enum):
     STEADY_FLOW = "steady flow"
@@ -51,9 +48,8 @@ class ExplanationQuality(str, Enum):
 
 # --- Updated Pydantic Models ---
 
-class InstantFeedbackModel(BaseModel):
+class CreateInstantFeedbackModel(BaseModel):
     """Quick feedback during speaking (2-3 seconds response time)"""
-    id: str = Field(..., description="UUID, Primary Key")
     room_id: str = Field(..., description="Foreign Key from {{Room}}")
     participant_id: str = Field(..., description="Foreign Key from {{Participant}}")
     user_id: str = Field(..., description="Foreign Key (from {{User}})")
@@ -69,22 +65,19 @@ class InstantFeedbackModel(BaseModel):
 
     # AI Agent Info
     agent_id: str = Field(..., description="AI Agent instance")
-    agent_model: AgentModel = Field(..., description='"gemini-2.5-flash" or "bedrock-models"')
-
-    created_at: datetime = Field(..., description="Feedback creation timestamp")
+    agent_model: AgentModelSource = Field(..., description='"gemini-2.5-flash" or "bedrock-models"')
 
 # --- Model for data read from DB (includes PK and creation time) ---
 
 class FeedbackModel(InstantFeedbackModel):
     """Full feedback model as represented in the database."""
-    id: str = Field(..., description="UUID, Primary Key")
-
+    feedback_id: str = Field(..., description="UUID, Primary Key")
     created_at: datetime = Field(..., description="Feedback creation timestamp")
 
     class Config:
         from_attributes = True
 
-class ComprehensiveFeedbackModel(BaseModel):
+class CreateComprehensiveFeedbackModel(BaseModel):
     """Detailed feedback at the end of discussion"""
     room_id: str = Field(..., description="Foreign Key from {{Room}}")
     participant_id: str = Field(..., description="Foreign Key from {{Participant}}")
@@ -136,13 +129,13 @@ class ComprehensiveFeedbackModel(BaseModel):
 
     # AI Agent Info
     agent_id: str  # AI Agent instance
-    agent_model: AgentModel  # "gemini-2.5-flash" or "bedrock-claude-3"
+    agent_model: AgentModelSource  # "gemini-2.5-flash" or "bedrock-claude-3"
     
 # --- Model for data read from DB (includes PK and creation time) ---
 
-class FeedbackModel(ComprehensiveFeedbackModel):
+class ComprehensiveFeedbackModel(CreateComprehensiveFeedbackModel):
 		"""Full feedback model as represented in the database."""
-		id: str = Field(..., description="UUID, Primary Key")
+		feedback_id: str = Field(..., description="UUID, Primary Key")
 		
 		created_at: datetime = Field(..., description="Feedback creation timestamp")
 

@@ -74,13 +74,3 @@ class ParticipantIsReadyModel(BaseModel):
     participant_id: str = Field(..., description="Participant UUID")
     is_ready: Optional[bool] = Field(None, description="Is the participant ready?")
 
-# --- Comprehensive Update Model for Participant ---
-class ParticipantUpdateModel(BaseModel):
-    """Model for updating participant fields."""
-    left_at: Optional[datetime] = Field(None, description="Timestamp when participant left")
-    speaking_time_seconds: Optional[int] = Field(None, description="Total speaking time in seconds")
-    ending_cefr_level: Optional[str] = Field(None, description="CEFR level at room end")
-    is_muted: Optional[bool] = Field(None, description="Is the participant muted?")
-    is_speaking: Optional[bool] = Field(None, description="Is the participant speaking?")
-    is_ready: Optional[bool] = Field(None, description="Is the participant ready?")
-

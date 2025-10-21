@@ -76,14 +76,3 @@ class UpdateTranscriptAudioURLModel(BaseModel):
 class TranscriptIsProcessedModel(BaseModel):
 		transcript_id: str = Field(..., description="Transcript ID")
 		is_processed: bool = Field(..., description="Has the transcript been processed?")
-
-
-
-class TranscriptOut(BaseModel):
-    transcript_id: str
-    room_id: str
-    participant_id: str
-    user_id: Optional[str] = None
-    text: str
-    created_at: datetime
-    audio_file_url: Optional[str] = None

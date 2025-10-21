@@ -56,6 +56,7 @@ class AgentModel(BaseModel):
 class AgentUpdateModel(BaseModel):
     """Model for updating an agent's properties."""
     status: Optional[AgentStatus] = Field(None, description="Update the agent's status")
+    agent_type: Optional[AgentType] = Field(None, description="Update the agent's type")
 
 # --- Agent Interaction Models ---
 
