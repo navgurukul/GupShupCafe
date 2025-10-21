@@ -1055,7 +1055,7 @@ class TestTranscriptRoutes:
     
     def test_create_transcript(self, mock_db_connection):
         """Test create transcript endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         from src.models.transcript_pydantic_models import CreateTranscriptModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1063,7 +1063,7 @@ class TestTranscriptRoutes:
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             transcript_data = CreateTranscriptModel(
                 room_id="test-room-id",
                 participant_id="test-participant-id",
@@ -1090,7 +1090,7 @@ class TestTranscriptRoutes:
     
     def test_get_transcript(self, mock_db_connection):
         """Test get transcript by ID endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         from src.models.transcript_pydantic_models import CreateTranscriptModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1098,7 +1098,7 @@ class TestTranscriptRoutes:
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             
             # First create a transcript
             transcript_data = CreateTranscriptModel(
@@ -1126,14 +1126,14 @@ class TestTranscriptRoutes:
     
     def test_list_transcripts_for_room(self, mock_db_connection):
         """Test list transcripts for a room endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         
         mock_conn, mock_cursor = mock_db_connection
         
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             
             # Mock fetchall to return empty list
             mock_cursor.fetchall_result = []
@@ -1144,7 +1144,7 @@ class TestTranscriptRoutes:
     
     def test_delete_transcript(self, mock_db_connection):
         """Test delete transcript endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         from src.models.transcript_pydantic_models import CreateTranscriptModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1152,7 +1152,7 @@ class TestTranscriptRoutes:
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             
             # First create a transcript
             transcript_data = CreateTranscriptModel(
@@ -1178,7 +1178,7 @@ class TestTranscriptRoutes:
     
     def test_update_transcript_processing(self, mock_db_connection):
         """Test update transcript processing status endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         from src.models.transcript_pydantic_models import CreateTranscriptModel, UpdateTranscriptProcessingModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1186,7 +1186,7 @@ class TestTranscriptRoutes:
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             
             # First create a transcript
             transcript_data = CreateTranscriptModel(
@@ -1218,7 +1218,7 @@ class TestTranscriptRoutes:
     
     def test_update_transcript_audio_url(self, mock_db_connection):
         """Test update transcript audio URL endpoint"""
-        from src.services.transcript_service import TranscriptService
+        from src.services.transcript_service import Transcript_service
         from src.models.transcript_pydantic_models import CreateTranscriptModel, UpdateTranscriptAudioURLModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1226,7 +1226,7 @@ class TestTranscriptRoutes:
         with patch('src.services.transcript_service.conn', mock_conn), \
              patch('src.services.transcript_service.cursor', mock_cursor):
             
-            service = TranscriptService()
+            service = Transcript_service()
             
             # First create a transcript
             transcript_data = CreateTranscriptModel(
@@ -1261,7 +1261,7 @@ class TestFeedbackRoutes:
     
     def test_create_instant_feedback(self, mock_db_connection):
         """Test create instant feedback endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         from src.models.feedback_pydantic_models import InstantFeedbackModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1269,7 +1269,7 @@ class TestFeedbackRoutes:
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             feedback_data = InstantFeedbackModel(
                 id=str(uuid.uuid4()),
                 room_id="test-room-id",
@@ -1288,7 +1288,7 @@ class TestFeedbackRoutes:
     
     def test_create_comprehensive_feedback(self, mock_db_connection):
         """Test create comprehensive feedback endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         from src.models.feedback_pydantic_models import ComprehensiveFeedbackModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1296,7 +1296,7 @@ class TestFeedbackRoutes:
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             feedback_data = ComprehensiveFeedbackModel(
                 room_id="test-room-id",
                 participant_id="test-participant-id",
@@ -1336,14 +1336,14 @@ class TestFeedbackRoutes:
     
     def test_list_feedback_for_participant(self, mock_db_connection):
         """Test list feedback for a participant endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         
         mock_conn, mock_cursor = mock_db_connection
         
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             
             # Mock fetchall to return empty list
             mock_cursor.fetchall_result = []
@@ -1354,14 +1354,14 @@ class TestFeedbackRoutes:
     
     def test_list_feedback_for_room(self, mock_db_connection):
         """Test list feedback for a room endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         
         mock_conn, mock_cursor = mock_db_connection
         
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             
             # Mock fetchall to return empty list
             mock_cursor.fetchall_result = []
@@ -1372,7 +1372,7 @@ class TestFeedbackRoutes:
     
     def test_get_feedback(self, mock_db_connection):
         """Test get feedback by ID endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         from src.models.feedback_pydantic_models import InstantFeedbackModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1380,7 +1380,7 @@ class TestFeedbackRoutes:
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             
             # First create feedback
             feedback_id = str(uuid.uuid4())
@@ -1405,7 +1405,7 @@ class TestFeedbackRoutes:
     
     def test_delete_feedback(self, mock_db_connection):
         """Test delete feedback endpoint"""
-        from src.services.feedback_service import FeedbackService
+        from src.services.feedback_service import Feedback_service
         from src.models.feedback_pydantic_models import InstantFeedbackModel
         
         mock_conn, mock_cursor = mock_db_connection
@@ -1413,7 +1413,7 @@ class TestFeedbackRoutes:
         with patch('src.services.feedback_service.conn', mock_conn), \
              patch('src.services.feedback_service.cursor', mock_cursor):
             
-            service = FeedbackService()
+            service = Feedback_service()
             
             # First create feedback
             feedback_id = str(uuid.uuid4())

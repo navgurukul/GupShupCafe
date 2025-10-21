@@ -281,7 +281,6 @@ class Database:
                     agent_model TEXT NOT NULL, -- Gemini or Bedrock
                     agent_type TEXT DEFAULT 'english',
                     status TEXT DEFAULT 'active',
-                    system_prompt TEXT,
                     total_interactions INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
                 )
@@ -538,17 +537,16 @@ class Database:
         query = """
             INSERT INTO agents (
                 agent_id, room_id, agent_model, agent_type, status, 
-                system_prompt, total_interactions
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+             total_interactions
+            ) VALUES (?, ?, ?, ?, ?, ?)
         """
 
         await self.db.execute(query, (
             agent_data.get("agent_id"),
             agent_data.get("room_id"),
             agent_data.get("agent_model"),
-            agent_data.get("agent_type", "english"),
-            agent_data.get("status", "active"),
-            agent_data.get("system_prompt"),
+            agent_data.get("agent_type"),
+            agent_data.get("status"),
             agent_data.get("total_interactions", 0)
         ))
 
@@ -788,7 +786,6 @@ class Database:
                     agent_model TEXT NOT NULL,
                     agent_type TEXT DEFAULT 'english',
                     status TEXT DEFAULT 'active',
-                    system_prompt TEXT,
                     total_interactions INTEGER DEFAULT 0,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
                 )
@@ -798,7 +795,7 @@ class Database:
             await db.execute("""
                 INSERT INTO agents_new 
                 SELECT agent_id, room_id, agent_model, agent_type, status, 
-                       system_prompt, total_interactions, created_at
+                            total_interactions, created_at
                 FROM agents
             """)
             

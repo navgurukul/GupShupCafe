@@ -11,7 +11,7 @@ from src.models.transcript_pydantic_models import (
 )
 from src.database.db_connection import conn, cursor
 
-class TranscriptService:
+class Transcript_service:
     def __init__(self):
         self.conn = conn
         self.cursor = cursor
@@ -126,3 +126,6 @@ class TranscriptService:
             print(f"[Backend] Error updating transcript audio URL: {e}")
             self.conn.rollback()
             return {"success": False, "error": "Failed to update transcript audio URL"}
+
+# Singleton instance
+transcript_service = Transcript_service()

@@ -33,7 +33,6 @@ class CreateAgentModel(BaseModel):
     agent_model: AgentModelSource = Field(..., description="LLM service (Gemini or Bedrock)")
     agent_type: AgentType = Field(default=AgentType.ENGLISH, description="Agent specialization type")
     status: AgentStatus = Field(default=AgentStatus.ACTIVE, description="Initial agent status")
-    system_prompt: Optional[str] = Field(None, description="Custom system prompt for the agent")
 
 class CreateAgentResponseModel(BaseModel):
     """Response model for agent creation."""
@@ -48,7 +47,6 @@ class AgentModel(BaseModel):
     agent_model: str = Field(..., description="LLM service (Gemini or Bedrock)")
     agent_type: str = Field(..., description="Agent specialization type")
     status: str = Field(..., description="Current agent status")
-    system_prompt: Optional[str] = Field(None, description="Custom system prompt")
     total_interactions: int = Field(default=0, description="Counter for LLM invocations")
     created_at: datetime = Field(..., description="Timestamp of agent creation")
     
@@ -58,7 +56,6 @@ class AgentModel(BaseModel):
 class AgentUpdateModel(BaseModel):
     """Model for updating an agent's properties."""
     status: Optional[AgentStatus] = Field(None, description="Update the agent's status")
-    system_prompt: Optional[str] = Field(None, description="Update the system prompt")
 
 # --- Agent Interaction Models ---
 

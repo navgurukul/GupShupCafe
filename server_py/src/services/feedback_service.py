@@ -10,7 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.models.feedback_pydantic_models import InstantFeedbackModel, ComprehensiveFeedbackModel
 from src.database.db_connection import conn, cursor
 
-class FeedbackService:
+class Feedback_service:
     def __init__(self):
         self.conn = conn
         self.cursor = cursor
@@ -157,3 +157,6 @@ class FeedbackService:
             print(f"[Backend] Error deleting feedback: {e}")
             self.conn.rollback()
             return {"success": False, "error": f"Failed to delete feedback: {e}"}
+
+# Singleton instance
+feedback_service = Feedback_service()

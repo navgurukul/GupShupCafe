@@ -8,6 +8,15 @@ from datetime import datetime
 import uuid
 import asyncio
 import json
+from strands import Agent, tool
+from strands.models import Model
+
+from ..agents.debate_facilitator_agent import DebateFacilitatorAgent
+from ..agents.english_feedback_agent import EnglishFeedbackAgent
+
+from ..models.transcript_pydantic_models import TranscriptModel, TranscriptProcessingModel
+from .transcript_service import transcript_service
+from .feedback_service import feedback_service
 
 from ..database.database import db
 from ..models import (
@@ -32,19 +41,22 @@ class AgentService:
     async def create_agent(agent_data: CreateAgentModel) -> str:
         """Create a new agent instance."""
         agent_id = str(uuid.uuid4())
-        
+
         db_data = {
             "agent_id": agent_id,
             "room_id": agent_data.room_id,
             "agent_model": agent_data.agent_model.value,
             "agent_type": agent_data.agent_type.value,
-            "status": agent_data.status.value,
-            "system_prompt": agent_data.system_prompt,
+            "status": agent_data.status.value if agent_data.status else AgentStatus.ACTIVE.value,
             "total_interactions": 0
         }
-        
-        await db.create_agent(db_data)
-        return agent_id
+
+        try:
+            await db.create_agent(db_data)
+            return agent_id
+        except Exception as e:
+            print(f"Error creating agent: {e}")
+            return None
 
     @staticmethod
     async def create_room_agents(room_id: str, room_topic: Dict[str, Any] = None) -> Dict[str, str]:
@@ -52,40 +64,12 @@ class AgentService:
         Create both facilitator and English feedback agents for a room.
         Returns dict with agent_ids: {'facilitator': agent_id, 'english': agent_id}
         """
-        # Default system prompts
-        facilitator_prompt = f"""You are an AI facilitator for an English conversation roundtable discussion. 
-Your role is to:
-1. Guide the conversation flow and keep participants engaged
-2. Acknowledge different viewpoints and find common ground
-3. Provide constructive feedback based on English tutor insights
-4. Encourage deeper thinking and reflection
-5. Maintain a supportive and inclusive environment
-
-Topic: {room_topic.get('title', 'General Discussion') if room_topic else 'General Discussion'}
-Category: {room_topic.get('category', 'General') if room_topic else 'General'}
-
-Speak naturally and conversationally. Keep your responses concise but meaningful."""
-
-        english_prompt = """You are an English language tutor AI providing instant feedback to conversation participants.
-Your role is to:
-1. Analyze speech transcripts for grammar, vocabulary, and fluency
-2. Provide constructive, encouraging feedback
-3. Highlight strengths and suggest specific improvements
-4. Focus on practical language learning tips
-5. Be supportive and motivating
-
-Provide feedback that is:
-- Specific and actionable
-- Encouraging and positive
-- Focused on 1-2 key improvement areas per turn
-- Appropriate for the participant's CEFR level"""
-
+       
         # Create facilitator agent
         facilitator_data = CreateAgentModel(
             room_id=room_id,
             agent_model=AgentModelSource.GEMINI,
             agent_type=AgentType.FACILITATOR,
-            system_prompt=facilitator_prompt
         )
         facilitator_id = await AgentService.create_agent(facilitator_data)
 
@@ -94,7 +78,6 @@ Provide feedback that is:
             room_id=room_id,
             agent_model=AgentModelSource.GEMINI,
             agent_type=AgentType.ENGLISH,
-            system_prompt=english_prompt
         )
         english_id = await AgentService.create_agent(english_data)
 
@@ -106,17 +89,25 @@ Provide feedback that is:
     @staticmethod
     async def get_agent(agent_id: str) -> Optional[AgentModel]:
         """Get agent by ID."""
-        agent_data = await db.get_agent(agent_id)
-        if not agent_data:
+        try:
+            agent_data = await db.get_agent(agent_id)
+            if not agent_data:
+                return None
+
+            return AgentModel(**agent_data)
+        except Exception as e:
+            print(f"Error fetching agent {agent_id}: {e}")
             return None
-        
-        return AgentModel(**agent_data)
 
     @staticmethod
     async def get_agents_by_room(room_id: str) -> List[AgentModel]:
         """Get all agents for a specific room."""
-        agents_data = await db.get_agents_by_room(room_id)
-        return [AgentModel(**agent) for agent in agents_data]
+        try:
+            agents_data = await db.get_agents_by_room(room_id)
+            return [AgentModel(**agent) for agent in agents_data]
+        except Exception as e:
+            print(f"Error fetching agents for room {room_id}: {e}")
+            return []
 
     @staticmethod
     async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> bool:
@@ -125,29 +116,39 @@ Provide feedback that is:
         
         if update_data.status:
             update_dict["status"] = update_data.status.value
-        if update_data.system_prompt is not None:
-            update_dict["system_prompt"] = update_data.system_prompt
             
         if not update_dict:
             return False
             
         # Use existing database method to update status
-        if "status" in update_dict:
-            await db.update_agent_status(agent_id, update_dict["status"])
+        try:
+            if "status" in update_dict:
+                await db.update_agent_status(agent_id, update_dict["status"])
+        except Exception as e:
+            print(f"Error updating agent {agent_id}: {e}")
+            return False
         
         return True
 
     @staticmethod
     async def increment_interactions(agent_id: str, count: int = 1) -> bool:
         """Increment agent interaction counter."""
-        result = await db.update_agent_interactions(agent_id, count)
-        return result > 0
+        try:
+            result = await db.update_agent_interactions(agent_id, count)
+            return result > 0
+        except Exception as e:
+            print(f"Error incrementing interactions for agent {agent_id}: {e}")
+            return False
 
     @staticmethod
     async def delete_agent(agent_id: str) -> bool:
         """Delete an agent."""
-        result = await db.delete_agent(agent_id)
-        return result > 0
+        try:
+            result = await db.delete_agent(agent_id)
+            return result > 0
+        except Exception as e:
+            print(f"Error deleting agent {agent_id}: {e}")
+            return False
 
     @staticmethod
     async def process_transcript_for_feedback(
@@ -165,8 +166,11 @@ Provide feedback that is:
             raise ValueError(f"Agent {agent_id} not found")
         
         # Update agent status to processing
-        await db.update_agent_status(agent_id, AgentStatus.PROCESSING.value)
-        
+        try:
+            await db.update_agent_status(agent_id, AgentStatus.PROCESSING.value)
+        except Exception as e:
+            print(f"Error updating agent {agent_id} status to processing: {e}")
+
         try:
             processing_start = datetime.utcnow()
             
@@ -199,9 +203,12 @@ Provide feedback that is:
                 "agent_id": agent_id,
                 "agent_model": agent.agent_model
             }
-            
-            await db.save_feedback(feedback_data)
-            
+
+            try:
+                await db.save_feedback(feedback_data)
+            except Exception as e:
+                print(f"Error saving feedback for agent {agent_id}: {e}")
+
             processing_end = datetime.utcnow()
             processing_time = (processing_end - processing_start).total_seconds()
             
@@ -209,8 +216,11 @@ Provide feedback that is:
             await AgentService.increment_interactions(agent_id)
             
             # Update agent status back to active
-            await db.update_agent_status(agent_id, AgentStatus.ACTIVE.value)
-            
+            try:
+                await db.update_agent_status(agent_id, AgentStatus.ACTIVE.value)
+            except Exception as e:
+                print(f"Error updating agent {agent_id} status to active: {e}")
+
             return AgentResponseModel(
                 agent_id=agent_id,
                 response_text=feedback_text,
@@ -221,7 +231,10 @@ Provide feedback that is:
             
         except Exception as e:
             # Update agent status to error
-            await db.update_agent_status(agent_id, AgentStatus.ERROR.value)
+            try:
+                await db.update_agent_status(agent_id, AgentStatus.ERROR.value)
+            except Exception as e:
+                print(f"Error updating agent {agent_id} status to error: {e}")
             raise e
 
     @staticmethod

@@ -295,3 +295,6 @@ class Participant_service:
             print(f"[Backend] Error updating participant ready: {e}")
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": f"Failed to update participant ready status: {e}"}
+
+# Singleton instance
+participant_service = Participant_service()

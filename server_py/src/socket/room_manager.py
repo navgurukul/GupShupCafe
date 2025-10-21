@@ -25,23 +25,9 @@ class RoomManager:
         Returns: Room object
         """
         if room_id not in self.rooms:
-            self.rooms[room_id] = Room(
-                room_id=room_id,
-                room_name="General",
-                topic={"title": "General Discussion", "category": "general"},
-                max_participants=6,
-                speaking_time=60,
-                num_rounds=3,
-                cefr_level="A1",
-                status=RoomStatus.WAITING,
-                current_round=0,
-                current_speaker_index=0,
-                participants=[],
-                started_at=None,
-                ended_at=None,
-                time_remaining=60,
-                created_by="system"
-            )
+            # return an error
+            raise ValueError(f"Room {room_id} does not exist.")
+            
         return self.rooms[room_id]
 
     def add_user_to_room(self, room_id: str, user_data: Dict[str, Any]):
@@ -232,7 +218,7 @@ class RoomManager:
         """
         return [
             {
-                "id": room.room_code,
+                "roomId": room.room_id,
                 "participantCount": len(room.participants),
                 "discussionActive": room.status == RoomStatus.IN_PROGRESS,
                 "round": room.current_round,
