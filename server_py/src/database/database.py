@@ -5,6 +5,7 @@ Simple SQLite database for storing room data and analytics
 
 import aiosqlite
 import os
+import sys
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -96,6 +97,8 @@ class Database:
                     self.migration_002_remove_foreign_keys,
                     self.migration_003_fix_participants_schema,
                     self.migration_004_add_missing_indexes,
+                    self.migration_005_add_facilitator_agent_columns,
+                    self.migration_006_add_participant_created_at,
                 ]
 
         # Enforce foreign key constraints for this connection
@@ -397,8 +400,8 @@ class Database:
         query = """
             INSERT INTO participants (
                 participant_id, user_id, room_id, anonymous_name, campusOrLocation,
-                joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                joined_at, left_at, speaking_time_seconds, starting_cefr_level
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         # Combine campus and location into campusOrLocation
@@ -424,7 +427,8 @@ class Database:
                 "joinedAt") or participant_data.get("joined_at"),
             participant_data.get("leftAt") or participant_data.get("left_at"),
             participant_data.get("speakingTimeSeconds") or participant_data.get(
-                "speaking_time_seconds", 0)
+                "speaking_time_seconds", 0),
+            participant_data.get("starting_cefr_level", "A1")
         ))
 
         await self.db.commit()
@@ -959,6 +963,41 @@ class Database:
                 print(f"  Added index: {index_name}")
             except Exception as e:
                 print(f"  Index {index_name} might already exist: {str(e)}")
+    
+    async def migration_005_add_facilitator_agent_columns(self, db):
+        """Add facilitator_agent_id and english_agent_id columns to rooms table if they don't exist"""
+        # Check if columns exist
+        cursor = await db.execute("PRAGMA table_info(rooms)")
+        columns = await cursor.fetchall()
+        column_names = [col[1] for col in columns]
+        
+        if 'facilitator_agent_id' not in column_names:
+            print("  Adding facilitator_agent_id column to rooms table")
+            await db.execute("ALTER TABLE rooms ADD COLUMN facilitator_agent_id TEXT")
+        else:
+            print("  facilitator_agent_id column already exists")
+            
+        if 'english_agent_id' not in column_names:
+            print("  Adding english_agent_id column to rooms table")
+            await db.execute("ALTER TABLE rooms ADD COLUMN english_agent_id TEXT")
+        else:
+            print("  english_agent_id column already exists")
+    
+    async def migration_006_add_participant_created_at(self, db):
+        """Add created_at column to participants table if it doesn't exist"""
+        # Check if column exists
+        cursor = await db.execute("PRAGMA table_info(participants)")
+        columns = await cursor.fetchall()
+        column_names = [col[1] for col in columns]
+        
+        if 'created_at' not in column_names:
+            print("  Adding created_at column to participants table")
+            # SQLite doesn't support CURRENT_TIMESTAMP in ALTER TABLE, so add without default first
+            await db.execute("ALTER TABLE participants ADD COLUMN created_at DATETIME")
+            # Then update existing rows with current timestamp
+            await db.execute("UPDATE participants SET created_at = datetime('now') WHERE created_at IS NULL")
+        else:
+            print("  created_at column already exists in participants table")
     
     async def verify_migration(self):
         """Verify that migration was successful"""

@@ -11,7 +11,11 @@ from .participant_pydantic_models import (
     ListParticipantsResponseModel,
     UpdateParticipantModel,
     UpdateParticipantResponseModel,
-    DeleteParticipantResponseModel
+    DeleteParticipantResponseModel,
+    ParticipantLeftModel,
+    ParticipantIsMutedModel,
+    ParticipantIsSpeakingModel,
+    ParticipantIsReadyModel
 )
 from .room_pydantic_models import (
     CreateRoomModel,
@@ -58,6 +62,7 @@ from .feedback_pydantic_models import (
 )
 from .transcript_pydantic_models import (
     CreateTranscriptModel,
+    CreateTranscriptModelResponse,
     GetTranscriptModel,
     TranscriptModel,
     ListTranscriptsResponseModel,
@@ -80,7 +85,13 @@ from .agent_pydantic_models import (
     ListAgentsResponseModel,
     UpdateAgentModel,
     UpdateAgentResponseModel,
-    DeleteAgentResponseModel
+    DeleteAgentResponseModel,
+    AgentUpdateModel,
+    AgentTranscriptProcessingModel,
+    AgentFeedbackGenerationModel,
+    AgentInteractionStatsModel,
+    AgentHealthModel,
+    AgentResponseTextModel
 )
 from .enums import CEFRLevel, ParticipantRole
 
@@ -98,6 +109,10 @@ __all__ = [
     "UpdateParticipantModel",
     "UpdateParticipantResponseModel",
     "DeleteParticipantResponseModel",
+    "ParticipantLeftModel",
+    "ParticipantIsMutedModel",
+    "ParticipantIsSpeakingModel",
+    "ParticipantIsReadyModel",
     # Room Models
     "CreateRoomModel",
     "CreateRoomResponseModel",
@@ -140,12 +155,15 @@ __all__ = [
     "DeleteFeedbackResponseModel",
     # Transcript Models
     "CreateTranscriptModel",
+    "CreateTranscriptModelResponse",
     "GetTranscriptModel",
     "TranscriptModel",
     "ListTranscriptsResponseModel",
     "UpdateTranscriptModel",
     "UpdateTranscriptResponseModel",
     "DeleteTranscriptResponseModel",
+    "UpdateTranscriptProcessingModel",
+    "UpdateTranscriptAudioURLModel",
     # Agent Models
     "CreateAgentModel",
     "CreateAgentResponseModel",
@@ -160,6 +178,12 @@ __all__ = [
     "UpdateAgentModel",
     "UpdateAgentResponseModel",
     "DeleteAgentResponseModel",
+    "AgentUpdateModel",
+    "AgentTranscriptProcessingModel",
+    "AgentFeedbackGenerationModel",
+    "AgentInteractionStatsModel",
+    "AgentHealthModel",
+    "AgentResponseTextModel",
     # Enums
     "CEFRLevel",
     "ParticipantRole",

@@ -33,6 +33,7 @@ class CreateRoomModel(BaseDictModel):
     status: RoomStatus = Field(default=RoomStatus.WAITING, description="Room status")
     current_round: int = Field(default=0, description="Current round number")
     current_speaker_index: int = Field(default=0, description="Current speaker index")
+    rounds_completed: int = Field(default=0, description="Number of rounds completed")
     
     # Participants
     participant_count: int = Field(default=0, description="Number of participants")
@@ -89,7 +90,7 @@ class RoomModel(CreateRoomModel):
 class CreateRoomResponseModel(BaseDictModel):
     """Response model for room creation"""
     status: str = Field(..., description="Room creation status message")
-    data: RoomModel = Field(..., description="Created room data")
+    data: Optional[RoomModel] = Field(None, description="Created room data")
     message: Optional[str] = Field(None, description="Additional message")
 
 
@@ -115,6 +116,7 @@ class UpdateRoomModel(BaseDictModel):
     status: Optional[RoomStatus] = Field(None, description="Updated room status")
     current_round: Optional[int] = Field(None, description="Updated current round")
     current_speaker_index: Optional[int] = Field(None, description="Updated current speaker index")
+    rounds_completed: Optional[int] = Field(None, description="Updated rounds completed")
     participant_count: Optional[int] = Field(None, description="Updated participant count")
     started_at: Optional[datetime] = Field(None, description="Updated start time")
     ended_at: Optional[datetime] = Field(None, description="Updated end time")

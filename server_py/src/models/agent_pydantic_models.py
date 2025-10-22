@@ -134,3 +134,49 @@ class DeleteAgentResponseModel(BaseDictModel):
     status: str = Field(..., description="Delete operation status")
     data: str = Field(..., description="Deleted agent ID")
     message: Optional[str] = Field(None, description="Additional message")
+
+# --- Additional Agent Models ---
+
+class AgentUpdateModel(BaseDictModel):
+    """Model for updating agent properties."""
+    status: Optional[AgentStatus] = Field(None, description="Updated agent status")
+    agent_type: Optional[AgentType] = Field(None, description="Updated agent type")
+    total_interactions: Optional[int] = Field(None, description="Updated total interactions count")
+
+class AgentTranscriptProcessingModel(BaseDictModel):
+    """Model for transcript processing requests."""
+    transcript_text: str = Field(..., description="Transcript text to process")
+    processing_type: str = Field(default="feedback", description="Type of processing (feedback, analysis, etc.)")
+    context: Optional[str] = Field(None, description="Additional context for processing")
+
+class AgentFeedbackGenerationModel(BaseDictModel):
+    """Model for feedback generation requests."""
+    transcript_text: str = Field(..., description="Transcript text for feedback generation")
+    participant_id: str = Field(..., description="Participant ID for personalized feedback")
+    feedback_type: str = Field(default="comprehensive", description="Type of feedback to generate")
+
+class AgentInteractionStatsModel(BaseDictModel):
+    """Model for agent interaction statistics."""
+    agent_id: str = Field(..., description="Agent ID")
+    total_interactions: int = Field(..., description="Total number of interactions")
+    successful_interactions: int = Field(..., description="Number of successful interactions")
+    failed_interactions: int = Field(..., description="Number of failed interactions")
+    average_response_time: float = Field(..., description="Average response time in seconds")
+    last_interaction: Optional[datetime] = Field(None, description="Last interaction timestamp")
+
+class AgentHealthModel(BaseDictModel):
+    """Model for agent health status."""
+    agent_id: str = Field(..., description="Agent ID")
+    status: AgentStatus = Field(..., description="Current agent status")
+    is_healthy: bool = Field(..., description="Health status")
+    last_health_check: datetime = Field(..., description="Last health check timestamp")
+    error_message: Optional[str] = Field(None, description="Error message if unhealthy")
+    uptime_seconds: int = Field(..., description="Agent uptime in seconds")
+
+class AgentResponseTextModel(BaseDictModel):
+    """Model for agent response text."""
+    agent_id: str = Field(..., description="Agent ID")
+    response_text: str = Field(..., description="Generated response text")
+    response_type: str = Field(..., description="Type of response (feedback, analysis, etc.)")
+    processing_time: float = Field(..., description="Processing time in seconds")
+    timestamp: datetime = Field(..., description="Response timestamp")

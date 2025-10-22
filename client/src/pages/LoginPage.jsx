@@ -1,144 +1,154 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
 
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { Mail, Lock, MessageSquare, Eye, EyeOff, Users, Brain } from 'lucide-react'
-import { createUserData } from '../utils/helpers'
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  Mail,
+  Lock,
+  MessageSquare,
+  Eye,
+  EyeOff,
+  Users,
+  Brain,
+} from "lucide-react";
+import { createUserData } from "../utils/helpers";
 /**
  * Login Page Component
  * Handles user authentication with email and password
  */
 function LoginPage() {
-  const navigate = useNavigate()
-  const { login, isAuthenticated } = useAuth()
+  const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
+    email: "",
+    password: "",
+  });
 
-  const [showPassword, setShowPassword] = useState(false)
-  const [errors, setErrors] = useState({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Redirect if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/lobby')
+      navigate("/lobby");
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate]);
 
   /**
    * Handle form input changes
    */
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
+    const { name, value } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
-    }))
+      [name]: value,
+    }));
 
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
-      }))
+        [name]: "",
+      }));
     }
-  }
+  };
 
   /**
    * Validate form data
    */
   const validateForm = () => {
-    const newErrors = {}
+    const newErrors = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required'
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = "Please enter a valid email address";
     }
 
     if (!formData.password.trim()) {
-      newErrors.password = 'Password is required'
+      newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+      newErrors.password = "Password must be at least 6 characters";
     }
 
-    return newErrors
-  }
+    return newErrors;
+  };
 
   /**
    * Handle form submission
    */
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
-    const newErrors = validateForm()
+    const newErrors = validateForm();
 
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      setIsSubmitting(false)
-      return
+      setErrors(newErrors);
+      setIsSubmitting(false);
+      return;
     }
 
     try {
       // Call backend API for user login
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
       const response = await fetch(`${apiUrl}/users/login`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
         }),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
-      if (result.status === 'success') {
-        // Fetch user details to get name and interests
-        const userResponse = await fetch(`${apiUrl}/users/${result.data}`)  // result.data contains user ID
+      if (result.status === "success") {
+        // result.data now contains the full UserModel object
+        const userData = result.data;
 
-        if (userResponse.ok) {
-          const userResult = await userResponse.json()
-          if (userResult.status === 'success' && userResult.data) {
+        if (userData && userData.user_id) {
+          // Create user data with the full user object from backend
+          const { userData: processedUserData, error } = createUserData(
+            userData,
+            formData.email
+          );
 
-            // Create user data with the ID returned from backend
-            const { userData, error } = createUserData(userResult.data, formData.email)
-
-            if (error) {
-              setErrors({ submit: error })
-              return
-            }
-
-            // Login with the user data
-            login(userData)
-
-            // Save userData to localStorage
-            localStorage.setItem('userData', JSON.stringify(userData))
-
-            // Navigate to lobby
-            navigate('/lobby')
-          } else {
-            setErrors({ submit: 'Failed to retrieve user details after login.' })
+          if (error) {
+            setErrors({ submit: error });
+            return;
           }
+
+          // Login with the user data
+          login(processedUserData);
+
+          // Save userData to localStorage
+          localStorage.setItem("userData", JSON.stringify(processedUserData));
+
+          // Navigate to lobby
+          navigate("/lobby");
+        } else {
+          setErrors({ submit: "Invalid user data received from server." });
         }
-
-
       } else {
-        setErrors({ submit: result.message || 'Login failed. Please check your credentials.' })
+        setErrors({
+          submit:
+            result.message || "Login failed. Please check your credentials.",
+        });
       }
     } catch (error) {
-      console.error('Login error:', error)
-      setErrors({ submit: 'Login failed. Please check your connection and try again.' })
+      console.error("Login error:", error);
+      setErrors({
+        submit: "Login failed. Please check your connection and try again.",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -151,16 +161,20 @@ function LoginPage() {
             </div>
           </div>
           <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
-          <p className="mt-2 text-gray-600">
-            Sign in to join discussions
-          </p>
+          <p className="mt-2 text-gray-600">Sign in to join discussions</p>
         </div>
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-lg">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 bg-white p-8 rounded-lg shadow-lg"
+        >
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
               Email Address
             </label>
             <div className="mt-1 relative">
@@ -177,19 +191,24 @@ function LoginPage() {
               />
               <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
             </div>
-            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+            )}
           </div>
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
               Password
             </label>
             <div className="mt-1 relative">
               <input
                 id="password"
                 name="password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 required
                 value={formData.password}
                 onChange={handleChange}
@@ -203,10 +222,16 @@ function LoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
               >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
               </button>
             </div>
-            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+            )}
           </div>
 
           {/* Submit Error */}
@@ -225,13 +250,13 @@ function LoginPage() {
                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
+            {isSubmitting ? "Signing in..." : "Sign In"}
           </button>
 
           {/* Sign Up Link */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don't have an account?{" "}
               <Link
                 to="/signup"
                 className="font-medium text-blue-600 hover:text-blue-500"
@@ -243,7 +268,7 @@ function LoginPage() {
         </form>
       </div>
     </div>
-  )
+  );
 }
 
-export default LoginPage
+export default LoginPage;

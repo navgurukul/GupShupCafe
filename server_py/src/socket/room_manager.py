@@ -9,16 +9,17 @@ from datetime import datetime, timedelta
 from ..models import RoomStatus, CreateRoomModel, RoomModel
 from ..models.participant_pydantic_models import CreateParticipantModel, ParticipantModel
 from ..models.enums import CEFRLevel, ParticipantRole
+from ..models.room_in_memory import Room, Participant
 
 
 class RoomManager:
     """Manages discussion rooms and participants"""
 
     def __init__(self):
-        self.rooms: Dict[str, RoomModel] = {}
+        self.rooms: Dict[str, Room] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> RoomModel:
+    def get_room(self, room_id: str) -> Room:
         """
         Get or create a room
         Args:
@@ -26,22 +27,28 @@ class RoomManager:
         Returns: RoomModel object
         """
         if room_id not in self.rooms:
-            self.rooms[room_id] = RoomModel(
+            from datetime import datetime
+            self.rooms[room_id] = Room(
                 room_id=room_id,
-                room_name="General",
-                topic={"title": "General Discussion", "category": "general"},
+                room_name="General Discussion",
+                topic_title="General Discussion",
+                topic_category="general",
                 max_participants=6,
-                speaking_time=60,
+                speaking_time_per_turn=60,
                 num_rounds=3,
-                cefr_level="A1",
+                cefr_level=CEFRLevel.A1,
                 status=RoomStatus.WAITING,
                 current_round=0,
                 current_speaker_index=0,
-                participants=[],
+                rounds_completed=0,
+                participant_count=0,
                 started_at=None,
                 ended_at=None,
-                time_remaining=60,
-                created_by="system"
+                duration_seconds=0,
+                facilitator_agent_id=None,
+                english_agent_id=None,
+                created_by="system",
+                created_at=datetime.utcnow()
             )
         return self.rooms[room_id]
     
@@ -101,22 +108,28 @@ class RoomManager:
             participants_data = await db.get_participants_by_room(room_id)
             
             # Reconstruct room object
+            from datetime import datetime
             room = RoomModel(
                 room_id=room_id,
-                room_name=room_data.get('room_name', 'General'),
-                topic=room_data.get('topic', {}),
+                room_name=room_data.get('room_name', 'General Discussion'),
+                topic_title=room_data.get('topic_title', 'General Discussion'),
+                topic_category=room_data.get('topic_category', 'general'),
                 max_participants=room_data.get('max_participants', 6),
-                speaking_time=room_data.get('speaking_time', 60),
+                speaking_time_per_turn=room_data.get('speaking_time_per_turn', 60),
                 num_rounds=room_data.get('num_rounds', 3),
-                cefr_level=room_data.get('cefr_level', 'A1'),
+                cefr_level=CEFRLevel(room_data.get('cefr_level', 'A1')),
                 status=RoomStatus(room_data.get('status', 'waiting')),
                 current_round=room_data.get('current_round', 0),
                 current_speaker_index=room_data.get('current_speaker_index', 0),
-                participants=[],
+                rounds_completed=room_data.get('rounds_completed', 0),
+                participant_count=room_data.get('participant_count', 0),
                 started_at=room_data.get('started_at'),
                 ended_at=room_data.get('ended_at'),
-                time_remaining=room_data.get('time_remaining', 60),
-                created_by=room_data.get('created_by', 'system')
+                duration_seconds=room_data.get('duration_seconds', 0),
+                facilitator_agent_id=room_data.get('facilitator_agent_id'),
+                english_agent_id=room_data.get('english_agent_id'),
+                created_by=room_data.get('created_by', 'system'),
+                created_at=room_data.get('created_at', datetime.utcnow())
             )
             
             # Reconstruct participants
@@ -220,14 +233,38 @@ class RoomManager:
             updates: Data to update
         """
         room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
-
+        if not room:
+            print(f"Room {room_id} not found")
+            return
+            
+        # Find the actual Participant object in the room
+        participant = None
+        for p in room.participants:
+            if p.user_id == user_id:
+                participant = p
+                break
+                
         if participant:
-            # Update participant dictionary directly
+            # Update the Participant object attributes
             for key, value in updates.items():
-                participant[key] = value
+                # Map camelCase to snake_case for Participant attributes
+                if key == "isReady":
+                    key = "is_ready"
+                elif key == "socketId":
+                    key = "socket_id"
+                elif key == "anonymousName":
+                    key = "anonymous_name"
+                elif key == "userId":
+                    key = "user_id"
+                
+                if hasattr(participant, key):
+                    setattr(participant, key, value)
+                else:
+                    print(f"Warning: Participant object has no attribute '{key}'")
 
             print(f"Updated user {user_id} in room {room_id}: {updates}")
+        else:
+            print(f"Participant {user_id} not found in room {room_id}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
         """
@@ -237,7 +274,53 @@ class RoomManager:
         Returns: Array of participants
         """
         room = self.get_room(room_id)
-        return room.participants  # Already dictionaries, no need to convert
+        # Convert Participant objects to dictionaries
+        participants = []
+        for participant in room.participants:
+            participants.append({
+                "id": participant.user_id,
+                "socketId": participant.socket_id,
+                "anonymousName": participant.anonymous_name,
+                "name": participant.anonymous_name,  # Use anonymous_name as name
+                "campus": None,
+                "location": None,
+                "role": participant.role if isinstance(participant.role, str) else getattr(participant.role, "value", str(participant.role)),
+                "isReady": participant.is_ready,
+                "joinedAt": participant.joined_at.isoformat() if participant.joined_at else None
+            })
+        return participants
+
+    def get_participant_by_id(self, room_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific participant by user ID
+        Args:
+            room_id: Room identifier
+            user_id: User identifier
+        Returns: Participant data or None
+        """
+        room = self.get_room(room_id)
+        for participant in room.participants:
+            if participant.user_id == user_id:
+                return {
+                    "id": participant.user_id,
+                    "socketId": participant.socket_id,
+                    "anonymousName": participant.anonymous_name,
+                    "name": participant.anonymous_name,
+                    "campus": None,
+                    "location": None,
+                    "role": participant.role if isinstance(participant.role, str) else getattr(participant.role, "value", str(participant.role)),
+                    "isReady": participant.is_ready,
+                    "turnOrder": participant.turn_order,
+                    "isSpeaking": participant.is_speaking,
+                    "isMuted": participant.is_muted,
+                    "startingCefrLevel": participant.starting_cefr_level,
+                    "endingCefrLevel": participant.ending_cefr_level,
+                    "joinedAt": participant.joined_at.isoformat() if participant.joined_at else None,
+                    "leftAt": participant.left_at.isoformat() if participant.left_at else None,
+                    "campusOrLocation": participant.campusOrLocation,
+                    "speakingTimeSeconds": participant.speaking_time_seconds
+                }
+        return None
 
     def get_discussion_state(self, room_id: str) -> Dict[str, Any]:
         """
@@ -334,7 +417,7 @@ class RoomManager:
             room = self.rooms[room_id]
 
             # Clear any active timers (would need async handling in real implementation)
-            if room.timer:
+            if hasattr(room, 'timer') and room.timer:
                 # In Python with asyncio, we'd cancel the task here
                 pass
 
@@ -387,12 +470,35 @@ class RoomManager:
             return None
         
         # First check for explicit host role
-        host = next((p for p in room.participants if p.get("role") == "host"), None)
+        host = next((p for p in room.participants if p.role == "host"), None)
         if host:
-            return host
+            return {
+                "id": host.user_id,
+                "socketId": host.socket_id,
+                "anonymousName": host.anonymous_name,
+                "name": host.anonymous_name,
+                "campus": None,
+                "location": None,
+                "role": host.role,
+                "isReady": host.is_ready,
+                "joinedAt": host.joined_at.isoformat() if host.joined_at else None
+            }
         
         # Fallback to first participant
-        return room.participants[0] if room.participants else None
+        if room.participants:
+            first_participant = room.participants[0]
+            return {
+                "id": first_participant.user_id,
+                "socketId": first_participant.socket_id,
+                "anonymousName": first_participant.anonymous_name,
+                "name": first_participant.anonymous_name,
+                "campus": None,
+                "location": None,
+                "role": first_participant.role,
+                "isReady": first_participant.is_ready,
+                "joinedAt": first_participant.joined_at.isoformat() if first_participant.joined_at else None
+            }
+        return None
 
     def assign_new_host(self, room_id: str) -> Optional[Dict[str, Any]]:
         """

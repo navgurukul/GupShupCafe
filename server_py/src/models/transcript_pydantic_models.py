@@ -123,3 +123,16 @@ class DeleteTranscriptResponseModel(BaseDictModel):
     data: str = Field(..., description="Deleted transcript ID")
     message: Optional[str] = Field(None, description="Additional message")
 
+# --- Processing Models ---
+
+class UpdateTranscriptProcessingModel(BaseDictModel):
+    """Model for updating transcript processing status"""
+    transcript_id: str = Field(..., description="Transcript ID")
+    is_processed: bool = Field(..., description="Processing status")
+    processed_at: Optional[datetime] = Field(None, description="Processing timestamp")
+
+class UpdateTranscriptAudioURLModel(BaseDictModel):
+    """Model for updating transcript audio URL"""
+    transcript_id: str = Field(..., description="Transcript ID")
+    audio_file_url: str = Field(..., description="Audio file URL")
+

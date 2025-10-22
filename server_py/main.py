@@ -107,8 +107,10 @@ app.add_middleware(
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*" if is_production else ALLOWED_ORIGINS,
-    logger=True,  # Enable logging for debugging
-    engineio_logger=True  # Enable engine.io logging for debugging
+    logger=False,  # Disable verbose logging
+    engineio_logger=False,  # Disable engine.io ping/pong logs
+    ping_timeout=60,  # Increase ping timeout
+    ping_interval=25  # Increase ping interval to reduce frequency
 )
 
 # Mount API routes BEFORE creating socket_app

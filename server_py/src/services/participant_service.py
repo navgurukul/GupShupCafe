@@ -24,15 +24,41 @@ class Participant_service:
         try:
             # Check if participant already exists in the room
             self.cursor.execute(
-                "SELECT participant_id FROM participants WHERE user_id=? AND room_id=?",
+                """SELECT participant_id, user_id, room_id, anonymous_name, avatar_color,
+                   role, is_ready, turn_order, is_speaking, is_muted, socket_id,
+                   starting_cefr_level, ending_cefr_level, joined_at, left_at, 
+                   campusOrLocation, speaking_time_seconds, created_at
+                   FROM participants WHERE user_id=? AND room_id=?""",
                 (participant_model.user_id, participant_model.room_id)
             )
             existing_participant = self.cursor.fetchone()
             
             if existing_participant:
+                # Return the existing participant model
+                existing_participant_model = ParticipantModel(
+                    participant_id=existing_participant[0],  # participant_id
+                    user_id=existing_participant[1],  # user_id
+                    room_id=existing_participant[2],  # room_id
+                    anonymous_name=existing_participant[3],  # anonymous_name
+                    avatar_color=existing_participant[4],  # avatar_color
+                    role=existing_participant[5],  # role
+                    is_ready=bool(existing_participant[6]),  # is_ready
+                    turn_order=existing_participant[7],  # turn_order
+                    is_speaking=bool(existing_participant[8]),  # is_speaking
+                    is_muted=bool(existing_participant[9]),  # is_muted
+                    socket_id=existing_participant[10],  # socket_id
+                    starting_cefr_level=existing_participant[11],  # starting_cefr_level
+                    ending_cefr_level=existing_participant[12],  # ending_cefr_level
+                    joined_at=existing_participant[13],  # joined_at
+                    left_at=existing_participant[14],  # left_at
+                    campusOrLocation=existing_participant[15],  # campusOrLocation
+                    speaking_time_seconds=existing_participant[16],  # speaking_time_seconds
+                    created_at=existing_participant[17]  # created_at
+                )
+                
                 return CreateParticipantResponseModel(
                     status="success",
-                    data=participant_model.user_id,
+                    data=existing_participant[0],  # participant_id
                     message="Participant already exists in this room"
                 )
             
@@ -51,8 +77,8 @@ class Participant_service:
                 (participant_id, user_id, room_id, anonymous_name, avatar_color,
                 role, is_ready, turn_order, is_speaking, is_muted, socket_id,
                 starting_cefr_level, ending_cefr_level, joined_at, left_at, 
-                campusOrLocation, speaking_time_seconds) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                campusOrLocation, speaking_time_seconds, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     participant_id,
                     participant_model.user_id,
@@ -70,10 +96,33 @@ class Participant_service:
                     participant_model.joined_at,
                     participant_model.left_at,
                     participant_model.campusOrLocation,
-                    0  # Initial speaking time
+                    0,  # Initial speaking time
+                    datetime.now()
                 )
             )
             self.conn.commit()
+            
+            # Create the full participant model for response
+            created_participant = ParticipantModel(
+                participant_id=participant_id,
+                user_id=participant_model.user_id,
+                room_id=participant_model.room_id,
+                anonymous_name=participant_model.anonymous_name,
+                avatar_color=participant_model.avatar_color,
+                role=participant_model.role,
+                is_ready=participant_model.is_ready,
+                turn_order=participant_model.turn_order,
+                is_speaking=participant_model.is_speaking,
+                is_muted=participant_model.is_muted,
+                socket_id=participant_model.socket_id,
+                starting_cefr_level=participant_model.starting_cefr_level,
+                ending_cefr_level=ending_cefr_level,
+                joined_at=participant_model.joined_at,
+                left_at=participant_model.left_at,
+                campusOrLocation=participant_model.campusOrLocation,
+                speaking_time_seconds=0,
+                created_at=datetime.now()
+            )
             
             return CreateParticipantResponseModel(
                 status="success",
@@ -85,7 +134,7 @@ class Participant_service:
             self.conn.rollback()
             return CreateParticipantResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message=f"Participant creation failed: {e}"
             )
     

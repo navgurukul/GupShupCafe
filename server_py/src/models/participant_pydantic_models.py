@@ -159,3 +159,29 @@ class DeleteParticipantResponseModel(BaseDictModel):
     status: str = Field(..., description="Delete operation status")
     data: str = Field(..., description="Deleted participant ID")
     message: Optional[str] = Field(None, description="Additional message")
+
+# --- Real-time State Models ---
+
+class ParticipantLeftModel(BaseDictModel):
+    """Model for participant leaving a room"""
+    participant_id: str = Field(..., description="Participant ID")
+    room_id: str = Field(..., description="Room ID")
+    left_at: datetime = Field(..., description="Timestamp when participant left")
+
+class ParticipantIsMutedModel(BaseDictModel):
+    """Model for participant mute status"""
+    participant_id: str = Field(..., description="Participant ID")
+    room_id: str = Field(..., description="Room ID")
+    is_muted: bool = Field(..., description="Mute status")
+
+class ParticipantIsSpeakingModel(BaseDictModel):
+    """Model for participant speaking status"""
+    participant_id: str = Field(..., description="Participant ID")
+    room_id: str = Field(..., description="Room ID")
+    is_speaking: bool = Field(..., description="Speaking status")
+
+class ParticipantIsReadyModel(BaseDictModel):
+    """Model for participant ready status"""
+    participant_id: str = Field(..., description="Participant ID")
+    room_id: str = Field(..., description="Room ID")
+    is_ready: bool = Field(..., description="Ready status")
