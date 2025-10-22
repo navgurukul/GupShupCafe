@@ -8,8 +8,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 
-from .enums import CEFRLevel, ParticipantRole
-from .room_pydantic_models import RoomStatus
+from .enums import CEFRLevel, ParticipantRole, RoomStatus
 
 
 @dataclass
@@ -128,12 +127,17 @@ class Room:
         """Remove participant by socket ID"""
         self.participants = [p for p in self.participants if p.socket_id != socket_id]
     
+    def get_speakers(self) -> List[Participant]:
+        """Get all participants with speaker role"""
+        return [p for p in self.participants if p.role == "speaker"]
+    
     def get_current_speaker(self) -> Optional[Dict[str, Any]]:
-        """Get current speaker"""
-        if not self.participants or self.current_speaker_index >= len(self.participants):
+        """Get current speaker from speakers only"""
+        speakers = self.get_speakers()
+        if not speakers or self.current_speaker_index >= len(speakers):
             return None
         
-        speaker = self.participants[self.current_speaker_index]
+        speaker = speakers[self.current_speaker_index]
         return {
             "id": speaker.user_id,
             "socketId": speaker.socket_id,
@@ -144,11 +148,29 @@ class Room:
         }
     
     def advance_turn(self) -> Optional[Dict[str, Any]]:
-        """Advance to next speaker"""
-        if not self.participants:
+        """Advance to next speaker and handle round completion"""
+        speakers = self.get_speakers()
+        if not speakers:
+            print(f"[Room] No speakers available in room {self.room_id}")
+            self.status = RoomStatus.COMPLETED
             return None
         
-        self.current_speaker_index = (self.current_speaker_index + 1) % len(self.participants)
+        # Move to next speaker
+        self.current_speaker_index += 1
+        
+        # Check if we've completed a round
+        if self.current_speaker_index >= len(speakers):
+            self.current_speaker_index = 0
+            self.current_round += 1
+            print(f"[Room] Completed round {self.current_round - 1}, starting round {self.current_round}")
+            
+            # Check if we've completed all rounds
+            if self.current_round > self.num_rounds:
+                print(f"[Room] Discussion completed after {self.num_rounds} rounds")
+                self.status = RoomStatus.COMPLETED
+                self.ended_at = datetime.now()
+                return None
+        
         return self.get_current_speaker()
     
     def is_current_speaker(self, user_id: str) -> bool:

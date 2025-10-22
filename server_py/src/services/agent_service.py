@@ -599,6 +599,79 @@ class AgentService:
                 if any(word in text for word in ["example", "instance", "case"]):
                     themes.append("examples")
 
+    @staticmethod
+    async def analyze_round_messages(
+        agent_id: str,
+        round_messages: List[Dict[str, Any]],
+        round_number: int
+    ) -> str:
+        """
+        Analyze all messages from a completed round and provide AI insights.
+        """
+        try:
+            # Get the agent
+            agent = await AgentService.get_agent(agent_id)
+            if not agent:
+                return "Thank you for your contributions this round."
+
+            # Get the actual agent instance
+            agent_instance = AgentService._get_agent_instance(agent_id, agent.agent_type)
+            if not agent_instance:
+                return "Thank you for your contributions this round."
+
+            # Extract messages and organize by participant
+            participant_messages = {}
+            all_messages = []
+            
+            for message in round_messages:
+                participant_id = message.get("participant_id")
+                message_text = message.get("transcript_text", "")
+                
+                if participant_id and message_text:
+                    if participant_id not in participant_messages:
+                        participant_messages[participant_id] = []
+                    participant_messages[participant_id].append(message_text)
+                    all_messages.append(message_text)
+
+            if not all_messages:
+                return "Thank you for your participation in this round."
+
+            # Use the facilitator agent to analyze the round
+            if agent.agent_type == AgentType.FACILITATOR.value:
+                # Analyze themes and provide insights
+                analysis = await agent_instance.suggest_topic_direction(all_messages)
+                
+                # Enhance with round-specific insights
+                participant_count = len(participant_messages)
+                message_count = len(all_messages)
+                
+                round_summary = f"Round {round_number} Summary: {participant_count} participants shared {message_count} messages. "
+                
+                # Add thematic analysis
+                themes = []
+                combined_text = " ".join(all_messages).lower()
+                if "agree" in combined_text or "disagree" in combined_text:
+                    themes.append("agreement/disagreement")
+                if "example" in combined_text or "instance" in combined_text:
+                    themes.append("concrete examples")
+                if "important" in combined_text or "significant" in combined_text:
+                    themes.append("key insights")
+                
+                if themes:
+                    theme_text = f"Key themes emerged: {', '.join(themes)}. "
+                else:
+                    theme_text = ""
+                
+                return f"{round_summary}{theme_text}{analysis}"
+            
+            else:
+                # For other agent types, provide basic summary
+                return f"Round {round_number} completed with {len(all_messages)} contributions from {len(participant_messages)} participants."
+
+        except Exception as e:
+            logger.error(f"Error analyzing round messages: {e}")
+            return f"Round {round_number} has been completed. Thank you for your participation."
+
             # Generate response based on themes and feedback
             if "examples" in themes:
                 response = "I've noticed several of you are sharing concrete examples, which really enriches our discussion. "

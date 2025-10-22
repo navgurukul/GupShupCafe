@@ -3979,3 +3979,167 @@ cd server_py && python -m pytest tests/test_socket_handlers.py tests/test_agent_
 - Consider adding transcript history/persistence in UI
 - Evaluate adding language selection for international users
 - Test with multiple simultaneous speakers for accuracy
+
+## 2025-10-22 — Turn-Based Chat Discussion System Implementation
+
+**Date**: 2025-10-22  
+**Type**: Feature | Real-time Communication | AI Integration  
+**Commit Message**: Implement turn-based chat system with AI analysis for roundtable discussions
+
+**Changes:**
+
+### 1. Backend Socket Handlers Enhancement
+- **Modified message handling** in `server_py/src/socket/socket_handlers.py`:
+  - Added turn validation - only current speaker can send messages
+  - Messages stored in existing `transcripts` table with `stt_confidence: 1.0` for chat
+  - Added round and turn order tracking for messages
+  - Implemented `send-round-messages-to-ai` event for AI analysis
+- **Added database method** `get_transcripts_by_round()` in `database.py`:
+  - Retrieves all messages/transcripts for a specific round
+  - Orders by turn order and creation time for proper sequence
+
+### 2. AI Agent Service Integration
+- **Added `analyze_round_messages()` method** in `agent_service.py`:
+  - Analyzes all messages from completed rounds
+  - Uses facilitator agent to provide thematic insights
+  - Identifies key themes: agreement/disagreement, examples, important points
+  - Returns structured analysis with participant and message counts
+  - Fallback handling for error cases
+
+### 3. Frontend Chat Interface
+- **Created `ChatPanel` component** (`client/src/components/chat/ChatPanel.jsx`):
+  - Turn-based messaging - only current speaker can send messages
+  - Real-time message display with user identification
+  - AI analysis display after round completion
+  - Both full and compact view modes
+  - Optimistic UI updates with error handling
+  - Auto-scroll to latest messages
+  - Round-based message clearing
+
+### 4. RoundtablePage Integration
+- **Integrated ChatPanel** into main discussion interface:
+  - Full chat panel in right sidebar during discussions
+  - Compact chat view in participants section
+  - Proper turn state management
+  - Socket event handling for messages and AI analysis
+
+### 5. Database Schema Utilization
+- **Leveraged existing `transcripts` table** for chat messages:
+  - `transcript_text` stores chat message content
+  - `stt_confidence: 1.0` distinguishes chat from speech transcripts
+  - `duration_seconds: 0` for instant chat messages
+  - `round_number` and `turn_order` for proper sequencing
+  - Maintains consistency with existing speech transcript storage
+
+### 6. Real-time Communication Flow
+- **Turn-based messaging system**:
+  1. Only current speaker can send messages
+  2. Messages broadcast to all participants in real-time
+  3. Messages stored with round/turn context
+  4. Round completion triggers AI analysis
+  5. AI insights displayed to all participants
+  6. New round clears previous messages
+
+### 7. AI Analysis Features
+- **Automatic round analysis**:
+  - Triggered when round completes
+  - Analyzes themes and participant engagement
+  - Provides insights on discussion patterns
+  - Temporary display (10 seconds) to avoid clutter
+  - Fallback messages for error cases
+
+**Technical Implementation:**
+- Uses existing socket infrastructure for real-time communication
+- Reuses transcript database schema for message storage
+- Integrates with existing AI agent system for analysis
+- Maintains turn-based discussion flow
+- Provides both full and compact UI modes
+- Error handling and fallback mechanisms throughout
+
+**User Experience:**
+- Clear visual indication of speaking turns
+- Intuitive chat interface with message history
+- AI insights enhance discussion understanding
+- Seamless integration with existing roundtable flow
+- Responsive design for different screen sizes
+## 2025-
+10-22 — Turn-Based Logic Fixes and Improvements
+
+**Date**: 2025-10-22  
+**Type**: Bug Fix | Feature Enhancement  
+**Commit Message**: Fix turn-based discussion logic, speaker filtering, and round progression
+
+**Changes:**
+
+### 1. Fixed Room Turn-Based Logic (Backend)
+- **Enhanced Room.advance_turn() method** in `room_in_memory.py`:
+  - Now properly filters participants by "speaker" role only
+  - Correctly handles round completion when all speakers have spoken
+  - Automatically sets room status to COMPLETED after configured rounds
+  - Added proper logging for turn advancement and round progression
+- **Fixed speaker filtering** throughout the system:
+  - Added `get_speakers()` method to only return participants with "speaker" role
+  - Updated `get_current_speaker()` to work with speakers array instead of all participants
+  - Ensures only speakers participate in turn-based discussion
+
+### 2. Improved Discussion Start Logic
+- **Enhanced check_and_start_discussion()** function:
+  - Added validation to ensure speakers exist before starting discussion
+  - Improved first speaker selection and logging
+  - Better error handling for edge cases
+- **Fixed timer completion handling**:
+  - Proper turn advancement when timer expires
+  - Correct round completion detection and events
+  - Automatic discussion ending when all rounds completed
+  - Better handling of "no speakers available" scenarios
+
+### 3. Enhanced Socket Event Handlers
+- **Improved end_turn and next_speaker handlers**:
+  - Consistent logic for manual and automatic turn advancement
+  - Proper permission checking (host or current speaker can advance)
+  - Better error handling and logging
+- **Fixed timer management**:
+  - Proper cleanup of expired timers
+  - Correct timer restart for next speaker
+  - Added validation for room existence before starting timers
+
+### 4. Frontend Turn Controls
+- **Enhanced ParticipantControls component**:
+  - Added "Start Discussion" button for hosts when all participants ready
+  - Added "End Turn" / "Next Speaker" buttons for current speaker and host
+  - Improved UI state management for different discussion phases
+- **Updated SocketContext**:
+  - Added `startDiscussion()` function for manual discussion start
+  - Enhanced `requestNextSpeaker()` with proper logging
+  - Better integration with turn-based events
+
+### 5. Turn-Based Event Flow
+- **Standardized socket events**:
+  - `discussion-started` - Emitted when discussion begins with first speaker
+  - `turn-started` - Emitted when a new speaker's turn begins
+  - `turn-ended` - Emitted when current speaker's turn ends
+  - `round-complete` - Emitted when all speakers complete a round
+  - `discussion-ended` - Emitted when all rounds completed or no speakers available
+- **Added event metadata**:
+  - Round numbers, speaker indices, and turn reasons included in events
+  - Better debugging and state synchronization
+
+### 6. Bug Fixes
+- **Fixed import issues** with RoomStatus enum across modules
+- **Corrected user-ready handler** to prevent duplicate discussion starts
+- **Enhanced manual discussion start** with proper permission checking
+- **Improved reconnection handling** for ongoing discussions
+
+**Technical Details:**
+- Turn advancement now properly cycles through speakers only (not all participants)
+- Round completion triggers when speaker index resets to 0
+- Discussion completion occurs after configured number of rounds
+- Timer management includes proper cleanup and validation
+- Frontend controls adapt based on user role and discussion state
+
+**Impact:**
+- Discussions now properly progress through turns and rounds
+- Speakers are correctly identified and cycled through
+- Hosts can manually start discussions and advance turns
+- Timer-based turn advancement works reliably
+- Better user experience with clear turn indicators and controls

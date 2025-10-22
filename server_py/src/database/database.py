@@ -703,6 +703,18 @@ class Database:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+    async def get_transcripts_by_round(self, room_id: str, round_number: int) -> List[Dict[str, Any]]:
+        """Get all transcripts/messages for a specific round"""
+        query = """
+            SELECT * FROM transcripts 
+            WHERE room_id = ? AND round_number = ? 
+            ORDER BY turn_order ASC, created_at ASC
+        """
+
+        async with self.db.execute(query, (room_id, round_number)) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
     async def get_feedback_by_room(self, room_id: str, feedback_type: str = None) -> List[Dict[str, Any]]:
         """Get feedback for a room, optionally filtered by type"""
         if feedback_type:

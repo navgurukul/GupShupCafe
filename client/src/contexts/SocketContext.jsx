@@ -510,7 +510,21 @@ export function SocketProvider({ children }) {
    */
   const requestNextSpeaker = () => {
     const s = socketRef.current || socket;
-    if (s && s.emit) s.emit("next-speaker");
+    if (s && s.emit) {
+      console.log("[Socket] Requesting next speaker");
+      s.emit("next-speaker");
+    }
+  };
+
+  /**
+   * Start discussion manually (host only)
+   */
+  const startDiscussion = () => {
+    const s = socketRef.current || socket;
+    if (s && s.emit) {
+      console.log("[Socket] Starting discussion manually");
+      s.emit("start-discussion");
+    }
   };
 
   const value = {
@@ -522,6 +536,7 @@ export function SocketProvider({ children }) {
     sendMessage,
     signalReady,
     requestNextSpeaker,
+    startDiscussion,
     changeRole,
     retryOperation,
     recoverFromError,

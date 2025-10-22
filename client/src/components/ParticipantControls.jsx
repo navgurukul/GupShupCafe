@@ -1,7 +1,8 @@
 import React from 'react'
 import { useAudio } from '../contexts/AudioContext'
 import { useSocket } from '../contexts/SocketContext'
-import { Mic, MicOff, Volume2, VolumeX, SkipForward } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { Mic, MicOff, Volume2, VolumeX, SkipForward, Play } from 'lucide-react'
 
 /**
  * ParticipantControls Component
@@ -10,7 +11,9 @@ import { Mic, MicOff, Volume2, VolumeX, SkipForward } from 'lucide-react'
 function ParticipantControls({ 
   isCurrentUserSpeaking, 
   discussionStarted, 
-  discussionEnded 
+  discussionEnded,
+  isHost = false,
+  allParticipantsReady = false
 }) {
   const { 
     isMuted, 
@@ -21,7 +24,8 @@ function ParticipantControls({
     requestMicrophoneAccess,
     enableSpeaking
   } = useAudio()
-  const { socket } = useSocket()
+  const { socket, requestNextSpeaker, startDiscussion } = useSocket()
+  const { user } = useAuth()
 
   /**
    * Get microphone button styling based on state
@@ -80,7 +84,23 @@ function ParticipantControls({
             <Mic className="w-8 h-8 text-blue-600" />
           </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Getting Ready</h3>
-          <p className="text-gray-600">Discussion will start soon...</p>
+          <p className="text-gray-600 mb-4">
+            {allParticipantsReady 
+              ? "All participants are ready!" 
+              : "Waiting for participants to get ready..."}
+          </p>
+          
+          {/* Host Start Discussion Button */}
+          {isHost && allParticipantsReady && (
+            <button
+              onClick={startDiscussion}
+              className="flex items-center justify-center space-x-2 w-full py-3 px-4 bg-green-600 hover:bg-green-700 
+                         text-white font-medium rounded-lg transition-colors"
+            >
+              <Play className="w-5 h-5" />
+              <span>Start Discussion</span>
+            </button>
+          )}
         </div>
       </div>
     )
@@ -174,6 +194,23 @@ function ParticipantControls({
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {/* Turn Controls */}
+        {(isCurrentUserSpeaking || isHost) && (
+          <div className="pt-4 border-t border-gray-200">
+            <button
+              onClick={requestNextSpeaker}
+              className="flex items-center justify-center space-x-2 w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 
+                         text-white font-medium rounded-lg transition-colors"
+              title={isCurrentUserSpeaking ? "End your turn" : "Advance to next speaker"}
+            >
+              <SkipForward className="w-5 h-5" />
+              <span>
+                {isCurrentUserSpeaking ? "End Turn" : "Next Speaker"}
+              </span>
+            </button>
           </div>
         )}
 

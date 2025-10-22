@@ -8,6 +8,7 @@ import TopicDisplay from "../components/ui/TopicDisplay";
 import SpeakerTimer from "../components/ui/SpeakerTimer";
 import ParticipantControls from "../components/ParticipantControls";
 import SpeechToTextPanel from "../components/feedback/SpeechToTextPanel";
+import ChatPanel from "../components/chat/ChatPanel";
 import { LogOut, Users, Bot } from "lucide-react";
 import AudioLevelBar from "../components/ui/AudioLevelBar";
 
@@ -18,7 +19,7 @@ import AudioLevelBar from "../components/ui/AudioLevelBar";
 function RoundtablePage() {
   const navigate = useNavigate();
   const { roomId: urlRoomId } = useParams();
-  const { socket, connected, changeRole } = useSocket();
+  const { socket, connected, changeRole, requestNextSpeaker, startDiscussion } = useSocket();
   const { user, anonymousName, logout } = useAuth();
   const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } =
     useAudio();
@@ -533,14 +534,12 @@ function RoundtablePage() {
           <div className="flex items-center space-x-3">
             {/* Connection Status */}
             <div
-              className={`hidden sm:flex items-center space-x-1 text-sm ${
-                connected ? "text-green-600" : "text-red-600"
-              }`}
+              className={`hidden sm:flex items-center space-x-1 text-sm ${connected ? "text-green-600" : "text-red-600"
+                }`}
             >
               <div
-                className={`w-2 h-2 rounded-full ${
-                  connected ? "bg-green-600" : "bg-red-600"
-                }`}
+                className={`w-2 h-2 rounded-full ${connected ? "bg-green-600" : "bg-red-600"
+                  }`}
               ></div>
               <span>{connected ? "Connected" : "Disconnected"}</span>
             </div>
@@ -548,14 +547,12 @@ function RoundtablePage() {
             {/* Role Toggle */}
             <button
               onClick={handleRoleToggle}
-              className={`px-3 py-1 text-sm font-medium border rounded transition-colors ${
-                userRole === "speaker"
-                  ? "bg-primary-100 text-primary-700 border-primary-300 hover:bg-primary-200"
-                  : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
-              }`}
-              title={`Switch to ${
-                userRole === "speaker" ? "listener" : "speaker"
-              }`}
+              className={`px-3 py-1 text-sm font-medium border rounded transition-colors ${userRole === "speaker"
+                ? "bg-primary-100 text-primary-700 border-primary-300 hover:bg-primary-200"
+                : "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                }`}
+              title={`Switch to ${userRole === "speaker" ? "listener" : "speaker"
+                }`}
             >
               {userRole === "speaker" ? "🎤 Speaker" : "👂 Listener"}
             </button>
@@ -632,7 +629,21 @@ function RoundtablePage() {
             isCurrentUserSpeaking={isCurrentUserSpeaking()}
             discussionStarted={discussionStarted}
             discussionEnded={discussionEnded}
+            isHost={participants.find(p => p.id === user?.id)?.role === "host"}
+            allParticipantsReady={participants.length > 0 && participants.every(p => p.isReady)}
           />
+
+          {/* Chat Panel - Turn-based messaging */}
+          {discussionStarted && (
+            <ChatPanel
+              isActive={currentSpeaker && currentSpeaker.id === user?.id}
+              currentSpeaker={currentSpeaker}
+              roomId={urlRoomId}
+              round={round}
+              discussionStarted={discussionStarted}
+              compact={false}
+            />
+          )}
 
           {/* Speech to Text - Show for current speaker */}
           {discussionStarted && currentSpeaker && !currentSpeaker.isAgent && (
@@ -642,6 +653,18 @@ function RoundtablePage() {
               participantId={currentSpeaker.id}
               roomId={urlRoomId}
               compact={false}
+            />
+          )}
+
+          {/* Compact Chat View */}
+          {discussionStarted && (
+            <ChatPanel
+              isActive={currentSpeaker && currentSpeaker.id === user?.id}
+              currentSpeaker={currentSpeaker}
+              roomId={urlRoomId}
+              round={round}
+              discussionStarted={discussionStarted}
+              compact={true}
             />
           )}
 
@@ -697,28 +720,26 @@ function RoundtablePage() {
               {allParticipants.map((participant, index) => (
                 <div
                   key={participant.id}
-                  className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
-                    currentSpeaker && currentSpeaker.id === participant.id
-                      ? participant.isAgent
-                        ? "bg-blue-100 border border-blue-200"
-                        : "bg-green-100 border border-green-200"
-                      : "bg-gray-50"
-                  }`}
+                  className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${currentSpeaker && currentSpeaker.id === participant.id
+                    ? participant.isAgent
+                      ? "bg-blue-100 border border-blue-200"
+                      : "bg-green-100 border border-green-200"
+                    : "bg-gray-50"
+                    }`}
                 >
                   <div className="flex items-center space-x-2">
                     <span className="text-xs font-medium text-gray-500 w-6">
                       #{index + 1}
                     </span>
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
-                        currentSpeaker && currentSpeaker.id === participant.id
-                          ? participant.isAgent
-                            ? "bg-blue-500"
-                            : "bg-green-500"
-                          : participant.isAgent
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${currentSpeaker && currentSpeaker.id === participant.id
+                        ? participant.isAgent
+                          ? "bg-blue-500"
+                          : "bg-green-500"
+                        : participant.isAgent
                           ? "bg-blue-600"
                           : "bg-primary-600"
-                      }`}
+                        }`}
                     >
                       {participant.isAgent ? (
                         <Bot className="w-4 h-4" />
@@ -731,13 +752,12 @@ function RoundtablePage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`text-sm font-medium truncate ${
-                        currentSpeaker && currentSpeaker.id === participant.id
-                          ? participant.isAgent
-                            ? "text-blue-800"
-                            : "text-green-800"
-                          : "text-gray-900"
-                      }`}
+                      className={`text-sm font-medium truncate ${currentSpeaker && currentSpeaker.id === participant.id
+                        ? participant.isAgent
+                          ? "text-blue-800"
+                          : "text-green-800"
+                        : "text-gray-900"
+                        }`}
                     >
                       {participant.anonymousName || "Anonymous"}
                       {participant.id === user?.id && " (You)"}
@@ -745,11 +765,10 @@ function RoundtablePage() {
                     </p>
                     {currentSpeaker && currentSpeaker.id === participant.id && (
                       <p
-                        className={`text-xs ${
-                          participant.isAgent
-                            ? "text-blue-600"
-                            : "text-green-600"
-                        }`}
+                        className={`text-xs ${participant.isAgent
+                          ? "text-blue-600"
+                          : "text-green-600"
+                          }`}
                       >
                         {participant.isAgent
                           ? "Facilitating now"
