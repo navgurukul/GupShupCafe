@@ -18,6 +18,7 @@ FROM python:3.11-slim AS backend-builder
 
 WORKDIR /app
 
+# Install build-time dependencies
 RUN apt-get update && apt-get install -y \
     gcc g++ make libpq-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -33,25 +34,29 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime deps
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-# Copy backend runtime dependencies
+# Copy backend runtime dependencies (Python venv)
 COPY --from=backend-builder /usr/local /usr/local
 
 # Copy backend code
 COPY server_py/ ./server_py/
 
-# Copy built frontend assets
+# Copy built frontend assets into the backend's static folder
 COPY --from=frontend-builder /app/client/dist ./server_py/static
 
-# Set permissions
-RUN mkdir -p ./server_py/data && chmod -R 755 ./server_py
+# Create data directory before changing permissions
+RUN mkdir -p /app/server_py/data
 
+# Create non-root user and set ownership for the entire /app directory
+# This covers the app code, static files, and the data directory
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+
+# Switch to the correct directory for running the app
 WORKDIR /app/server_py
 
-# Non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Switch to non-root user
 USER appuser
 
 EXPOSE 3003
@@ -66,5 +71,6 @@ ENV PYTHON_ENV=production \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# ✅ Use production Uvicorn with workers (no --reload)
-CMD ["uvicorn", "main:socket_app", "--host", "0.0.0.0", "--port", "3003", "--workers", "4"]
+# ✅ Use production Uvicorn with workers AND the --proxy-headers fix
+CMD ["uvicorn", "main:socket_app", "--host", "0.0.0.0", "--port", "3003", "--workers", "4", "--proxy-headers"]
+
