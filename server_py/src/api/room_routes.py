@@ -3,52 +3,58 @@ API Routes
 RESTful endpoints for the application
 """
 from fastapi import APIRouter, HTTPException
-from ..models.room_pydantic_models import (
-    CreateRoomModel, RoomResponseModel, UpdateRoomStatusModel,
-    UpdateRoomStateModel, UpdateRoomEndModel, RoomStatus
+from ..models import (
+    CreateRoomModel, CreateRoomResponseModel, 
+    UpdateRoomResponseModel, ListRoomsResponseModel, 
+    UpdateRoomModel, DeleteRoomResponseModel,
+    RoomStatus
 )
 from ..services.room_service import Room_service
 router = APIRouter()
 service = Room_service()
 
-@router.post("/", description="Create a new room", response_model=RoomResponseModel)
+@router.post("/", description="Create a new room", response_model=CreateRoomResponseModel)
 async def create_room(room: CreateRoomModel):
     """Create a new room endpoint"""
     response = service.create_room(room)
     return response
 
-@router.get("/{room_id}", description="Get room by ID")
-async def get_room(room_id: str):
-    resp = service.get_room(room_id)
-    if resp["status"] == "failure":
-        raise HTTPException(status_code=404, detail=resp["message"])
-    return resp
 
-@router.get("/", description="List rooms")
+@router.get("/", description="List rooms", response_model=ListRoomsResponseModel)
 async def list_rooms():
     return service.list_rooms()
 
-@router.get("/waiting", description="List rooms with status 'waiting'")
+@router.get("/waiting", description="List rooms with status 'waiting'", response_model=ListRoomsResponseModel)
 async def list_waiting_rooms():
     """List only rooms that are currently waiting"""
-    resp = service.list_rooms_by_status(RoomStatus.WAITING)
-    if resp["status"] == "failure":
-        raise HTTPException(status_code=404, detail=resp["message"])
+    resp = service.list_rooms_by_status(RoomStatus.WAITING.value)
+    if resp.status == "failure":
+        raise HTTPException(status_code=404, detail=resp.message)
     return resp
 
-@router.patch("/{room_id}", description="Update room")
-async def update_room(room_id: str, payload: dict):
+@router.get("/{room_id}", description="Get room by ID", response_model=CreateRoomResponseModel)
+async def get_room(room_id: str):
+    resp = service.get_room(room_id)
+    if resp.status == "failure":
+        raise HTTPException(status_code=404, detail=resp.message)
+    return resp
+
+
+@router.patch("/{room_id}", description="Update room", response_model=UpdateRoomResponseModel)
+async def update_room(room_id: str, payload: UpdateRoomModel):
+    """Update room details"""
     resp = service.update_room(room_id, payload)
-    if resp["status"] == "failure":
-        raise HTTPException(status_code=400, detail=resp["message"])
+    if resp.status == "failure":
+        raise HTTPException(status_code=400, detail=resp.message)
     return resp
 
-@router.delete("/{room_id}", description="Delete room")
+
+@router.delete("/{room_id}", description="Delete room", response_model=DeleteRoomResponseModel)
 async def delete_room(room_id: str):
     return service.delete_room(room_id)
 
-@router.patch("/{room_id}/status", description="Update room status")
-async def update_room_status(room_id: str, payload: UpdateRoomStatusModel):
+@router.patch("/{room_id}/status", description="Update room status", response_model=UpdateRoomResponseModel)
+async def update_room_status(room_id: str, payload: UpdateRoomModel):
     resp = service.update_room_status(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
@@ -97,15 +103,23 @@ async def get_room_state(room_id: str):
 
 
 @router.patch("/{room_id}/state", description="Update room discussion state")
-async def update_room_state(room_id: str, payload: UpdateRoomStateModel):
+async def update_room_state(room_id: str, payload: UpdateRoomModel):
     resp = service.update_room_state(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
 @router.patch("/{room_id}/end", description="End room and mark as finished")
-async def end_room(room_id: str, payload: UpdateRoomEndModel):
+async def end_room(room_id: str, payload: UpdateRoomModel):
     resp = service.end_room(room_id, payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
+    return resp
+
+@router.post("/{room_id}/start", description="Start the discussion", response_model=UpdateRoomResponseModel)
+async def start_discussion(room_id: str, payload: dict):
+    """Start the discussion in a room"""
+    resp = await service.start_discussion(room_id, payload)
+    if resp.status == "failure":
+        raise HTTPException(status_code=400, detail=resp.message)
     return resp

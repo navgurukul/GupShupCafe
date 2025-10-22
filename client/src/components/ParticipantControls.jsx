@@ -30,13 +30,13 @@ function ParticipantControls({
     if (!audioEnabled || micPermission === 'denied') {
       return 'bg-gray-400 cursor-not-allowed'
     }
+    if (isMuted) {
+      return 'bg-red-500 hover:bg-red-600'
+    }
     if (isCurrentUserSpeaking && !isMuted) {
-      return 'bg-red-500 hover:bg-red-600 animate-pulse'
+      return 'bg-green-500 hover:bg-green-600 animate-pulse'
     }
-    if (isCurrentUserSpeaking && isMuted) {
-      return 'bg-yellow-500 hover:bg-yellow-600'
-    }
-    return 'bg-gray-500 hover:bg-gray-600'
+    return 'bg-blue-500 hover:bg-blue-600'
   }
 
   /**
@@ -143,6 +143,16 @@ function ParticipantControls({
               }
             </span>
           </button>
+
+          {/* Request Microphone Access Button (if needed) */}
+          {!audioEnabled && micPermission !== 'denied' && (
+            <button
+              onClick={requestMicrophoneAccess}
+              className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors"
+            >
+              Enable Mic
+            </button>
+          )}
         </div>
 
         {/* Audio Level Indicator */}

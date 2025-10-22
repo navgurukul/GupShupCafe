@@ -3,10 +3,10 @@ API Routes for Feedback
 """
 from fastapi import APIRouter, HTTPException
 from ..models.feedback_pydantic_models import InstantFeedbackModel, ComprehensiveFeedbackModel
-from ..services.feedback_service import FeedbackService
+from ..services.feedback_service import Feedback_service
 
 router = APIRouter()
-service = FeedbackService()
+service = Feedback_service()
 
 @router.post("/instant", description="Create instant feedback")
 async def create_instant_feedback(payload: InstantFeedbackModel):

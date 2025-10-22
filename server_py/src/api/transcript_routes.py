@@ -5,10 +5,10 @@ from fastapi import APIRouter, HTTPException
 from ..models.transcript_pydantic_models import (
     CreateTranscriptModel, UpdateTranscriptProcessingModel, UpdateTranscriptAudioURLModel
 )
-from ..services.transcript_service import TranscriptService
+from ..services.transcript_service import Transcript_service
 
 router = APIRouter()
-service = TranscriptService()
+service = Transcript_service()
 
 @router.post("/", description="Create transcript")
 async def create_transcript(payload: CreateTranscriptModel):

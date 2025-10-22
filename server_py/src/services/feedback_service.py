@@ -7,15 +7,20 @@ from typing import Dict, Any, List
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.feedback_pydantic_models import InstantFeedbackModel, ComprehensiveFeedbackModel
+from src.models import InstantFeedbackModel, ComprehensiveFeedbackModel
 from src.database.db_connection import conn, cursor
 
-class FeedbackService:
+class Feedback_service:
     def __init__(self):
         self.conn = conn
         self.cursor = cursor
 
     def create_instant_feedback(self, model: InstantFeedbackModel) -> Dict[str, Any]:
+        """Create instant feedback
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use CreateInstantFeedbackResponseModel
+        """
         try:
             from datetime import datetime
             feedback_id = model.id if hasattr(model, 'id') and model.id else uuid.uuid4().hex
@@ -48,6 +53,11 @@ class FeedbackService:
             return {"success": False, "error": f"Failed to save instant feedback: {e}"}
 
     def create_comprehensive_feedback(self, model: ComprehensiveFeedbackModel) -> Dict[str, Any]:
+        """Create comprehensive feedback
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use CreateComprehensiveFeedbackResponseModel
+        """
         try:
             from datetime import datetime
             feedback_id = uuid.uuid4().hex
@@ -111,6 +121,11 @@ class FeedbackService:
             return {"success": False, "error": f"Failed to save comprehensive feedback: {e}"}
 
     def list_feedback_for_participant(self, participant_id: str) -> Dict[str, Any]:
+        """List feedback for participant
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use ListFeedbackResponseModel
+        """
         try:
             self.cursor.execute(
                 "SELECT * FROM feedback WHERE participant_id=? ORDER BY created_at DESC",
@@ -124,6 +139,11 @@ class FeedbackService:
             return {"success": False, "error": f"Failed to fetch feedback: {e}"}
 
     def list_feedback_for_room(self, room_id: str) -> Dict[str, Any]:
+        """List feedback for room
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use ListFeedbackResponseModel
+        """
         try:
             self.cursor.execute(
                 "SELECT * FROM feedback WHERE room_id=? ORDER BY created_at DESC",
@@ -137,6 +157,11 @@ class FeedbackService:
             return {"success": False, "error": f"Failed to fetch feedback for room: {e}"}
 
     def get_feedback(self, feedback_id: str) -> Dict[str, Any]:
+        """Get single feedback
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use appropriate get feedback response model
+        """
         try:
             self.cursor.execute("SELECT * FROM feedback WHERE id=?", (feedback_id,))
             row = self.cursor.fetchone()
@@ -149,6 +174,11 @@ class FeedbackService:
             return {"success": False, "error": f"Failed to fetch feedback: {e}"}
 
     def delete_feedback(self, feedback_id: str) -> Dict[str, Any]:
+        """Delete feedback
+        
+        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
+        # TODO: Convert to use DeleteFeedbackResponseModel
+        """
         try:
             self.cursor.execute("DELETE FROM feedback WHERE id=?", (feedback_id,))
             self.conn.commit()
@@ -157,3 +187,6 @@ class FeedbackService:
             print(f"[Backend] Error deleting feedback: {e}")
             self.conn.rollback()
             return {"success": False, "error": f"Failed to delete feedback: {e}"}
+
+# Singleton instance
+feedback_service = Feedback_service()

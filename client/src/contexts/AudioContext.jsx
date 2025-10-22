@@ -117,6 +117,25 @@ export function AudioProvider({ children }) {
   };
 
   /**
+   * Check if microphone permission is already granted
+   * @returns {Promise<boolean>} True if permission is granted
+   */
+  const checkMicrophonePermission = async () => {
+    try {
+      if (navigator.permissions) {
+        const permission = await navigator.permissions.query({
+          name: "microphone",
+        });
+        return permission.state === "granted";
+      }
+      return false;
+    } catch (error) {
+      console.log("[Audio] Could not check microphone permission:", error);
+      return false;
+    }
+  };
+
+  /**
    * Update user role and handle audio stream accordingly
    * @param {string} newRole - New role ('speaker' or 'listener')
    */
@@ -126,6 +145,23 @@ export function AudioProvider({ children }) {
     setUserRole(newRole);
     if (newRole === "speaker") {
       await requestMicrophoneAccess();
+    } else if (newRole === "listener") {
+      // For listeners, check if microphone permission is already granted
+      const hasPermission = await checkMicrophonePermission();
+      if (hasPermission) {
+        setMicPermission("granted");
+        setAudioEnabled(true);
+        console.log(
+          "[Audio] Listener mode - microphone permission already granted"
+        );
+      } else {
+        // For listeners, we don't need microphone access, so set audioEnabled to true
+        // This allows listeners to be ready without microphone permission
+        setAudioEnabled(true);
+        console.log(
+          "[Audio] Listener mode - audio enabled without microphone access"
+        );
+      }
     }
     // Do not stop or destroy the local stream on demotion
   };
@@ -168,10 +204,24 @@ export function AudioProvider({ children }) {
     const stream = localStreamRef.current || localStream;
     if (stream) {
       const audioTracks = stream.getAudioTracks();
+      const newMutedState = !isMuted;
+
       audioTracks.forEach((track) => {
-        track.enabled = isMuted;
+        track.enabled = !newMutedState; // Enable track when not muted
       });
-      setIsMuted(!isMuted);
+
+      setIsMuted(newMutedState);
+      console.log(`[Audio] Microphone ${newMutedState ? 'muted' : 'unmuted'}`);
+
+      // Emit mute state change to server
+      if (socket && connected) {
+        socket.emit('audio-state-change', {
+          userId: socket.id, // Use socket ID as user identifier
+          state: newMutedState ? 'muted' : 'unmuted',
+          isMuted: newMutedState,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
   };
 
@@ -337,7 +387,7 @@ export function AudioProvider({ children }) {
     });
 
     // Request microphone access if we don't have a local stream yet
-    if (!localStream) {
+    if (!localStream && !localStreamRef.current) {
       console.log("[Audio] Requesting microphone access for speaking");
       await requestMicrophoneAccess();
     }
@@ -402,8 +452,7 @@ export function AudioProvider({ children }) {
         const currentStream = localStreamRef.current || localStream;
         if (currentStream && userRole === "speaker") {
           console.log(
-            `[Audio] Adding ${
-              currentStream.getTracks().length
+            `[Audio] Adding ${currentStream.getTracks().length
             } tracks to peer ${from}`
           );
           currentStream.getTracks().forEach((track) => {
@@ -457,8 +506,7 @@ export function AudioProvider({ children }) {
     const handleParticipantsUpdate = (updatedParticipants) => {
       try {
         console.log(
-          `[Audio] Participants update received. Total: ${
-            updatedParticipants.length
+          `[Audio] Participants update received. Total: ${updatedParticipants.length
           }, My role: ${userRole}, Local stream: ${!!localStreamRef.current}`
         );
         // Only emit 'ready-for-webrtc' after both localStream and participants-update are ready, and only once
@@ -484,8 +532,7 @@ export function AudioProvider({ children }) {
           );
           otherPeers.forEach((p) => {
             console.log(
-              `[Audio] Processing peer ${p.socketId}, role: ${
-                p.role || "unknown"
+              `[Audio] Processing peer ${p.socketId}, role: ${p.role || "unknown"
               }`
             );
 
@@ -496,8 +543,7 @@ export function AudioProvider({ children }) {
 
               // Add our audio tracks to the connection
               console.log(
-                `[Audio] Adding ${
-                  currentStream.getTracks().length
+                `[Audio] Adding ${currentStream.getTracks().length
                 } tracks to peer ${p.socketId}`
               );
               currentStream.getTracks().forEach((track) => {
@@ -657,6 +703,26 @@ export function AudioProvider({ children }) {
     }
   }, [userRole]);
 
+  /**
+   * Check microphone permission on mount and when role changes to listener
+   */
+  useEffect(() => {
+    const checkPermissionOnMount = async () => {
+      if (userRole === "listener") {
+        const hasPermission = await checkMicrophonePermission();
+        if (hasPermission && !audioEnabled) {
+          setMicPermission("granted");
+          setAudioEnabled(true);
+          console.log(
+            "[Audio] Auto-detected microphone permission for listener"
+          );
+        }
+      }
+    };
+
+    checkPermissionOnMount();
+  }, [userRole, audioEnabled]);
+
   const value = {
     audioEnabled,
     micPermission,
@@ -699,12 +765,12 @@ export function useAudio() {
       userRole: "listener",
       isWebRTCSupported: false,
       requestMicrophoneAccess: () => Promise.resolve(null),
-      updateUserRole: () => {},
-      toggleMute: () => {},
-      stopAudio: () => {},
-      enableSpeaking: () => {},
-      disableSpeaking: () => {},
-      enableAudioPlayback: () => {},
+      updateUserRole: () => { },
+      toggleMute: () => { },
+      stopAudio: () => { },
+      enableSpeaking: () => { },
+      disableSpeaking: () => { },
+      enableAudioPlayback: () => { },
     };
   }
   return context;

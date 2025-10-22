@@ -1,15 +1,15 @@
-from pydantic import BaseModel, Field
+from pydantic import Field, UUID4
 from datetime import datetime
-from typing import Optional
-
-from pydantic import BaseModel, Field, UUID4
-from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import uuid
+
+from .base_dict_model import BaseDictModel
+
+
 
 # --- Model for creating a new transcript ---
 
-class CreateTranscriptModel(BaseModel):
+class CreateTranscriptModel(BaseDictModel):
     """
     Pydantic model for creating a new transcript record.
     Combines and cleans the provided fields.
@@ -43,11 +43,31 @@ class CreateTranscriptModel(BaseModel):
     # Raw Audio Reference
     audio_file_url: Optional[str] = Field(None, description="URL to the raw audio file")
 
+# --- Get Model for retrieving transcripts ---
 
-class CreateTranscriptModelResponse(BaseModel):
-    status: str = Field(..., description="Transcript creation status message")
-    data: str = Field(..., description="Transcript ID of the created transcript")
-    message: Optional[str] = Field(None, description="Additional message")
+class GetTranscriptModel(BaseDictModel):
+    """Model for getting transcript with optional filters"""
+    transcript_id: str = Field(..., description="Transcript UUID, Primary Key")
+    
+    # All other fields from CreateTranscriptModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID (foreign key)")
+    participant_id: Optional[str] = Field(None, description="Participant ID (foreign key)")
+    user_id: Optional[str] = Field(None, description="User ID (foreign key)")
+    round_number: Optional[int] = Field(None, description="Round number for the room")
+    turn_order: Optional[int] = Field(None, description="Turn order of the participant")
+    transcript_text: Optional[str] = Field(None, description="Transcribed speech text")
+    language: Optional[str] = Field(None, description="Language code (e.g., 'en')")
+    stt_confidence: Optional[float] = Field(None, description="STT confidence (0.0-1.0)")
+    started_at: Optional[datetime] = Field(None, description="Timestamp when speech started")
+    ended_at: Optional[datetime] = Field(None, description="Timestamp when speech ended")
+    duration_seconds: Optional[int] = Field(None, description="Duration of speech in seconds")
+    word_count: Optional[int] = Field(None, description="Word count of the transcript")
+    speech_rate: Optional[float] = Field(None, description="Speech rate in words per minute")
+    is_processed: Optional[bool] = Field(None, description="Has feedback been generated?")
+    processed_at: Optional[datetime] = Field(None, description="Feedback's created_at time")
+    audio_file_url: Optional[str] = Field(None, description="URL to the raw audio file")
+    created_at: Optional[datetime] = Field(None, description="Timestamp when record was created")
+
 
 # --- Model for data read from DB (includes PK and creation time) ---
 
@@ -59,31 +79,60 @@ class TranscriptModel(CreateTranscriptModel):
     class Config:
         from_attributes = True
 
-# --- NEW: Update Models ---
+class CreateTranscriptModelResponse(BaseDictModel):
+    status: str = Field(..., description="Transcript creation status message")
+    data: TranscriptModel = Field(..., description="Transcript ID of the created transcript")
+    message: Optional[str] = Field(None, description="Additional message")
 
-class UpdateTranscriptProcessingModel(BaseModel):
-    """Model for updating the processing status of a transcript."""
+
+# --- List Models ---
+
+class ListTranscriptsResponseModel(BaseDictModel):
+    """Response model for listing transcripts"""
+    status: str = Field(..., description="List operation status")
+    data: List[TranscriptModel] = Field(..., description="List of transcripts")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Update Models ---
+
+class UpdateTranscriptModel(BaseDictModel):
+    """Model for updating transcript details."""
+    transcript_text: Optional[str] = Field(None, description="Updated transcript text")
+    language: Optional[str] = Field(None, description="Updated language code")
+    stt_confidence: Optional[float] = Field(None, description="Updated STT confidence")
+    started_at: Optional[datetime] = Field(None, description="Updated start timestamp")
+    ended_at: Optional[datetime] = Field(None, description="Updated end timestamp")
+    duration_seconds: Optional[int] = Field(None, description="Updated duration")
+    word_count: Optional[int] = Field(None, description="Updated word count")
+    speech_rate: Optional[float] = Field(None, description="Updated speech rate")
+    is_processed: Optional[bool] = Field(None, description="Updated processing status")
+    processed_at: Optional[datetime] = Field(None, description="Updated processed timestamp")
+    audio_file_url: Optional[str] = Field(None, description="Updated audio file URL")
+
+class UpdateTranscriptResponseModel(BaseDictModel):
+    """Response model for updating transcript"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateTranscriptModel = Field(..., description="Updated transcript data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Delete Models ---
+
+class DeleteTranscriptResponseModel(BaseDictModel):
+    """Response model for deleting transcript"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted transcript ID")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Processing Models ---
+
+class UpdateTranscriptProcessingModel(BaseDictModel):
+    """Model for updating transcript processing status"""
     transcript_id: str = Field(..., description="Transcript ID")
-    is_processed: bool = Field(..., description="Set to True when feedback is generated")
-    processed_at: datetime = Field(..., description="Timestamp of feedback creation")
+    is_processed: bool = Field(..., description="Processing status")
+    processed_at: Optional[datetime] = Field(None, description="Processing timestamp")
 
-class UpdateTranscriptAudioURLModel(BaseModel):
-		"""Model for updating the audio file URL after async upload."""
-		transcript_id: str = Field(..., description="Transcript ID")
-		audio_file_url: str = Field(..., description="URL to the raw audio file")
+class UpdateTranscriptAudioURLModel(BaseDictModel):
+    """Model for updating transcript audio URL"""
+    transcript_id: str = Field(..., description="Transcript ID")
+    audio_file_url: str = Field(..., description="Audio file URL")
 
-
-class TranscriptIsProcessedModel(BaseModel):
-		transcript_id: str = Field(..., description="Transcript ID")
-		is_processed: bool = Field(..., description="Has the transcript been processed?")
-
-
-
-class TranscriptOut(BaseModel):
-    transcript_id: str
-    room_id: str
-    participant_id: str
-    user_id: Optional[str] = None
-    text: str
-    created_at: datetime
-    audio_file_url: Optional[str] = None

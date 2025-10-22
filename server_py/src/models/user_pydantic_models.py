@@ -1,21 +1,18 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import EmailStr, Field
 from typing import Optional, List
 from datetime import datetime
 
+from .base_dict_model import BaseDictModel
 from .enums import CEFRLevel
 
-class LoginModel(BaseModel):
+class LoginModel(BaseDictModel):
     email: EmailStr
     password: str
 
-class LoginSignUpResponseModel(BaseModel):
-    status: str = Field(..., description="Login/Signup status message")
-    data: str = Field(..., description="User ID for user room")
-    message: Optional[str] = Field(None, description="Additional message")
-    
+
 # --- Model for Creating a User (Sign Up) ---
 
-class SignUpModel(BaseModel):
+class SignUpModel(BaseDictModel):
     # Authentication
     name: str = Field(..., min_length=2, description="User's full name")
     email: EmailStr = Field(..., description="User's email address")
@@ -27,9 +24,24 @@ class SignUpModel(BaseModel):
     # Topic Interests (For Future Lobby Matching)
     topic_categories: List[str] = Field(default_factory=list, description="Topic categories of interest")
 
+# --- Get Model for retrieving users ---
+
+class GetUserModel(BaseDictModel):
+    """Model for getting user with optional filters"""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    
+    # All other fields from SignUpModel as optional
+    name: Optional[str] = Field(None, description="User's full name")
+    email: Optional[EmailStr] = Field(None, description="User's email address")
+    current_cefr_level: Optional[CEFRLevel] = Field(None, description="Current CEFR level: A0...C2")
+    topic_categories: Optional[List[str]] = Field(None, description="Topic categories of interest")
+    created_at: Optional[datetime] = Field(None, description="Account creation timestamp")
+    last_active: Optional[datetime] = Field(None, description="Last active timestamp")
+
+
 # --- Model for Reading from DB ---
 
-class UserModel(BaseModel):
+class UserModel(BaseDictModel):
     """Full User model as represented in the database."""
     user_id: str = Field(..., description="User UUID, Primary Key")
     created_at: datetime = Field(..., description="Account creation timestamp")
@@ -37,6 +49,7 @@ class UserModel(BaseModel):
 
     email: EmailStr = Field(..., description="User's email address")
     name: str = Field(..., min_length=2, description="User's full name")
+    hashed_password: str = Field(..., description="Hashed password for authentication")
     # CEFR Progress Tracking
     current_cefr_level: CEFRLevel = Field(..., description="Current CEFR level: A0...C2")
 
@@ -44,28 +57,60 @@ class UserModel(BaseModel):
     topic_categories: List[str] = Field(..., description="Topic categories of interest")
 
     
+class LoginSignUpResponseModel(BaseDictModel):
+    status: str = Field(..., description="Login/Signup status message")
+    data: Optional[UserModel] = Field(None, description="User for user room")
+    message: Optional[str] = Field(None, description="Additional message")
+    
 
+# --- List Models ---
 
+class ListUsersResponseModel(BaseDictModel):
+    """Response model for listing users"""
+    status: str = Field(..., description="List operation status")
+    data: List[UserModel] = Field(..., description="List of users")
+    message: Optional[str] = Field(None, description="Additional message")
 
-# --- NEW: Update Models ---
-class UserTopicCategoriesModel(BaseModel):
-    """Model for updating a user's topic categories and CEFR level."""
-    user_id: str = Field(..., description="User UUID, Primary Key")
-    topic_categories: Optional[List[str]] = None
+# --- Update Models ---
 
+class UpdateUserModel(BaseDictModel):
+    """Model for updating user details."""
+    name: Optional[str] = Field(None, description="Updated user name")
+    email: Optional[EmailStr] = Field(None, description="Updated email address")
+    current_cefr_level: Optional[CEFRLevel] = Field(None, description="Updated CEFR level")
+    topic_categories: Optional[List[str]] = Field(None, description="Updated topic categories")
+    last_active: Optional[datetime] = Field(None, description="Updated last active timestamp")
 
-class UpdateUserCEFRModel(BaseModel):
-    """Model for updating a user's CEFR level."""
-    user_id: str = Field(..., description="User UUID, Primary Key")
-    current_cefr_level: CEFRLevel = Field(..., description="The user's new CEFR level")
+class UpdateUserResponseModel(BaseDictModel):
+    """Response model for updating user"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateUserModel = Field(..., description="Updated user data")
+    message: Optional[str] = Field(None, description="Additional message")
 
-class UpdateUserLastActiveModel(BaseModel):
-    """Model for updating a user's last active timestamp."""
-    user_id: str = Field(..., description="User UUID, Primary Key")
-    last_active: datetime = Field(..., description="Timestamp of last activity")
+# --- Delete Models ---
 
-class UpdateUserPasswordModel(BaseModel):
-    """Model for updating a user's password."""
-    user_id: str = Field(..., description="User UUID, Primary Key")
-    old_password: str = Field(..., description="The current password")
-    new_password: str = Field(..., description="The new password")
+class DeleteUserResponseModel(BaseDictModel):
+    """Response model for deleting user"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted user ID")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- CEFR Update Model ---
+
+class UpdateUserCEFRModel(BaseDictModel):
+    """Model for updating user CEFR level"""
+    user_id: str = Field(..., description="User ID")
+    current_cefr_level: CEFRLevel = Field(..., description="Updated CEFR level")
+    updated_at: datetime = Field(..., description="Update timestamp")
+
+class UpdateUserLastActiveModel(BaseDictModel):
+    """Model for updating user last active timestamp"""
+    user_id: str = Field(..., description="User ID")
+    last_active: datetime = Field(..., description="Last active timestamp")
+
+class UpdateUserPasswordModel(BaseDictModel):
+    """Model for updating user password"""
+    user_id: str = Field(..., description="User ID")
+    current_password: str = Field(..., description="Current password")
+    new_password: str = Field(..., min_length=6, description="New password")
+

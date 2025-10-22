@@ -1,10 +1,14 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
 from datetime import datetime
 from typing import Optional, List
 from enum import Enum
 import uuid
 
+from .base_dict_model import BaseDictModel
+
+
 # --- Enums for the Agent Model ---
+
 
 class AgentStatus(str, Enum):
     """Represents the operational status of an agent instance."""
@@ -13,12 +17,12 @@ class AgentStatus(str, Enum):
     ERROR = "error"
     PROCESSING = "processing"
 
+
 class AgentType(str, Enum):
     """Defines the role of the agent in a room."""
     FACILITATOR = "facilitator"
     ENGLISH = "english"
-    TUTOR = "tutor"
-    MODERATOR = "moderator"
+
 
 class AgentModelSource(str, Enum):
     """Specifies the underlying LLM service."""
@@ -27,77 +31,152 @@ class AgentModelSource(str, Enum):
 
 # --- Core Agent Models ---
 
-class CreateAgentModel(BaseModel):
+
+class CreateAgentModel(BaseDictModel):
     """Model for creating a new agent instance."""
-    room_id: str = Field(..., description="Room ID where the agent will operate")
-    agent_model: AgentModelSource = Field(..., description="LLM service (Gemini or Bedrock)")
-    agent_type: AgentType = Field(default=AgentType.ENGLISH, description="Agent specialization type")
-    status: AgentStatus = Field(default=AgentStatus.ACTIVE, description="Initial agent status")
-    system_prompt: Optional[str] = Field(None, description="Custom system prompt for the agent")
+    room_id: str = Field(...,
+                         description="Room ID where the agent will operate")
+    agent_model: AgentModelSource = Field(...,
+                                          description="LLM service (Gemini or Bedrock)")
+    agent_type: AgentType = Field(
+        default=AgentType.ENGLISH, description="Agent specialization type")
+    status: AgentStatus = Field(
+        default=AgentStatus.ACTIVE, description="Initial agent status")
 
-class CreateAgentResponseModel(BaseModel):
-    """Response model for agent creation."""
-    success: bool = Field(..., description="Creation success status")
-    data: str = Field(..., description="Created agent ID")
-    message: Optional[str] = Field(None, description="Additional message")
 
-class AgentModel(BaseModel):
+class AgentModel(BaseDictModel):
     """Full agent model as represented in the database."""
-    agent_id: str = Field(..., description="Unique identifier for the agent instance")
+    agent_id: str = Field(...,
+                          description="Unique identifier for the agent instance")
     room_id: str = Field(..., description="Room ID where the agent operates")
-    agent_model: str = Field(..., description="LLM service (Gemini or Bedrock)")
+    agent_model: str = Field(...,
+                             description="LLM service (Gemini or Bedrock)")
     agent_type: str = Field(..., description="Agent specialization type")
     status: str = Field(..., description="Current agent status")
-    system_prompt: Optional[str] = Field(None, description="Custom system prompt")
-    total_interactions: int = Field(default=0, description="Counter for LLM invocations")
-    created_at: datetime = Field(..., description="Timestamp of agent creation")
-    
+    total_interactions: int = Field(
+        default=0, description="Counter for LLM invocations")
+    created_at: datetime = Field(...,
+                                 description="Timestamp of agent creation")
+
     class Config:
         from_attributes = True
 
-class AgentUpdateModel(BaseModel):
-    """Model for updating an agent's properties."""
-    status: Optional[AgentStatus] = Field(None, description="Update the agent's status")
-    system_prompt: Optional[str] = Field(None, description="Update the system prompt")
+
+# --- Get Model for retrieving agents ---
+
+class GetAgentModel(BaseDictModel):
+    """Model for getting agent with optional filters"""
+    agent_id: str = Field(..., description="Unique identifier for the agent instance")
+    
+    # All other fields from CreateAgentModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID where the agent operates")
+    agent_model: Optional[str] = Field(None, description="LLM service (Gemini or Bedrock)")
+    agent_type: Optional[str] = Field(None, description="Agent specialization type")
+    status: Optional[str] = Field(None, description="Current agent status")
+    total_interactions: Optional[int] = Field(None, description="Counter for LLM invocations")
+    created_at: Optional[datetime] = Field(None, description="Timestamp of agent creation")
+
+
+class CreateAgentResponseModel(BaseDictModel):
+    """Response model for agent creation."""
+    success: bool = Field(..., description="Creation success status")
+    data: AgentModel = Field(..., description="Created agent data")
+    message: Optional[str] = Field(None, description="Additional message")
 
 # --- Agent Interaction Models ---
 
-class AgentTranscriptProcessingModel(BaseModel):
-    """Model for agent processing transcript data."""
-    agent_id: str = Field(..., description="Agent processing the transcript")
-    transcript_id: str = Field(..., description="Transcript being processed")
-    processing_type: str = Field(..., description="Type of processing (instant_feedback, comprehensive_feedback)")
 
-class AgentFeedbackGenerationModel(BaseModel):
-    """Model for agent generating feedback."""
-    agent_id: str = Field(..., description="Agent generating feedback")
-    transcript_id: str = Field(..., description="Source transcript")
-    participant_id: str = Field(..., description="Target participant")
-    feedback_type: str = Field(..., description="Type of feedback (instant or comprehensive)")
-
-class AgentResponseModel(BaseModel):
+class AgentReplyModel(BaseDictModel):
     """Model for agent response data."""
     agent_id: str = Field(..., description="Agent that generated the response")
     response_text: str = Field(..., description="Generated response text")
-    processing_time: float = Field(..., description="Time taken to generate response")
-    confidence_score: Optional[float] = Field(None, description="Confidence in the response")
-    tokens_used: Optional[int] = Field(None, description="Number of tokens consumed")
 
-# --- Agent Analytics Models ---
 
-class AgentInteractionStatsModel(BaseModel):
+class AgentReplyResponseModel(BaseDictModel):
+    """Response model for agent replies"""
+    status: str = Field(..., description="Reply operation status")
+    data: AgentReplyModel = Field(..., description="Agent reply data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+    # --- List Models ---
+
+
+class ListAgentsResponseModel(BaseDictModel):
+    """Response model for listing agents"""
+    status: str = Field(..., description="List operation status")
+    data: List[AgentModel] = Field(..., description="List of agents")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Update Models ---
+
+
+class UpdateAgentModel(BaseDictModel):
+    """Model for updating agent details."""
+    status: Optional[AgentStatus] = Field(
+        None, description="Updated agent status")
+    agent_type: Optional[AgentType] = Field(
+        None, description="Updated agent type")
+    total_interactions: Optional[int] = Field(
+        None, description="Updated total interactions count")
+
+
+class UpdateAgentResponseModel(BaseDictModel):
+    """Response model for updating agent"""
+    status: str = Field(..., description="Update operation status")
+    data: UpdateAgentModel = Field(..., description="Updated agent data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Delete Models ---
+
+
+class DeleteAgentResponseModel(BaseDictModel):
+    """Response model for deleting agent"""
+    status: str = Field(..., description="Delete operation status")
+    data: str = Field(..., description="Deleted agent ID")
+    message: Optional[str] = Field(None, description="Additional message")
+
+# --- Additional Agent Models ---
+
+class AgentUpdateModel(BaseDictModel):
+    """Model for updating agent properties."""
+    status: Optional[AgentStatus] = Field(None, description="Updated agent status")
+    agent_type: Optional[AgentType] = Field(None, description="Updated agent type")
+    total_interactions: Optional[int] = Field(None, description="Updated total interactions count")
+
+class AgentTranscriptProcessingModel(BaseDictModel):
+    """Model for transcript processing requests."""
+    transcript_text: str = Field(..., description="Transcript text to process")
+    processing_type: str = Field(default="feedback", description="Type of processing (feedback, analysis, etc.)")
+    context: Optional[str] = Field(None, description="Additional context for processing")
+
+class AgentFeedbackGenerationModel(BaseDictModel):
+    """Model for feedback generation requests."""
+    transcript_text: str = Field(..., description="Transcript text for feedback generation")
+    participant_id: str = Field(..., description="Participant ID for personalized feedback")
+    feedback_type: str = Field(default="comprehensive", description="Type of feedback to generate")
+
+class AgentInteractionStatsModel(BaseDictModel):
     """Model for agent interaction statistics."""
-    agent_id: str = Field(..., description="Agent identifier")
-    total_interactions: int = Field(..., description="Total interactions count")
-    instant_feedback_count: int = Field(default=0, description="Number of instant feedback generated")
-    comprehensive_feedback_count: int = Field(default=0, description="Number of comprehensive feedback generated")
-    average_processing_time: Optional[float] = Field(None, description="Average processing time in seconds")
-    last_interaction: Optional[datetime] = Field(None, description="Timestamp of last interaction")
+    agent_id: str = Field(..., description="Agent ID")
+    total_interactions: int = Field(..., description="Total number of interactions")
+    successful_interactions: int = Field(..., description="Number of successful interactions")
+    failed_interactions: int = Field(..., description="Number of failed interactions")
+    average_response_time: float = Field(..., description="Average response time in seconds")
+    last_interaction: Optional[datetime] = Field(None, description="Last interaction timestamp")
 
-class AgentHealthModel(BaseModel):
+class AgentHealthModel(BaseDictModel):
     """Model for agent health status."""
-    agent_id: str = Field(..., description="Agent identifier")
-    status: AgentStatus = Field(..., description="Current health status")
+    agent_id: str = Field(..., description="Agent ID")
+    status: AgentStatus = Field(..., description="Current agent status")
+    is_healthy: bool = Field(..., description="Health status")
     last_health_check: datetime = Field(..., description="Last health check timestamp")
-    error_count: int = Field(default=0, description="Number of errors in last 24 hours")
-    uptime_percentage: Optional[float] = Field(None, description="Uptime percentage")
+    error_message: Optional[str] = Field(None, description="Error message if unhealthy")
+    uptime_seconds: int = Field(..., description="Agent uptime in seconds")
+
+class AgentResponseTextModel(BaseDictModel):
+    """Model for agent response text."""
+    agent_id: str = Field(..., description="Agent ID")
+    response_text: str = Field(..., description="Generated response text")
+    response_type: str = Field(..., description="Type of response (feedback, analysis, etc.)")
+    processing_time: float = Field(..., description="Processing time in seconds")
+    timestamp: datetime = Field(..., description="Response timestamp")

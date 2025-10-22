@@ -6,9 +6,11 @@ from datetime import datetime
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import (
+from src.models import (
     LoginModel, SignUpModel, LoginSignUpResponseModel,
-    UserModel, UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+    UserModel, UpdateUserModel, UpdateUserResponseModel,
+    UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel,
+    ListUsersResponseModel, DeleteUserResponseModel
 )
 from src.database.db_connection import conn, cursor
 
@@ -48,21 +50,23 @@ class User_services:
             user = self.cursor.fetchone()
 
             if user and self.unhash_password(user[1]) == login_model.password:  # user[1] is hashed_password
+                # Get the full user data to return as UserModel
+                user_data = self.get_user(user[0])
                 return LoginSignUpResponseModel(
                     status="success",
-                    data=user[0],  # user[0] is id
+                    data=user_data,
                     message="Login successful"
                 )
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message="Invalid email or password"
             )
         except Exception as e:
             print(f"Error during login: {e}")
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message=f"Login failed: {str(e)}"
             )
             
@@ -74,13 +78,13 @@ class User_services:
             if self.cursor.fetchone():
                 return LoginSignUpResponseModel(
                     status="failure",
-                    data="",
+                    data=None,
                     message="User with this email already exists"
                 )
             if len(signup_model.password) < 6:
                 return LoginSignUpResponseModel(
                     status="failure",
-                    data="",
+                    data=None,
                     message="Password must be at least 6 characters long"
                 )
             
@@ -98,9 +102,11 @@ class User_services:
                 )
             self.conn.commit()
             
+            # Get the created user to return as UserModel
+            user_data = self.get_user(user_id)
             return LoginSignUpResponseModel(
                 status="success",
-                data=user_id,
+                data=user_data,
                 message="Signup successful"
             )
         except Exception as e:
@@ -108,7 +114,7 @@ class User_services:
             self.conn.rollback()  # Rollback on error
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message=f"Signup failed: {str(e)}"
             )
     
@@ -116,69 +122,99 @@ class User_services:
         """Service to get user details"""
         try:
             self.cursor.execute(
-                "SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
+                "SELECT user_id, name, email, hashed_password, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
                 (user_id,)
             )
             user = self.cursor.fetchone()
             
             if user:
                 # Normalize topic categories list
-                categories_raw = user[3] if user[3] else ""
+                categories_raw = user[4] if user[4] else ""
                 topic_categories = [c.strip() for c in categories_raw.split(",") if c and c.strip()]
 
                 # Normalize CEFR level to string A0..C2 if integer stored
-                cefr_value = user[4]
+                cefr_value = user[5]
                 current_cefr_level = str(cefr_value)
-                return{
-                    "status": "success",
-                    "data": UserModel(
-                        user_id=user[0],
-                        name=user[1],
-                        email=user[2],
-                        cefr_level=user[4],
-                        topic_categories=topic_categories,
-                        current_cefr_level=current_cefr_level,
-                        created_at=user[5],
-                        last_active=user[6],
-                    ),
-                    "message": "User found"
-                }
+                
+                return UserModel(
+                    user_id=user[0],
+                    name=user[1],
+                    email=user[2],
+                    hashed_password=user[3],
+                    topic_categories=topic_categories,
+                    current_cefr_level=current_cefr_level,
+                    created_at=user[6],
+                    last_active=user[7],
+                )
             else:
-                return {
-                    "status": "failure",
-                    "data": None,
-                    "message": "User not found"
-                }
+                raise ValueError("User not found")
         except Exception as e:
             print(f"Error getting user: {e}")
-            return {
-                "status": "failure",
-                "data": None,
-                "message": "Failed to retrieve user: " + str(e)
-            }
+            raise e
 
-    def list_users(self) -> dict:
+    def list_users(self) -> ListUsersResponseModel:
+        """List all users"""
         try:
             self.cursor.execute("SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
             rows = self.cursor.fetchall()
             cols = [d[0] for d in self.cursor.description]
-            return {"status": "success", "data": [dict(zip(cols, r)) for r in rows], "message": "Users listed"}
+            
+            # Convert rows to UserModel objects
+            users = []
+            for row in rows:
+                row_dict = dict(zip(cols, row))
+                # Normalize topic categories list
+                categories_raw = row_dict.get('topic_categories', '') or ""
+                topic_categories = [c.strip() for c in categories_raw.split(",") if c and c.strip()]
+                row_dict['topic_categories'] = topic_categories
+                
+                # Normalize CEFR level to string
+                cefr_value = row_dict.get('current_cefr_level', 'A0')
+                row_dict['current_cefr_level'] = str(cefr_value)
+                
+                users.append(UserModel(**row_dict))
+            
+            return ListUsersResponseModel(
+                status="success",
+                data=users,
+                message=f"Found {len(users)} users"
+            )
         except Exception as e:
             print(f"Error listing users: {e}")
-            return {"status": "failure", "data": [], "message": f"Failed to list users: {e}"}
+            return ListUsersResponseModel(
+                status="error",
+                data=[],
+                message=f"Failed to list users: {str(e)}"
+            )
 
     
-    def delete_user(self, user_id: str) -> dict:
+    def delete_user(self, user_id: str) -> DeleteUserResponseModel:
+        """Delete user"""
         try:
             self.cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
             self.conn.commit()
-            return {"status": "success", "data": {"deleted": self.cursor.rowcount}, "message": "User deleted"}
+            if self.cursor.rowcount > 0:
+                return DeleteUserResponseModel(
+                    status="success",
+                    data=user_id,
+                    message="User deleted successfully"
+                )
+            else:
+                return DeleteUserResponseModel(
+                    status="error",
+                    data=user_id,
+                    message="User not found"
+                )
         except Exception as e:
             print(f"Error deleting user: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to delete user: {e}"}
+            return DeleteUserResponseModel(
+                status="error",
+                data=user_id,
+                message=f"Failed to delete user: {str(e)}"
+            )
 
-    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
+    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> UpdateUserResponseModel:
         """Update user's CEFR level"""
         try:
             self.cursor.execute(
@@ -187,14 +223,26 @@ class User_services:
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "CEFR level updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="CEFR level updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating CEFR level: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update CEFR level: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update CEFR level: {str(e)}"
+            )
 
-    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
+    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> UpdateUserResponseModel:
         """Update user's last active timestamp"""
         try:
             self.cursor.execute(
@@ -203,32 +251,64 @@ class User_services:
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Last active updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="Last active updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating last active: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update last active: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update last active: {str(e)}"
+            )
 
-    def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
+    def update_user_password(self, update: UpdateUserPasswordModel) -> UpdateUserResponseModel:
         """Update user's password"""
         try:
             if update.old_password == update.new_password:
-                return {"status": "failure", "data": None, "message": "New password must be different from old password"}
+                return UpdateUserResponseModel(
+                    status="error",
+                    data=update,
+                    message="New password must be different from old password"
+                )
             if not self.verify_password(update.old_password, self.get_user_password_hash(update.user_id)):
-                return {"status": "failure", "data": None, "message": "Old password is incorrect"}
+                return UpdateUserResponseModel(
+                    status="error",
+                    data=update,
+                    message="Old password is incorrect"
+                )
             self.cursor.execute(
                 "UPDATE users SET hashed_password=? WHERE user_id=?",
                 (self.hash_password(update.new_password), update.user_id)
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Password updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="Password updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating password: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update password: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update password: {str(e)}"
+            )
 
 if __name__ == "__main__":
     # Initialize the service
