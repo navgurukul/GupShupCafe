@@ -33,10 +33,7 @@ from .user_pydantic_models import (
     ListUsersResponseModel,
     UpdateUserModel,
     UpdateUserResponseModel,
-    DeleteUserResponseModel,
-    UpdateUserCEFRModel,
-    UpdateUserLastActiveModel,
-    UpdateUserPasswordModel,
+    DeleteUserResponseModel
 )
 from .feedback_pydantic_models import (
     CreateInstantFeedbackModel,
@@ -64,8 +61,6 @@ from .transcript_pydantic_models import (
     UpdateTranscriptModel,
     UpdateTranscriptResponseModel,
     DeleteTranscriptResponseModel,
-    UpdateTranscriptProcessingModel,
-    UpdateTranscriptAudioURLModel,
 )
 from .agent_pydantic_models import (
     CreateAgentModel,

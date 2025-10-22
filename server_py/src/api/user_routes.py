@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from ..services.user_services import User_services
 from ..models.user_pydantic_models import (
     LoginModel, SignUpModel, LoginSignUpResponseModel,
-    UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+    UpdateUserModel, UpdateUserResponseModel
 )
 router = APIRouter()
 
@@ -39,21 +39,21 @@ async def delete_user(user_id: str):
     return user_service.delete_user(user_id)
 
 @router.patch("/cefr-level", description="Update user's CEFR level")
-async def update_cefr_level(payload: UpdateUserCEFRModel):
+async def update_cefr_level(payload: UpdateUserModel):
     resp = user_service.update_user_cefr_level(payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
 @router.patch("/last-active", description="Update user's last active timestamp")
-async def update_last_active(payload: UpdateUserLastActiveModel):
+async def update_last_active(payload: UpdateUserModel):
     resp = user_service.update_user_last_active(payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])
     return resp
 
 @router.patch("/password", description="Update user's password")
-async def update_password(payload: UpdateUserPasswordModel):
+async def update_password(payload: UpdateUserModel):
     resp = user_service.update_user_password(payload)
     if resp["status"] == "failure":
         raise HTTPException(status_code=400, detail=resp["message"])

@@ -192,7 +192,7 @@ class User_services:
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": f"Failed to delete user: {e}"}
 
-    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
+    def update_user_cefr_level(self, update: UpdateUserModel) -> dict:
         """Update user's CEFR level
         
         # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
@@ -212,7 +212,7 @@ class User_services:
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": f"Failed to update CEFR level: {e}"}
 
-    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
+    def update_user_last_active(self, update: UpdateUserModel) -> dict:
         """Update user's last active timestamp
         
         # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
@@ -232,7 +232,7 @@ class User_services:
             self.conn.rollback()
             return {"status": "failure", "data": None, "message": f"Failed to update last active: {e}"}
 
-    def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
+    def update_user_password(self, update: UpdateUserModel) -> dict:
         """Update user's password
         
         # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model

@@ -3780,3 +3780,31 @@ async def get_participant(participant_id: str, filters: GetParticipantModel = De
 - **Database**: Reads from agents table using room_id and AgentType.FACILITATOR filter
 
 **Impact**: This update transforms the discussion experience by adding an intelligent AI facilitator that can guide conversations, ask follow-up questions, and maintain discussion flow. The facilitator appears as a natural participant in the roundtable view while providing contextually relevant responses based on the ongoing conversation.
+
+## December 19, 2024 - Model Import Standardization
+
+**Time**: 14:30 UTC  
+**Commit Message**: Standardize model imports across services to use centralized models/__init__.py
+
+### Changes Made:
+- Updated all route files (room_routes.py, participant_routes.py) to import models from `..models` instead of individual model files
+- Converted transcript_service.py to use proper Pydantic response models:
+  - `create_transcript()` now returns structured TranscriptModel data
+  - `list_transcripts_for_room()` returns ListTranscriptsResponseModel
+  - `delete_transcript()` returns DeleteTranscriptResponseModel
+  - `update_transcript_processing()` and `update_transcript_audio_url()` return UpdateTranscriptResponseModel
+- Converted feedback_service.py to use proper Pydantic response models:
+  - `create_instant_feedback()` returns CreateInstantFeedbackResponseModel
+  - `create_comprehensive_feedback()` returns CreateComprehensiveFeedbackResponseModel
+  - `list_feedback_for_participant()` and `list_feedback_for_room()` return ListFeedbackResponseModel
+  - `delete_feedback()` returns DeleteFeedbackResponseModel
+- Updated agent_service.py to use available models from __init__.py
+- Added missing user models (UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel) to user_pydantic_models.py
+- Added missing transcript models (UpdateTranscriptProcessingModel, UpdateTranscriptAudioURLModel) to transcript_pydantic_models.py
+- All services now use centralized model imports from `src.models` for consistency
+
+### Impact:
+- Improved type safety and consistency across all DB operations
+- Better error handling with structured response models
+- Centralized model management through __init__.py
+- Reduced coupling between services and individual model files

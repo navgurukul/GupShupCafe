@@ -19,7 +19,7 @@ class Participant_service:
         self.conn = conn
         self.cursor = cursor
         
-    def create_participant(self, participant_model: CreateParticipantModel) -> CreateParticipantResponseModel:
+    def create_participant(self, participant_model: CreateParticipantModel) -> ParticipantModel:
         """Service to handle participant creation"""
         try:
             # Check if participant already exists in the room
@@ -30,10 +30,24 @@ class Participant_service:
             existing_participant = self.cursor.fetchone()
             
             if existing_participant:
-                return CreateParticipantResponseModel(
-                    status="success",
-                    data=participant_model.user_id,
-                    message="Participant already exists in this room"
+                return ParticipantModel(
+                    participant_id=existing_participant[0],
+                    user_id=participant_model.user_id,
+                    room_id=participant_model.room_id,
+                    anonymous_name=participant_model.anonymous_name,
+                    avatar_color=participant_model.avatar_color,
+                    role=participant_model.role,
+                    is_ready=participant_model.is_ready,
+                    turn_order=participant_model.turn_order,
+                    is_speaking=participant_model.is_speaking,
+                    is_muted=participant_model.is_muted,
+                    socket_id=participant_model.socket_id,
+                    starting_cefr_level=participant_model.starting_cefr_level,
+                    ending_cefr_level=participant_model.ending_cefr_level,
+                    joined_at=participant_model.joined_at,
+                    left_at=participant_model.left_at,
+                    campusOrLocation=participant_model.campusOrLocation,
+                    speaking_time_seconds=0  # Initial speaking time
                 )
             
             # Insert new participant
@@ -75,10 +89,24 @@ class Participant_service:
             )
             self.conn.commit()
             
-            return CreateParticipantResponseModel(
-                status="success",
-                data=participant_id,
-                message="Participant created successfully"
+            return ParticipantModel(
+                participant_id=participant_id,
+                user_id=participant_model.user_id,
+                room_id=participant_model.room_id,
+                anonymous_name=participant_model.anonymous_name,
+                avatar_color=participant_model.avatar_color,
+                role=participant_model.role,
+                is_ready=participant_model.is_ready,
+                turn_order=participant_model.turn_order,
+                is_speaking=participant_model.is_speaking,
+                is_muted=participant_model.is_muted,
+                socket_id=participant_model.socket_id,
+                starting_cefr_level=participant_model.starting_cefr_level,
+                ending_cefr_level=ending_cefr_level,
+                joined_at=participant_model.joined_at,
+                left_at=participant_model.left_at,
+                campusOrLocation=participant_model.campusOrLocation,
+                speaking_time_seconds=0  # Initial speaking time
             )
         except Exception as e:
             print(f"[Backend] Error during participant creation: {e}")
@@ -89,7 +117,7 @@ class Participant_service:
                 message=f"Participant creation failed: {e}"
             )
     
-    def get_participant(self, user_id: str, room_id: str) -> CreateParticipantResponseModel:
+    def get_participant(self, user_id: str, room_id: str) -> ParticipantModel:
         """Get participant details"""
         try:
             self.cursor.execute(
@@ -103,7 +131,7 @@ class Participant_service:
             participant = self.cursor.fetchone()
             
             if participant:
-                participant_data = ParticipantModel(
+                return ParticipantModel(
                     participant_id=participant[0],
                     user_id=participant[1],
                     room_id=participant[2],
@@ -123,26 +151,14 @@ class Participant_service:
                     speaking_time_seconds=participant[16],
                     created_at=participant[17] if participant[17] else datetime.now()
                 )
-                return CreateParticipantResponseModel(
-                    status="success",
-                    data=participant_data,
-                    message="Participant found"
-                )
             else:
-                return CreateParticipantResponseModel(
-                    status="failure",
-                    data=None,
-                    message="Participant not found"
-                )
+                return None
         except Exception as e:
             print(f"[Backend] Error getting participant: {e}")
-            return CreateParticipantResponseModel(
-                status="failure",
-                data=None,
-                message=f"Failed to retrieve participant: {e}"
-            )
+            return None
+
     
-    def update_participant_left_time(self, user_id: str, room_id: str, left_at: datetime) -> UpdateParticipantResponseModel:
+    def update_participant_left_time(self, user_id: str, room_id: str, left_at: datetime) -> bool:
         """Update participant left time"""
         try:
             self.cursor.execute(
@@ -152,27 +168,15 @@ class Participant_service:
             self.conn.commit()
             
             if self.cursor.rowcount > 0:
-                return UpdateParticipantResponseModel(
-                    status="success",
-                    data=user_id,
-                    message="Participant left time updated"
-                )
+                return True
             else:
-                return UpdateParticipantResponseModel(
-                    status="failure",
-                    data="",
-                    message="Participant not found"
-                )
+                return False
         except Exception as e:
             print(f"[Backend] Error updating participant left time: {e}")
             self.conn.rollback()
-            return UpdateParticipantResponseModel(
-                status="failure",
-                data="",
-                message=f"Failed to update participant left time: {e}"
-            )
+            return False
 
-    def list_participants_for_room(self, room_id: str) -> ListParticipantsResponseModel:
+    def list_participants_for_room(self, room_id: str) -> List[Optional[ParticipantModel]]:
         """List participants for a room"""
         try:
             self.cursor.execute(
@@ -209,20 +213,13 @@ class Participant_service:
                 )
                 participants.append(participant)
             
-            return ListParticipantsResponseModel(
-                status="success",
-                data=participants,
-                message="Participants listed"
-            )
+            return participants
         except Exception as e:
             print(f"[Backend] Error listing participants: {e}")
-            return ListParticipantsResponseModel(
-                status="failure",
-                data=[],
-                message=f"Failed to list participants: {e}"
-            )
+            return []
+                
 
-    def update_participant(self, participant_id: str, update: UpdateParticipantModel) -> UpdateParticipantResponseModel:
+    def update_participant(self, participant_id: str, update: UpdateParticipantModel) -> bool:
         """Update participant details"""
         try:
             fields = []
@@ -267,49 +264,30 @@ class Participant_service:
                 values.append(update.campusOrLocation)
             
             if not fields:
-                return UpdateParticipantResponseModel(
-                    status="failure",
-                    data=UpdateParticipantModel(),
-                    message="No fields to update"
-                )
+                return False
             
             values.append(participant_id)
             sql = f"UPDATE participants SET {', '.join(fields)} WHERE participant_id=?"
             self.cursor.execute(sql, tuple(values))
             self.conn.commit()
-            
-            return UpdateParticipantResponseModel(
-                status="success",
-                data=update,
-                message="Participant updated"
-            )
+
+            return True
         except Exception as e:
             print(f"[Backend] Error updating participant: {e}")
             self.conn.rollback()
-            return UpdateParticipantResponseModel(
-                status="failure",
-                data=UpdateParticipantModel(),
-                message=f"Failed to update participant: {e}"
-            )
+            return False
+                
 
-    def delete_participant(self, participant_id: str) -> DeleteParticipantResponseModel:
+    def delete_participant(self, participant_id: str) -> str:
         """Delete participant"""
         try:
             self.cursor.execute("DELETE FROM participants WHERE participant_id=?", (participant_id,))
             self.conn.commit()
-            return DeleteParticipantResponseModel(
-                status="success",
-                data=participant_id,
-                message="Participant deleted"
-            )
+            return participant_id
         except Exception as e:
             print(f"[Backend] Error deleting participant: {e}")
             self.conn.rollback()
-            return DeleteParticipantResponseModel(
-                status="failure",
-                data="",
-                message=f"Failed to delete participant: {e}"
-            )
+            return ""
 
 
 

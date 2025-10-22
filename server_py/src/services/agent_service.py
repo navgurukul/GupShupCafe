@@ -28,7 +28,8 @@ from ..models import (
     UpdateAgentResponseModel,
     AgentStatus,
     AgentType,
-    AgentModelSource
+    AgentModelSource,
+    DeleteAgentResponseModel
 )
 
 
@@ -121,7 +122,7 @@ class AgentService:
             return []
 
     @staticmethod
-    async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> bool:
+    async def update_agent(agent_id: str, update_data: UpdateAgentModel) -> bool:
         """Update agent properties.
 
         # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
@@ -174,7 +175,7 @@ class AgentService:
         agent_id: str,
         transcript_id: str,
         feedback_type: str = "instant"
-    ) -> AgentResponseTextModel:
+    ) -> AgentReplyResponseModel:
         """
         Process a transcript to generate feedback.
         This method coordinates with transcript and feedback services.
@@ -241,13 +242,13 @@ class AgentService:
             except Exception as e:
                 print(f"Error updating agent {agent_id} status to active: {e}")
 
-            return AgentResponseTextModel(
-                agent_id=agent_id,
-                response_text=feedback_text,
-                processing_time=processing_time,
-                confidence_score=0.95,
-                tokens_used=len(feedback_text.split()) *
-                1.3  # Rough token estimate
+            return AgentReplyResponseModel(
+                status="success",
+                data=AgentReplyModel(
+                    agent_id=agent_id,
+                    response_text=feedback_text
+                ),
+                message="Feedback processed successfully"
             )
 
         except Exception as e:
@@ -433,7 +434,7 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
             ))
 
     @staticmethod
-    async def check_agent_health(agent_id: str) -> Optional[AgentHealthModel]:
+    async def check_agent_health(agent_id: str) -> Optional[UpdateAgentResponseModel]:
         """Check agent health status."""
         agent = await AgentService.get_agent(agent_id)
         if not agent:

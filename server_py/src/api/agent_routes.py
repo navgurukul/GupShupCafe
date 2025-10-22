@@ -11,12 +11,13 @@ from ..models import (
     CreateAgentResponseModel,
     AgentModel,
     AgentUpdateModel,
-    AgentTranscriptProcessingModel,
-    AgentFeedbackGenerationModel,
-    AgentResponseTextModel,
-    AgentInteractionStatsModel,
-    AgentHealthModel,
-    AgentType
+    AgentModelSource,
+    AgentReplyModel,
+    AgentReplyResponseModel,
+    AgentStatus,
+    AgentType,
+    ListAgentsResponseModel
+    
 )
 from ..services.agent_service import agent_service
 
@@ -40,7 +41,7 @@ async def create_agent(agent_data: CreateAgentModel):
         )
 
 
-@router.get("/{agent_id}", response_model=AgentModel)
+@router.get("/{agent_id}", response_model=CreateAgentResponseModel)
 async def get_agent(agent_id: str):
     """Get agent by ID."""
     agent = await agent_service.get_agent(agent_id)
@@ -49,32 +50,32 @@ async def get_agent(agent_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
-    return agent
+    return CreateAgentResponseModel("success", agent, "Agent retrieved successfully")
 
 
-@router.get("/room/{room_id}", response_model=List[AgentModel])
+@router.get("/room/{room_id}", response_model=ListAgentsResponseModel)
 async def get_agents_by_room(room_id: str):
     """Get all agents for a specific room."""
     agents = await agent_service.get_agents_by_room(room_id)
-    return agents
+    return ListAgentsResponseModel("success", agents, "Agents retrieved successfully")
 
 
-@router.get("/room/{room_id}/type/{agent_type}", response_model=List[AgentModel])
+@router.get("/room/{room_id}/type/{agent_type}", response_model=ListAgentsResponseModel)
 async def get_agents_by_type(room_id: str, agent_type: AgentType):
     """Get agents by type for a specific room."""
     agents = await agent_service.get_agents_by_type(room_id, agent_type)
-    return agents
+    return ListAgentsResponseModel("success", agents, "Agents retrieved successfully")
 
 
-@router.get("/room/{room_id}/active", response_model=List[AgentModel])
+@router.get("/room/{room_id}/active", response_model=ListAgentsResponseModel)
 async def get_active_agents(room_id: str):
     """Get all active agents for a room."""
     agents = await agent_service.get_active_agents(room_id)
-    return agents
+    return ListAgentsResponseModel("success", agents, "Active agents retrieved successfully")
 
 
-@router.patch("/{agent_id}", response_model=dict)
-async def update_agent(agent_id: str, update_data: AgentUpdateModel):
+@router.patch("/{agent_id}", response_model=UpdateAgentResponseModel)
+async def update_agent(agent_id: str, update_data: UpdateAgentModel):
     """Update agent properties."""
     success = await agent_service.update_agent(agent_id, update_data)
     if not success:
@@ -82,7 +83,7 @@ async def update_agent(agent_id: str, update_data: AgentUpdateModel):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found or no changes made"
         )
-    return {"success": True, "message": "Agent updated successfully"}
+    return 
 
 
 @router.delete("/{agent_id}", response_model=dict)

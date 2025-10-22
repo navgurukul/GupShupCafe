@@ -7,7 +7,14 @@ from typing import Dict, Any, List
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models import InstantFeedbackModel, ComprehensiveFeedbackModel
+from src.models import (
+    InstantFeedbackModel, 
+    ComprehensiveFeedbackModel,
+    CreateInstantFeedbackResponseModel,
+    CreateComprehensiveFeedbackResponseModel,
+    ListFeedbackResponseModel,
+    DeleteFeedbackResponseModel
+)
 from src.database.db_connection import conn, cursor
 
 class Feedback_service:
@@ -15,12 +22,8 @@ class Feedback_service:
         self.conn = conn
         self.cursor = cursor
 
-    def create_instant_feedback(self, model: InstantFeedbackModel) -> Dict[str, Any]:
-        """Create instant feedback
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use CreateInstantFeedbackResponseModel
-        """
+    def create_instant_feedback(self, model: InstantFeedbackModel) -> CreateInstantFeedbackResponseModel:
+        """Create instant feedback"""
         try:
             from datetime import datetime
             feedback_id = model.id if hasattr(model, 'id') and model.id else uuid.uuid4().hex
@@ -46,18 +49,36 @@ class Feedback_service:
                 ),
             )
             self.conn.commit()
-            return {"success": True, "data": {"id": feedback_id}}
+            
+            # Create the feedback model for response
+            created_feedback = InstantFeedbackModel(
+                id=feedback_id,
+                room_id=model.room_id,
+                participant_id=model.participant_id,
+                user_id=model.user_id,
+                feedback_type=model.feedback_type,
+                display_message=model.display_message,
+                agent_id=model.agent_id,
+                agent_model=model.agent_model,
+                created_at=created_at
+            )
+            
+            return CreateInstantFeedbackResponseModel(
+                status="success",
+                data=created_feedback,
+                message="Instant feedback created successfully"
+            )
         except Exception as e:
             print(f"[Backend] Error creating instant feedback: {e}")
             self.conn.rollback()
-            return {"success": False, "error": f"Failed to save instant feedback: {e}"}
+            return CreateInstantFeedbackResponseModel(
+                status="failure",
+                data=None,
+                message=f"Failed to save instant feedback: {e}"
+            )
 
-    def create_comprehensive_feedback(self, model: ComprehensiveFeedbackModel) -> Dict[str, Any]:
-        """Create comprehensive feedback
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use CreateComprehensiveFeedbackResponseModel
-        """
+    def create_comprehensive_feedback(self, model: ComprehensiveFeedbackModel) -> CreateComprehensiveFeedbackResponseModel:
+        """Create comprehensive feedback"""
         try:
             from datetime import datetime
             feedback_id = uuid.uuid4().hex
@@ -114,18 +135,59 @@ class Feedback_service:
                 ),
             )
             self.conn.commit()
-            return {"success": True, "data": {"id": feedback_id}}
+            
+            # Create the feedback model for response
+            created_feedback = ComprehensiveFeedbackModel(
+                id=feedback_id,
+                room_id=model.room_id,
+                participant_id=model.participant_id,
+                user_id=model.user_id,
+                feedback_type=model.feedback_type,
+                agent_id=model.agent_id,
+                agent_model=model.agent_model,
+                cefr_speaking=model.cefr_speaking,
+                cefr_listening=model.cefr_listening,
+                listening_activity=model.listening_activity,
+                response_effectiveness=model.response_effectiveness,
+                listening_positive_observation=model.listening_positive_observation,
+                listening_improvement_suggestion=model.listening_improvement_suggestion,
+                fluency=model.fluency,
+                sentence_complexity=model.sentence_complexity,
+                pace=model.pace,
+                filler_examples=model.filler_examples,
+                grammar=model.grammar,
+                vocab_examples=model.vocab_examples,
+                vocab_analysis=model.vocab_analysis,
+                vocab_positive_observation=model.vocab_positive_observation,
+                vocab_improvement_suggestion=model.vocab_improvement_suggestion,
+                understanding_level=model.understanding_level,
+                explanation_quality=model.explanation_quality,
+                interaction_style=model.interaction_style,
+                depth_of_understanding_suggestion=model.depth_of_understanding_suggestion,
+                comparative_performance=model.comparative_performance,
+                comparative_suggestion=model.comparative_suggestion,
+                summary_strength=model.summary_strength,
+                summary_improvement_area=model.summary_improvement_area,
+                target_cefr_level=model.target_cefr_level,
+                created_at=created_at
+            )
+            
+            return CreateComprehensiveFeedbackResponseModel(
+                status="success",
+                data=created_feedback,
+                message="Comprehensive feedback created successfully"
+            )
         except Exception as e:
             print(f"[Backend] Error creating comprehensive feedback: {e}")
             self.conn.rollback()
-            return {"success": False, "error": f"Failed to save comprehensive feedback: {e}"}
+            return CreateComprehensiveFeedbackResponseModel(
+                status="failure",
+                data=None,
+                message=f"Failed to save comprehensive feedback: {e}"
+            )
 
-    def list_feedback_for_participant(self, participant_id: str) -> Dict[str, Any]:
-        """List feedback for participant
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use ListFeedbackResponseModel
-        """
+    def list_feedback_for_participant(self, participant_id: str) -> ListFeedbackResponseModel:
+        """List feedback for participant"""
         try:
             self.cursor.execute(
                 "SELECT * FROM feedback WHERE participant_id=? ORDER BY created_at DESC",
@@ -133,17 +195,23 @@ class Feedback_service:
             )
             rows = self.cursor.fetchall()
             cols = [desc[0] for desc in self.cursor.description]
-            return {"success": True, "data": [dict(zip(cols, row)) for row in rows]}
+            feedback_data = [dict(zip(cols, row)) for row in rows]
+            
+            return ListFeedbackResponseModel(
+                status="success",
+                data=feedback_data,
+                message="Feedback listed successfully"
+            )
         except Exception as e:
             print(f"[Backend] Error fetching feedback: {e}")
-            return {"success": False, "error": f"Failed to fetch feedback: {e}"}
+            return ListFeedbackResponseModel(
+                status="failure",
+                data=[],
+                message=f"Failed to fetch feedback: {e}"
+            )
 
-    def list_feedback_for_room(self, room_id: str) -> Dict[str, Any]:
-        """List feedback for room
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use ListFeedbackResponseModel
-        """
+    def list_feedback_for_room(self, room_id: str) -> ListFeedbackResponseModel:
+        """List feedback for room"""
         try:
             self.cursor.execute(
                 "SELECT * FROM feedback WHERE room_id=? ORDER BY created_at DESC",
@@ -151,42 +219,62 @@ class Feedback_service:
             )
             rows = self.cursor.fetchall()
             cols = [desc[0] for desc in self.cursor.description]
-            return {"success": True, "data": [dict(zip(cols, row)) for row in rows]}
+            feedback_data = [dict(zip(cols, row)) for row in rows]
+            
+            return ListFeedbackResponseModel(
+                status="success",
+                data=feedback_data,
+                message="Room feedback listed successfully"
+            )
         except Exception as e:
             print(f"[Backend] Error fetching feedback for room: {e}")
-            return {"success": False, "error": f"Failed to fetch feedback for room: {e}"}
+            return ListFeedbackResponseModel(
+                status="failure",
+                data=[],
+                message=f"Failed to fetch feedback for room: {e}"
+            )
 
-    def get_feedback(self, feedback_id: str) -> Dict[str, Any]:
-        """Get single feedback
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use appropriate get feedback response model
-        """
+    def get_feedback(self, feedback_id: str):
+        """Get single feedback"""
         try:
             self.cursor.execute("SELECT * FROM feedback WHERE id=?", (feedback_id,))
             row = self.cursor.fetchone()
             if not row:
                 return {"success": False, "error": "Feedback not found"}
+            
             cols = [d[0] for d in self.cursor.description]
-            return {"success": True, "data": dict(zip(cols, row))}
+            feedback_data = dict(zip(cols, row))
+            return {"success": True, "data": feedback_data}
         except Exception as e:
             print(f"[Backend] Error fetching feedback: {e}")
             return {"success": False, "error": f"Failed to fetch feedback: {e}"}
 
-    def delete_feedback(self, feedback_id: str) -> Dict[str, Any]:
-        """Delete feedback
-        
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use DeleteFeedbackResponseModel
-        """
+    def delete_feedback(self, feedback_id: str) -> DeleteFeedbackResponseModel:
+        """Delete feedback"""
         try:
             self.cursor.execute("DELETE FROM feedback WHERE id=?", (feedback_id,))
             self.conn.commit()
-            return {"success": True, "data": {"deleted": self.cursor.rowcount}}
+            
+            if self.cursor.rowcount > 0:
+                return DeleteFeedbackResponseModel(
+                    status="success",
+                    data=feedback_id,
+                    message="Feedback deleted successfully"
+                )
+            else:
+                return DeleteFeedbackResponseModel(
+                    status="failure",
+                    data=feedback_id,
+                    message="Feedback not found"
+                )
         except Exception as e:
             print(f"[Backend] Error deleting feedback: {e}")
             self.conn.rollback()
-            return {"success": False, "error": f"Failed to delete feedback: {e}"}
+            return DeleteFeedbackResponseModel(
+                status="failure",
+                data=feedback_id,
+                message=f"Failed to delete feedback: {e}"
+            )
 
 # Singleton instance
 feedback_service = Feedback_service()
