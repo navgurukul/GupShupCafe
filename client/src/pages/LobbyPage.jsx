@@ -390,7 +390,7 @@ function LobbyPage() {
         // Create session in the database
         console.log(`[Lobby][Debug] Creating session in database for room:`, roomData);
         console.log(`[Lobby][Debug] Host for the room ${roomData.room_name} is ${storedHostData.userId}`)
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3003'
+        const apiUrl = "https://backend.gupshup.navgurukul.org"
         const sessionResponse = await fetch(`${apiUrl}/rooms/`, {
           method: 'POST',
           headers: {
@@ -547,7 +547,7 @@ function LobbyPage() {
     const checkDiscussionState = async () => {
       // Check if a discussion is already active for late joiners
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || "";
+        const apiUrl = "https://backend.gupshup.navgurukul.org";
         const res = await fetch(`${apiUrl}/api/room/${roomId}/state`);
         const json = await res.json();
 
