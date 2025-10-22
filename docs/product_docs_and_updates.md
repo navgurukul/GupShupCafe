@@ -3512,3 +3512,271 @@ pytest server_py/tests/test_api.py -v
 - Service functions will need to be updated to return pydantic models instead of dicts
 - Route response models will change to use new standardized formats
 - Some field names may be normalized across models
+## 2025-10
+-22 — Participant Service and Models Refactoring
+
+**Date**: 2025-10-22  
+**Type**: Backend Refactoring | API Standardization  
+**Commit Message**: Refactor participant service to use unified Pydantic models and remove deprecated methods
+
+**Changes:**
+
+### 1. Participant Pydantic Models Enhancement
+- **Added missing response models**:
+  - `GetParticipantResponseModel` - For single participant retrieval
+  - Updated `CreateParticipantResponseModel` to return participant ID as string
+- **Standardized all response models** to use consistent structure with `status`, `data`, and `message` fields
+- **Maintained backward compatibility** with existing model structure
+
+### 2. Participant Service Refactoring
+- **Converted all methods to use Pydantic models**:
+  - `get_participant()` now returns `GetParticipantResponseModel`
+  - `list_participants_for_room()` now returns `ListParticipantsResponseModel`
+  - `update_participant()` now returns `UpdateParticipantResponseModel`
+  - `delete_participant()` now returns `DeleteParticipantResponseModel`
+- **Removed deprecated specific update methods**:
+  - Removed `update_participant_left()`
+  - Removed `update_participant_muted()`
+  - Removed `update_participant_speaking()`
+  - Removed `update_participant_ready()`
+- **Unified all updates through single `update_participant()` method**
+- **Enhanced database queries** to include `created_at` field for complete model population
+- **Improved error handling** with proper Pydantic response models
+
+### 3. API Routes Standardization
+- **Updated participant routes** to use new response models:
+  - Added proper response model annotations for all endpoints
+  - Updated error handling to use Pydantic model attributes (`.status`, `.message`)
+  - Removed deprecated specific update endpoints (`/muted`, `/speaking`, `/ready`, `/left`)
+- **Consolidated all updates** to single `/participants/{participant_id}` PATCH endpoint
+- **Maintained RESTful API design** with proper HTTP status codes
+
+### 4. Test Suite Updates
+- **Updated all participant service tests** to work with new Pydantic models
+- **Removed tests for deprecated methods**
+- **Added comprehensive test for unified update method**
+- **Fixed test data** to include all required fields for proper model instantiation
+- **Updated mock return values** to use Pydantic response models
+
+### 5. Database Schema Alignment
+- **Ensured all database queries** select proper fields for model population
+- **Added `created_at` field handling** in all participant queries
+- **Maintained SQLite boolean conversion** (integer 0/1) for compatibility
+
+**Impact:**
+- **Improved API consistency** across all participant endpoints
+- **Reduced code duplication** by removing redundant update methods
+- **Enhanced type safety** with comprehensive Pydantic model usage
+- **Simplified client integration** with unified update endpoint
+- **Better error handling** and response standardization
+- **Maintained backward compatibility** for existing functionality
+
+**Breaking Changes:**
+- Removed specific update endpoints: `/participants/muted`, `/participants/speaking`, `/participants/ready`, `/participants/left`
+- All participant updates now use `/participants/{participant_id}` with appropriate fields in request body
+- Service method return types changed from `dict` to Pydantic models
+
+## 2025-10-22 16:45 UTC — Participant Model Standardization
+
+**Date**: 2025-10-22 16:45 UTC  
+**Type**: Backend | Model Standardization | Bug Fix  
+**Commit Message**: Standardize participant model usage across backend and frontend components
+
+**Changes:**
+
+### 1. Backend Model Standardization
+- **Updated `room_manager.py`** to use correct Pydantic participant models:
+  - Fixed imports to use `participant_pydantic_models`
+  - Updated `recover_room_from_database()` to use proper ParticipantModel fields
+  - Replaced legacy field names (`particid` → `participant_id`, `name` → `anonymous_name`)
+  - Added support for all Pydantic model fields (avatar_color, starting_cefr_level, etc.)
+
+- **Updated `socket_handlers.py`** participant saving logic:
+  - Complete participant data structure with all required Pydantic fields
+  - Proper datetime handling for `joined_at` field conversion
+  - Default values for optional fields (avatar_color, turn_order, etc.)
+  - Fixed user object access in transcript handling
+
+### 2. Frontend Model Compatibility
+- **Enhanced `LobbyPage.jsx`** participant creation:
+  - Added fallback values for missing CEFR level data
+  - Improved error handling for participant creation API calls
+  - Maintained backward compatibility with existing localStorage structure
+
+- **Verified `participantHelpers.js`** model compliance:
+  - Confirmed correct usage of snake_case field names for API calls
+  - Proper mapping of frontend camelCase to backend snake_case
+  - Complete field coverage for CreateParticipantModel
+
+### 3. Model Structure Alignment
+- **CreateParticipantModel Fields**: room_id, user_id, anonymous_name, avatar_color, role, is_ready, turn_order, is_speaking, is_muted, socket_id, starting_cefr_level, ending_cefr_level, joined_at, left_at, campusOrLocation, speaking_time_seconds
+- **ParticipantModel Extensions**: participant_id (PK), created_at
+- **Frontend Compatibility**: Maintained camelCase socket event format while using snake_case for API calls
+
+### 4. Documentation
+- **Created comprehensive model documentation** in `docs/participant_model_updates.md`
+- **Detailed field mappings** between frontend and backend
+- **Migration notes** for existing data compatibility
+- **Testing recommendations** for participant operations
+
+**Impact:**
+- ✅ Eliminates participant model inconsistencies
+- ✅ Ensures proper database field mapping
+- ✅ Maintains frontend-backend compatibility
+- ✅ Improves participant data reliability
+- ✅ Supports all participant features (ready status, speaking time, CEFR tracking)
+
+**Testing Required:**
+- Participant creation through API endpoints
+- Room joining and participant synchronization
+- Participant ready status updates
+- Transcript saving with participant references
+- Participant data persistence across reconnections## 20
+25-10-22 17:15 UTC — Get Models Implementation
+
+**Date**: 2025-10-22 17:15 UTC  
+**Type**: Backend | Model Enhancement | API Improvement  
+**Commit Message**: Add Get<Name>Model classes for flexible query capabilities across all Pydantic models
+
+**Changes:**
+
+### 1. New Get Model Classes Added
+- **GetParticipantModel**: Flexible participant queries with `participant_id` as required field
+- **GetAgentModel**: Flexible agent queries with `agent_id` as required field
+- **GetInstantFeedbackModel**: Flexible instant feedback queries with `feedback_id` as required field
+- **GetComprehensiveFeedbackModel**: Flexible comprehensive feedback queries with `feedback_id` as required field
+- **GetTranscriptModel**: Flexible transcript queries with `transcript_id` as required field
+- **GetRoomModel**: Flexible room queries with `room_id` as required field
+- **GetUserModel**: Flexible user queries with `user_id` as required field
+
+### 2. Model Structure Pattern
+- **Consistent Design**: All Get models inherit from BaseDictModel
+- **Required Primary Key**: Only the `<name>_id` field is required
+- **Optional Filtering**: All other fields from Create<Name>Model are optional
+- **Type Safety**: Maintains full Pydantic validation for all fields
+- **Documentation**: Clear field descriptions for API documentation
+
+### 3. Enhanced Model Exports
+- **Updated `__init__.py`**: Added all Get models to module exports
+- **Import Availability**: All Get models available for import across the application
+- **Backward Compatibility**: Existing code remains unaffected
+
+### 4. Documentation
+- **Comprehensive Guide**: Created `docs/get_models_documentation.md`
+- **Usage Examples**: Basic queries, filtered queries, and API integration examples
+- **Testing Recommendations**: Complete testing strategy for Get models
+- **Future Enhancements**: Roadmap for query operators and advanced features
+
+### 5. Benefits Delivered
+- **Flexible Querying**: Optional filtering on any field for GET requests
+- **API Consistency**: Uniform pattern across all model types
+- **Developer Experience**: Clear, predictable model structure
+- **Performance**: Enables efficient database queries with optional WHERE clauses
+- **Maintainability**: Consistent codebase structure
+
+**Usage Examples:**
+
+```python
+# Basic ID-only query
+get_participant = GetParticipantModel(participant_id="uuid-123")
+
+# Query with optional filters
+get_participant = GetParticipantModel(
+    participant_id="uuid-123",
+    room_id="room-456",
+    is_ready=True
+)
+
+# API route integration
+@router.get("/{participant_id}")
+async def get_participant(participant_id: str, filters: GetParticipantModel = Depends()):
+    return participant_service.get_participant_with_filters(filters)
+```
+
+**Impact:**
+- ✅ Enables flexible GET request parameter validation
+- ✅ Provides consistent query interface across all models
+- ✅ Maintains type safety and validation
+- ✅ Supports complex filtering and search operations
+- ✅ Improves API documentation and developer experience
+- ✅ Prepares foundation for advanced query features
+
+**Files Modified:**
+- `server_py/src/models/participant_pydantic_models.py`
+- `server_py/src/models/agent_pydantic_models.py`
+- `server_py/src/models/feedback_pydantic_models.py`
+- `server_py/src/models/transcript_pydantic_models.py`
+- `server_py/src/models/room_pydantic_models.py`
+- `server_py/src/models/user_pydantic_models.py`
+- `server_py/src/models/__init__.py`
+
+**Documentation Added:**
+- `docs/get_models_documentation.md`
+## 
+2025-10-22 — AI Facilitator Agent Integration in RoundtablePage
+
+**Date**: 2025-10-22  
+**Type**: Feature | AI Integration | Discussion Enhancement  
+**Commit Message**: Add AI facilitator agent seat and turns to RoundtablePage with visual indicators and response display
+
+**Changes:**
+
+### 1. AI Facilitator Agent Integration
+- **Added facilitator agent fetching** from backend API
+  - Fetches facilitator agent using `/agents/room/{roomId}/type/facilitator` endpoint
+  - Creates facilitator participant object with agent metadata
+  - Integrates facilitator into discussion flow seamlessly
+- **Enhanced participant management**:
+  - `facilitatorAgent` state for agent data
+  - `allParticipants` state combining human participants + facilitator
+  - Strategic positioning of facilitator in participant list (after every 2-3 participants)
+
+### 2. Facilitator Turn Management
+- **Implemented facilitator turn detection** in speaker change handler
+  - Detects when current speaker is facilitator agent
+  - Sets `facilitatorTurnActive` state and disables user speaking
+  - Triggers `handleFacilitatorTurn()` function
+- **AI response generation**:
+  - Calls `/agents/{agentId}/generate-facilitator-response` API endpoint
+  - Passes room context and recent conversation data
+  - Displays generated response with appropriate timing
+  - Auto-advances to next participant after response completion
+- **Turn duration calculation**: Response display time based on text length (50ms per character, minimum 3 seconds)
+
+### 3. Visual Enhancements
+- **Updated RoundtableView component**:
+  - Added facilitator response bubble display during agent turns
+  - Enhanced current speaker highlighting with agent-specific styling
+  - Blue color scheme for agent participants vs green for human participants
+  - Bot icon integration for visual agent identification
+- **Enhanced ParticipantCard component**:
+  - Agent-specific styling (blue theme vs primary/green for humans)
+  - Bot icon avatar for agent participants
+  - Agent role indicator (🤖) and "AI Facilitator" label
+  - Conditional audio level display (disabled for agents)
+- **Participants list improvements**:
+  - Agent participants marked with 🤖 emoji
+  - "Facilitating now" vs "Speaking now" status text
+  - Blue color scheme for agent interactions
+
+### 4. UI/UX Improvements
+- **Header updates**: Shows participant count + "AI Facilitator" indicator
+- **Facilitator response panel**: Dedicated display area in right sidebar during agent turns
+  - Bot icon and "AI Facilitator" header
+  - Response text in styled container
+  - "Facilitating discussion..." status indicator with pulsing animation
+- **Enhanced participant list**: Visual distinction between human participants and AI facilitator
+
+### 5. Technical Implementation
+- **Import updates**: Added `useParams` for room ID extraction, `Bot` icon from lucide-react
+- **State management**: New states for facilitator agent, turn management, and response display
+- **API integration**: Seamless integration with existing agent service endpoints
+- **Socket event handling**: Enhanced to detect and manage facilitator turns
+- **Component prop passing**: Updated RoundtableView with facilitator-specific props
+
+### 6. Backend Integration Points
+- **Agent Service**: Utilizes existing `get_agents_by_type()` and `generate_facilitator_turn_response()` methods
+- **Agent Routes**: Leverages `/agents/room/{room_id}/type/facilitator` and facilitator response generation endpoints
+- **Database**: Reads from agents table using room_id and AgentType.FACILITATOR filter
+
+**Impact**: This update transforms the discussion experience by adding an intelligent AI facilitator that can guide conversations, ask follow-up questions, and maintain discussion flow. The facilitator appears as a natural participant in the roundtable view while providing contextually relevant responses based on the ongoing conversation.

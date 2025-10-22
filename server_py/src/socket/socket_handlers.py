@@ -14,6 +14,7 @@ from ..services.room_service import room_service
 from .timer_manager import timer_manager
 from ..ai.topic_generator import generate_discussion_topic
 from ..database.database import db
+from .room_manager import room_manager
 
 
 async def process_transcript_for_english_feedback(room_id: str, transcript_id: str):
@@ -959,8 +960,8 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             transcript_data = {
                 "transcript_id": transcript_id,
                 "room_id": room_id,
-                "participant_id": participant_id or user.id,
-                "user_id": user.id,
+                "participant_id": participant_id or user.get("id"),
+                "user_id": user.get("id"),
                 "round_number": round_number,
                 "turn_order": turn_order,
                 "transcript_text": transcript_text,
@@ -983,7 +984,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
             # Emit transcript saved confirmation
             await sio.emit("transcript-saved", {
                 "transcriptId": transcript_id,
-                "participantId": participant_id or user.id
+                "participantId": participant_id or user.get("id")
             }, room=sid)
             
         except Exception as e:
@@ -1160,16 +1161,25 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             # Save participants to database using the original room_id
             for participant in ready_participants:
                 try:
-                    await db.save_participant({
-                        "user_id": participant.get("id"),
+                    participant_data = {
                         "room_id": room_id,  # Use original room_id
-                        "anonymousName": participant.get("anonymousName"),
-                        "campus": participant.get("campus"),
-                        "location": participant.get("location"),
-                        "joinedAt": participant.get("joinedAt", datetime.now().isoformat()),
-                        "leftAt": None,
-                        "speakingTimeSeconds": 0
-                    })
+                        "user_id": participant.get("id"),
+                        "anonymous_name": participant.get("anonymousName"),
+                        "avatar_color": None,  # Will be generated if needed
+                        "role": participant.get("role", "participant"),
+                        "is_ready": participant.get("isReady", False),
+                        "turn_order": 0,  # Will be set based on speaking order
+                        "is_speaking": False,
+                        "is_muted": False,
+                        "socket_id": participant.get("socketId"),
+                        "starting_cefr_level": "A1",  # Default, should be from user profile
+                        "ending_cefr_level": None,
+                        "joined_at": datetime.fromisoformat(participant.get("joinedAt", datetime.now().isoformat()).replace('Z', '+00:00')),
+                        "left_at": None,
+                        "campusOrLocation": participant.get("campus") or participant.get("location"),
+                        "speaking_time_seconds": 0
+                    }
+                    await db.save_participant(participant_data)
                 except Exception as e:
                     print(f"[Backend] Error saving participant {participant.get('anonymousName', 'Unknown')}: {str(e)}")
             

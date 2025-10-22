@@ -399,22 +399,24 @@ function LobbyPage() {
           body: JSON.stringify(roomData),
         })
 
-        const sessionResult = await sessionResponse.json()
-        console.log('[Lobby] Session created:', sessionResult)
+        const roomResult = await sessionResponse.json()
+        console.log('[Lobby] Session created:', roomResult)
 
         // Store session_id for later use
-        if (sessionResult.status === 'success') {
-          sessionStorage.setItem('current_session_id', sessionResult.data)
-          roomData.roomId = sessionResult.data; // Assign generated room ID
+        if (roomResult.status === 'success') {
+          sessionStorage.setItem('current_session_id', roomResult.data)
+          roomData.roomId = roomResult.data.roomId?.["room_id"]; // Assign generated room ID
+
+          console.log(`[Lobby][Debug] Created room with ID: "${roomData.roomId}"`);
 
 
           // Create participant entry using helper function
           await createParticipantForRoom({
             userId: storedHostData.userId,
-            roomId: sessionResult.data,
+            roomId: roomResult.data.roomId,
             anonymousName: hostAnonymousName,
-            currentCefrLevel: storedHostData.currentCefrLevel,
-            campusOrLocation: null
+            currentCefrLevel: storedHostData.currentCefrLevel || 'A0',
+            campusOrLocation: storedHostData.campusOrLocation
           })
         }
       } catch (error) {
@@ -499,8 +501,8 @@ function LobbyPage() {
         userId: storedUserData?.userId,
         roomId: roomData.roomId,
         anonymousName: joiningAnonymousName,
-        currentCefrLevel: storedUserData?.currentCefrLevel,
-        campusOrLocation: null
+        currentCefrLevel: storedUserData?.currentCefrLevel || 'A1',
+        campusOrLocation: storedUserData?.campusOrLocation || null
       })
     } catch (error) {
       console.error('[Lobby][Debug] Error creating participant for existing room:', error)

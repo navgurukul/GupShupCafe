@@ -43,6 +43,32 @@ class CreateTranscriptModel(BaseDictModel):
     # Raw Audio Reference
     audio_file_url: Optional[str] = Field(None, description="URL to the raw audio file")
 
+# --- Get Model for retrieving transcripts ---
+
+class GetTranscriptModel(BaseDictModel):
+    """Model for getting transcript with optional filters"""
+    transcript_id: str = Field(..., description="Transcript UUID, Primary Key")
+    
+    # All other fields from CreateTranscriptModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID (foreign key)")
+    participant_id: Optional[str] = Field(None, description="Participant ID (foreign key)")
+    user_id: Optional[str] = Field(None, description="User ID (foreign key)")
+    round_number: Optional[int] = Field(None, description="Round number for the room")
+    turn_order: Optional[int] = Field(None, description="Turn order of the participant")
+    transcript_text: Optional[str] = Field(None, description="Transcribed speech text")
+    language: Optional[str] = Field(None, description="Language code (e.g., 'en')")
+    stt_confidence: Optional[float] = Field(None, description="STT confidence (0.0-1.0)")
+    started_at: Optional[datetime] = Field(None, description="Timestamp when speech started")
+    ended_at: Optional[datetime] = Field(None, description="Timestamp when speech ended")
+    duration_seconds: Optional[int] = Field(None, description="Duration of speech in seconds")
+    word_count: Optional[int] = Field(None, description="Word count of the transcript")
+    speech_rate: Optional[float] = Field(None, description="Speech rate in words per minute")
+    is_processed: Optional[bool] = Field(None, description="Has feedback been generated?")
+    processed_at: Optional[datetime] = Field(None, description="Feedback's created_at time")
+    audio_file_url: Optional[str] = Field(None, description="URL to the raw audio file")
+    created_at: Optional[datetime] = Field(None, description="Timestamp when record was created")
+
+
 # --- Model for data read from DB (includes PK and creation time) ---
 
 class TranscriptModel(CreateTranscriptModel):

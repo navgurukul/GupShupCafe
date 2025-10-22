@@ -24,6 +24,21 @@ class SignUpModel(BaseDictModel):
     # Topic Interests (For Future Lobby Matching)
     topic_categories: List[str] = Field(default_factory=list, description="Topic categories of interest")
 
+# --- Get Model for retrieving users ---
+
+class GetUserModel(BaseDictModel):
+    """Model for getting user with optional filters"""
+    user_id: str = Field(..., description="User UUID, Primary Key")
+    
+    # All other fields from SignUpModel as optional
+    name: Optional[str] = Field(None, description="User's full name")
+    email: Optional[EmailStr] = Field(None, description="User's email address")
+    current_cefr_level: Optional[CEFRLevel] = Field(None, description="Current CEFR level: A0...C2")
+    topic_categories: Optional[List[str]] = Field(None, description="Topic categories of interest")
+    created_at: Optional[datetime] = Field(None, description="Account creation timestamp")
+    last_active: Optional[datetime] = Field(None, description="Last active timestamp")
+
+
 # --- Model for Reading from DB ---
 
 class UserModel(BaseDictModel):

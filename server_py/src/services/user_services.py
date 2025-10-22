@@ -6,9 +6,9 @@ from datetime import datetime
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.user_pydantic_models import (
+from src.models import (
     LoginModel, SignUpModel, LoginSignUpResponseModel,
-    UserModel, UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel
+    UserModel, UpdateUserModel, UpdateUserResponseModel
 )
 from src.database.db_connection import conn, cursor
 

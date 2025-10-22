@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSocket } from "../hooks/useSocket";
-import { useAuth } from "../hooks/useAuth";
-import { useAudio } from "../hooks/useAudio";
+import { useNavigate, useParams } from "react-router-dom";
+import { useSocket } from "../contexts/SocketContext";
+import { useAuth } from "../contexts/AuthContext";
+import { useAudio } from "../contexts/AudioContext";
 import RoundtableView from "../components/ui/RoundtableView";
 import TopicDisplay from "../components/ui/TopicDisplay";
 import SpeakerTimer from "../components/ui/SpeakerTimer";
 import ParticipantControls from "../components/ParticipantControls";
 import SpeechToTextPanel from "../components/feedback/SpeechToTextPanel";
-import { LogOut, Users } from "lucide-react";
+import { LogOut, Users, Bot } from "lucide-react";
 import AudioLevelBar from "../components/ui/AudioLevelBar";
 
 /**
@@ -17,6 +17,7 @@ import AudioLevelBar from "../components/ui/AudioLevelBar";
  */
 function RoundtablePage() {
   const navigate = useNavigate();
+  const { roomId: urlRoomId } = useParams();
   const { socket, connected, changeRole } = useSocket();
   const { user, anonymousName, logout } = useAuth();
   const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } =
@@ -27,6 +28,8 @@ function RoundtablePage() {
 
   // Discussion state
   const [participants, setParticipants] = useState([]);
+  const [facilitatorAgent, setFacilitatorAgent] = useState(null);
+  const [allParticipants, setAllParticipants] = useState([]); // Combined participants + facilitator
   const [currentTopic, setCurrentTopic] = useState(null);
   const [currentSpeaker, setCurrentSpeaker] = useState(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -34,6 +37,8 @@ function RoundtablePage() {
   const [discussionStarted, setDiscussionStarted] = useState(false);
   const [discussionEnded, setDiscussionEnded] = useState(false);
   const [round, setRound] = useState(1);
+  const [facilitatorTurnActive, setFacilitatorTurnActive] = useState(false);
+  const [facilitatorResponse, setFacilitatorResponse] = useState("");
 
   // UI state
   const [isLoading, setIsLoading] = useState(true); // Start in loading state
@@ -54,6 +59,44 @@ function RoundtablePage() {
       window.lateJoinCheckInProgress = false;
     }
   }, []);
+
+  // Fetch facilitator agent for the room
+  useEffect(() => {
+    const fetchFacilitatorAgent = async () => {
+      if (!urlRoomId) return;
+
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
+        const response = await fetch(`${apiUrl}/agents/room/${urlRoomId}/type/facilitator`);
+        const agents = await response.json();
+
+        if (agents && agents.length > 0) {
+          const facilitator = agents[0];
+          console.log("[Roundtable] Fetched facilitator agent:", facilitator);
+          
+          // Create facilitator participant object
+          const facilitatorParticipant = {
+            id: `agent_${facilitator.agent_id}`,
+            socketId: `agent_${facilitator.agent_id}`,
+            anonymousName: "AI Facilitator",
+            role: "facilitator",
+            isReady: true,
+            isAgent: true,
+            agentId: facilitator.agent_id,
+            agentType: facilitator.agent_type
+          };
+          
+          setFacilitatorAgent(facilitatorParticipant);
+        } else {
+          console.log("[Roundtable] No facilitator agent found for room:", urlRoomId);
+        }
+      } catch (error) {
+        console.error("[Roundtable] Error fetching facilitator agent:", error);
+      }
+    };
+
+    fetchFacilitatorAgent();
+  }, [urlRoomId]);
 
   // When the page loads, check if discussion has already started
   useEffect(() => {
@@ -86,11 +129,19 @@ function RoundtablePage() {
       console.log("[Roundtable] Speaker changed:", speaker);
       setCurrentSpeaker(speaker);
 
-      // Enable/disable speaking based on if current user is the speaker
-      if (speaker && speaker.id === user?.id) {
-        enableSpeaking();
+      // Check if it's the facilitator's turn
+      if (speaker && speaker.isAgent && speaker.agentType === "facilitator") {
+        setFacilitatorTurnActive(true);
+        disableSpeaking(); // Disable user speaking during facilitator turn
+        handleFacilitatorTurn();
       } else {
-        disableSpeaking();
+        setFacilitatorTurnActive(false);
+        // Enable/disable speaking based on if current user is the speaker
+        if (speaker && speaker.id === user?.id) {
+          enableSpeaking();
+        } else {
+          disableSpeaking();
+        }
       }
     };
 
@@ -210,6 +261,62 @@ function RoundtablePage() {
       socket.off("participant-left", handleParticipantLeft);
     };
   }, [socket, user, enableSpeaking, disableSpeaking]);
+
+  // Combine participants with facilitator agent
+  useEffect(() => {
+    const combined = [...participants];
+    if (facilitatorAgent) {
+      // Insert facilitator at a strategic position (e.g., after every 2-3 participants)
+      const insertPosition = Math.min(2, participants.length);
+      combined.splice(insertPosition, 0, facilitatorAgent);
+    }
+    setAllParticipants(combined);
+  }, [participants, facilitatorAgent]);
+
+  // Handle facilitator turn
+  const handleFacilitatorTurn = async () => {
+    if (!facilitatorAgent || !urlRoomId) return;
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
+      const response = await fetch(
+        `${apiUrl}/agents/${facilitatorAgent.agentId}/generate-facilitator-response`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            roomId: urlRoomId,
+            context: "turn_response"
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (result.success) {
+        const responseText = result.data.responseText;
+        setFacilitatorResponse(responseText);
+        console.log("[Roundtable] Facilitator response:", responseText);
+
+        // Show facilitator response for a duration based on text length
+        const displayDuration = Math.max(3000, responseText.length * 50); // 50ms per character, min 3s
+        
+        // Auto-advance to next participant after facilitator finishes
+        setTimeout(() => {
+          setFacilitatorTurnActive(false);
+          setFacilitatorResponse("");
+          // Emit event to advance to next speaker
+          if (socket) {
+            socket.emit("facilitator-turn-complete", { roomId: urlRoomId });
+          }
+        }, displayDuration);
+      }
+    } catch (error) {
+      console.error("[Roundtable] Error generating facilitator response:", error);
+      setFacilitatorTurnActive(false);
+    }
+  };
 
   // Auto-redirect if not connected or no participants
   useEffect(() => {
@@ -374,7 +481,7 @@ function RoundtablePage() {
                   AI Roundtable
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Round {round} • {participants.length} participants
+                  Round {round} • {participants.length} participants {facilitatorAgent ? "+ AI Facilitator" : ""}
                 </p>
               </div>
             </div>
@@ -470,10 +577,12 @@ function RoundtablePage() {
         {/* Center Panel - Roundtable */}
         <div className="flex-1 flex items-center justify-center">
           <RoundtableView
-            participants={participants}
+            participants={allParticipants}
             currentSpeaker={currentSpeaker}
             currentTopic={currentTopic}
             discussionStarted={discussionStarted}
+            facilitatorResponse={facilitatorResponse}
+            facilitatorTurnActive={facilitatorTurnActive}
           />
         </div>
 
@@ -494,18 +603,39 @@ function RoundtablePage() {
             />
           )}
 
+          {/* Facilitator Response Display */}
+          {facilitatorTurnActive && facilitatorResponse && (
+            <div className="bg-blue-50 rounded-lg shadow-sm p-4 border border-blue-200">
+              <div className="flex items-center space-x-2 mb-3">
+                <Bot className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">AI Facilitator</h3>
+              </div>
+              <div className="bg-white rounded-md p-3 border border-blue-100">
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {facilitatorResponse}
+                </p>
+              </div>
+              <div className="mt-2 flex items-center space-x-1 text-xs text-blue-600">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                <span>Facilitating discussion...</span>
+              </div>
+            </div>
+          )}
+
           {/* Participants List */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h3 className="font-semibold text-gray-900 mb-3">
-              Participants ({participants.length})
+              Participants ({allParticipants.length})
             </h3>
             <div className="space-y-2">
-              {participants.map((participant, index) => (
+              {allParticipants.map((participant, index) => (
                 <div
                   key={participant.id}
                   className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
                     currentSpeaker && currentSpeaker.id === participant.id
-                      ? "bg-green-100 border border-green-200"
+                      ? participant.isAgent 
+                        ? "bg-blue-100 border border-blue-200"
+                        : "bg-green-100 border border-green-200"
                       : "bg-gray-50"
                   }`}
                 >
@@ -516,26 +646,39 @@ function RoundtablePage() {
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ${
                         currentSpeaker && currentSpeaker.id === participant.id
-                          ? "bg-green-500"
-                          : "bg-primary-600"
+                          ? participant.isAgent
+                            ? "bg-blue-500"
+                            : "bg-green-500"
+                          : participant.isAgent
+                            ? "bg-blue-600"
+                            : "bg-primary-600"
                       }`}
                     >
-                      {participant.anonymousName.charAt(0).toUpperCase()}
+                      {participant.isAgent ? (
+                        <Bot className="w-4 h-4" />
+                      ) : (
+                        participant.anonymousName.charAt(0).toUpperCase()
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm font-medium truncate ${
                         currentSpeaker && currentSpeaker.id === participant.id
-                          ? "text-green-800"
+                          ? participant.isAgent
+                            ? "text-blue-800"
+                            : "text-green-800"
                           : "text-gray-900"
                       }`}
                     >
                       {participant.anonymousName}
                       {participant.id === user?.id && " (You)"}
+                      {participant.isAgent && " 🤖"}
                     </p>
                     {currentSpeaker && currentSpeaker.id === participant.id && (
-                      <p className="text-xs text-green-600">Speaking now</p>
+                      <p className={`text-xs ${participant.isAgent ? "text-blue-600" : "text-green-600"}`}>
+                        {participant.isAgent ? "Facilitating now" : "Speaking now"}
+                      </p>
                     )}
                   </div>
                 </div>
