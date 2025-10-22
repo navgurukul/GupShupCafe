@@ -21,4 +21,4 @@ RUN mkdir -p /app/data
 EXPOSE 3003
 
 # Run the application
-CMD ["python", "-m", "uvicorn", "main:socket_app", "--host", "0.0.0.0", "--port", "3003"]
+CMD ["python", "-m", "uvicorn", "main:socket_app", "--host", "0.0.0.0", "--port", "3003", "--proxy-headers"]
