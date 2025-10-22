@@ -121,3 +121,42 @@ class DeleteAgentResponseModel(BaseDictModel):
     data: str = Field(..., description="Deleted agent ID")
     message: Optional[str] = Field(None, description="Additional message")
 
+# --- Additional Agent Models ---
+
+class AgentUpdateModel(BaseDictModel):
+    """Model for updating agent details"""
+    agent_id: str = Field(..., description="Agent ID")
+    status: Optional[AgentStatus] = Field(None, description="Updated agent status")
+    total_interactions: Optional[int] = Field(None, description="Updated total interactions count")
+
+class AgentTranscriptProcessingModel(BaseDictModel):
+    """Model for agent transcript processing"""
+    agent_id: str = Field(..., description="Agent ID")
+    transcript_id: str = Field(..., description="Transcript ID")
+    processing_status: str = Field(..., description="Processing status")
+    processing_result: Optional[str] = Field(None, description="Processing result")
+
+class AgentFeedbackGenerationModel(BaseDictModel):
+    """Model for agent feedback generation"""
+    agent_id: str = Field(..., description="Agent ID")
+    participant_id: str = Field(..., description="Participant ID")
+    feedback_type: str = Field(..., description="Type of feedback generated")
+    feedback_content: str = Field(..., description="Feedback content")
+
+class AgentInteractionStatsModel(BaseDictModel):
+    """Model for agent interaction statistics"""
+    agent_id: str = Field(..., description="Agent ID")
+    total_interactions: int = Field(..., description="Total interactions count")
+    successful_interactions: int = Field(..., description="Successful interactions count")
+    failed_interactions: int = Field(..., description="Failed interactions count")
+    average_response_time: float = Field(..., description="Average response time in seconds")
+
+class AgentHealthModel(BaseDictModel):
+    """Model for agent health status"""
+    agent_id: str = Field(..., description="Agent ID")
+    status: str = Field(..., description="Agent status")
+    last_activity: datetime = Field(..., description="Last activity timestamp")
+    health_score: float = Field(..., description="Health score (0.0-1.0)")
+    error_count: int = Field(..., description="Error count")
+    uptime_seconds: int = Field(..., description="Uptime in seconds")
+

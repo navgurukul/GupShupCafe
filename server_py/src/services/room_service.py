@@ -31,6 +31,21 @@ class Room_service:
             from datetime import datetime
             room_id = uuid.uuid4().hex
             created_at = datetime.now()
+            
+            # Convert CEFR level to string format if needed
+            cefr_level = room_model.cefr_level
+            if isinstance(cefr_level, int):
+                cefr_map = {1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2'}
+                cefr_level = cefr_map.get(cefr_level, 'A1')
+                # Convert to CEFRLevel enum
+                from ..models.enums import CEFRLevel
+                cefr_level = CEFRLevel(cefr_level)
+
+            # Ensure topic_title is non-empty to satisfy DB NOT NULL
+            topic_title = (room_model.topic_title or '').strip()
+            if not topic_title:
+                # Use category or fallback to a generic title
+                topic_title = f"Discussion - {room_model.topic_category}" if room_model.topic_category else "Discussion"
 
             self.cursor.execute(
                 """INSERT INTO rooms (
@@ -43,12 +58,12 @@ class Room_service:
                 (
                     room_id,
                     room_model.room_name,
-                    room_model.topic_title,
+                    topic_title,
                     room_model.topic_category,
                     room_model.max_participants,
                     room_model.speaking_time_per_turn,
                     room_model.num_rounds,
-                    room_model.cefr_level.value,
+                    cefr_level.value,
                     room_model.status.value,
                     room_model.current_round,
                     room_model.current_speaker_index,
@@ -68,12 +83,12 @@ class Room_service:
             created_room = RoomModel(
                 room_id=room_id,
                 room_name=room_model.room_name,
-                topic_title=room_model.topic_title,
+                topic_title=topic_title,
                 topic_category=room_model.topic_category,
                 max_participants=room_model.max_participants,
                 speaking_time_per_turn=room_model.speaking_time_per_turn,
                 num_rounds=room_model.num_rounds,
-                cefr_level=room_model.cefr_level,
+                cefr_level=cefr_level,
                 status=room_model.status,
                 current_round=room_model.current_round,
                 current_speaker_index=room_model.current_speaker_index,
@@ -146,7 +161,12 @@ class Room_service:
                 room_dict = dict(zip(cols, r))
                 # Convert CEFR level string to enum
                 if 'cefr_level' in room_dict and room_dict['cefr_level']:
-                    room_dict['cefr_level'] = CEFRLevel(room_dict['cefr_level'])
+                    cefr_value = room_dict['cefr_level']
+                    # Handle numeric CEFR levels (legacy data)
+                    if isinstance(cefr_value, (int, str)) and str(cefr_value).isdigit():
+                        numeric_to_cefr = {1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2'}
+                        cefr_value = numeric_to_cefr.get(int(cefr_value), 'A1')
+                    room_dict['cefr_level'] = CEFRLevel(cefr_value)
                 # Convert status string to enum
                 if 'status' in room_dict and room_dict['status']:
                     room_dict['status'] = RoomStatus(room_dict['status'])
@@ -179,7 +199,12 @@ class Room_service:
                 room_dict = dict(zip(cols, r))
                 # Convert CEFR level string to enum
                 if 'cefr_level' in room_dict and room_dict['cefr_level']:
-                    room_dict['cefr_level'] = CEFRLevel(room_dict['cefr_level'])
+                    cefr_value = room_dict['cefr_level']
+                    # Handle numeric CEFR levels (legacy data)
+                    if isinstance(cefr_value, (int, str)) and str(cefr_value).isdigit():
+                        numeric_to_cefr = {1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2'}
+                        cefr_value = numeric_to_cefr.get(int(cefr_value), 'A1')
+                    room_dict['cefr_level'] = CEFRLevel(cefr_value)
                 # Convert status string to enum
                 if 'status' in room_dict and room_dict['status']:
                     room_dict['status'] = RoomStatus(room_dict['status'])
@@ -285,19 +310,21 @@ class Room_service:
             room_id: Room identifier
             user_id: User identifier
         """
-        room = self.get_room(room_id)
-        initial_count = len(room.participants)
-
-        # Remove participant by user ID
-        participant = room.get_participant_by_id(user_id)
-        if participant:
-            room.remove_participant(participant.get("participant"))
-            print(
-                f"Removed user {user_id} from room {room_id}. Remaining: {len(room.participants)}")
-
-        # Clean up empty rooms
-        if len(room.participants) == 0 and not self._skip_cleanup:
-            self.cleanup_room(room_id)
+        # Remove user from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        room = room_manager.get_room(room_id)
+        if room:
+            # Find participant by user ID and remove by socket ID
+            participants = room_manager.get_room_participants(room_id)
+            participant = next((p for p in participants if p.get("id") == user_id), None)
+            if participant:
+                room_manager.remove_participant(room_id, participant.get("socketId"))
+                print(f"Removed user {user_id} from room {room_id}")
+                
+                # Clean up empty rooms
+                remaining_participants = room_manager.get_room_participants(room_id)
+                if len(remaining_participants) == 0 and not self._skip_cleanup:
+                    self.cleanup_room(room_id)
 
     def update_user(self, room_id: str, user_id: str, updates: Dict[str, Any]):
         """
@@ -307,15 +334,10 @@ class Room_service:
             user_id: User identifier
             updates: Data to update
         """
-        room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
-
-        if participant:
-            # Update participant dictionary directly
-            for key, value in updates.items():
-                participant[key] = value
-
-            print(f"Updated user {user_id} in room {room_id}: {updates}")
+        # Update user in room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        room_manager.update_user(room_id, user_id, updates)
+        print(f"Updated user {user_id} in room {room_id}: {updates}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
         """
@@ -358,13 +380,17 @@ class Room_service:
         if new_role not in ["speaker", "listener", "host"]:
             return False
 
-        room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        participant = next((p for p in participants if p.get("id") == user_id), None)
 
         if participant:
             old_role = participant.get("role", "listener")
             # Update role in dictionary
             participant["role"] = new_role.lower()
+            # Update in room manager
+            room_manager.update_user(room_id, user_id, {"role": new_role.lower()})
             print(
                 f"Changed {participant.get('anonymousName', 'Unknown')} role from {old_role} to {new_role} in room {room_id}")
             return True
@@ -378,13 +404,14 @@ class Room_service:
             room_id: Room identifier
         Returns: Role statistics
         """
-        room = self.get_room(room_id)
-        speakers = [p for p in room.participants if p.get("role") == "speaker"]
-        listeners = [p for p in room.participants if p.get(
-            "role") == "listener"]
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        speakers = [p for p in participants if p.get("role") == "speaker"]
+        listeners = [p for p in participants if p.get("role") == "listener"]
 
         return {
-            "totalParticipants": len(room.participants),
+            "totalParticipants": len(participants),
             "speakers": len(speakers),
             "listeners": len(listeners),
             "speakerList": speakers,  # Already dictionaries
@@ -460,18 +487,20 @@ class Room_service:
             room_id: Room identifier
         Returns: Host participant or None
         """
-        room = self.get_room(room_id)
-        if not room.participants:
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        if not participants:
             return None
 
         # First check for explicit host role
         host = next(
-            (p for p in room.participants if p.get("role") == "host"), None)
+            (p for p in participants if p.get("role") == "host"), None)
         if host:
             return host
 
         # Fallback to first participant
-        return room.participants[0] if room.participants else None
+        return participants[0] if participants else None
 
     def assign_new_host(self, room_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -480,20 +509,22 @@ class Room_service:
             room_id: Room identifier
         Returns: New host participant or None
         """
-        room = self.get_room(room_id)
-        if not room.participants:
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        if not participants:
             return None
 
         # Find the first available participant to become host
         new_host = None
-        for participant in room.participants:
+        for participant in participants:
             if participant.get("role") != "host":  # Don't reassign if already host
                 new_host = participant
                 break
 
         if new_host:
-            # Update the participant's role to host
-            new_host["role"] = "host"
+            # Update the participant's role to host in room manager
+            room_manager.update_user(room_id, new_host.get("id"), {"role": "host"})
             print(
                 f"Assigned new host: {new_host.get('anonymousName', 'Unknown')} in room {room_id}")
             return new_host
@@ -519,8 +550,10 @@ class Room_service:
             user_id: User identifier
         Returns: Preserved host state
         """
-        room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        participant = next((p for p in participants if p.get("id") == user_id), None)
 
         if participant and participant.get("role") == "host":
             # Store host state for potential restoration
@@ -537,9 +570,11 @@ class Room_service:
             }
 
             # Store in room metadata for restoration
-            if not hasattr(room, 'metadata'):
-                room.metadata = {}
-            room.metadata['previous_host'] = host_state
+            room = room_manager.get_room(room_id)
+            if room:
+                if not hasattr(room, 'metadata'):
+                    room.metadata = {}
+                room.metadata['previous_host'] = host_state
 
             print(
                 f"Preserved host state for {participant.get('anonymousName', 'Unknown')} in room {room_id}")
@@ -555,19 +590,24 @@ class Room_service:
             user_id: User identifier
         Returns: True if host privileges were restored
         """
-        room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
+        # Get participants from room manager for real-time updates
+        from ..socket.room_manager import room_manager
+        participants = room_manager.get_room_participants(room_id)
+        participant = next((p for p in participants if p.get("id") == user_id), None)
 
         if not participant:
             return False
 
         # Check if this user was the previous host
-        if hasattr(room, 'metadata') and room.metadata.get('previous_host'):
+        room = room_manager.get_room(room_id)
+        if room and hasattr(room, 'metadata') and room.metadata.get('previous_host'):
             prev_host = room.metadata['previous_host']
             if prev_host.get('id') == user_id:
-                # Restore host role
-                participant["role"] = "host"
-                participant["isReady"] = prev_host.get("isReady", False)
+                # Restore host role in room manager
+                room_manager.update_user(room_id, user_id, {
+                    "role": "host",
+                    "isReady": prev_host.get("isReady", False)
+                })
 
                 # Clear previous host metadata
                 del room.metadata['previous_host']

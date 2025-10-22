@@ -48,21 +48,23 @@ class User_services:
             user = self.cursor.fetchone()
 
             if user and self.unhash_password(user[1]) == login_model.password:  # user[1] is hashed_password
+                # Get the full user data to return as UserModel
+                user_data = self.get_user(user[0])
                 return LoginSignUpResponseModel(
                     status="success",
-                    data=user[0],  # user[0] is id
+                    data=user_data,
                     message="Login successful"
                 )
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message="Invalid email or password"
             )
         except Exception as e:
             print(f"Error during login: {e}")
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message=f"Login failed: {str(e)}"
             )
             
@@ -74,13 +76,13 @@ class User_services:
             if self.cursor.fetchone():
                 return LoginSignUpResponseModel(
                     status="failure",
-                    data="",
+                    data=None,
                     message="User with this email already exists"
                 )
             if len(signup_model.password) < 6:
                 return LoginSignUpResponseModel(
                     status="failure",
-                    data="",
+                    data=None,
                     message="Password must be at least 6 characters long"
                 )
             
@@ -98,9 +100,11 @@ class User_services:
                 )
             self.conn.commit()
             
+            # Get the created user to return as UserModel
+            user_data = self.get_user(user_id)
             return LoginSignUpResponseModel(
                 status="success",
-                data=user_id,
+                data=user_data,
                 message="Signup successful"
             )
         except Exception as e:
@@ -108,58 +112,43 @@ class User_services:
             self.conn.rollback()  # Rollback on error
             return LoginSignUpResponseModel(
                 status="failure",
-                data="",
+                data=None,
                 message=f"Signup failed: {str(e)}"
             )
     
     def get_user(self, user_id: str) -> UserModel:
-        """Service to get user details
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use GetUserResponseModel
-        """
+        """Service to get user details"""
         try:
             self.cursor.execute(
-                "SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
+                "SELECT user_id, name, email, hashed_password, topic_categories, current_cefr_level, created_at, last_active FROM users WHERE user_id=?",
                 (user_id,)
             )
             user = self.cursor.fetchone()
             
             if user:
                 # Normalize topic categories list
-                categories_raw = user[3] if user[3] else ""
+                categories_raw = user[4] if user[4] else ""
                 topic_categories = [c.strip() for c in categories_raw.split(",") if c and c.strip()]
 
                 # Normalize CEFR level to string A0..C2 if integer stored
-                cefr_value = user[4]
+                cefr_value = user[5]
                 current_cefr_level = str(cefr_value)
-                return{
-                    "status": "success",
-                    "data": UserModel(
-                        user_id=user[0],
-                        name=user[1],
-                        email=user[2],
-                        cefr_level=user[4],
-                        topic_categories=topic_categories,
-                        current_cefr_level=current_cefr_level,
-                        created_at=user[5],
-                        last_active=user[6],
-                    ),
-                    "message": "User found"
-                }
+                
+                return UserModel(
+                    user_id=user[0],
+                    name=user[1],
+                    email=user[2],
+                    hashed_password=user[3],
+                    topic_categories=topic_categories,
+                    current_cefr_level=current_cefr_level,
+                    created_at=user[6],
+                    last_active=user[7],
+                )
             else:
-                return {
-                    "status": "failure",
-                    "data": None,
-                    "message": "User not found"
-                }
+                raise ValueError("User not found")
         except Exception as e:
             print(f"Error getting user: {e}")
-            return {
-                "status": "failure",
-                "data": None,
-                "message": "Failed to retrieve user: " + str(e)
-            }
+            raise e
 
     def list_users(self) -> dict:
         """List all users

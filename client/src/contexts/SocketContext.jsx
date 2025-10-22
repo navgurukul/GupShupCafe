@@ -318,8 +318,14 @@ export function SocketProvider({ children }) {
    * @param {string} roomId - Room identifier
    * @param {string} role - User role ('speaker' or 'listener')
    * @param {object} roomMetadata - Optional room metadata (name, topic_category, cefr_level, etc.)
+   * @param {string} anonymousName - Optional anonymous name to use instead of cached data
    */
-  const joinRoom = (roomId, role = "listener", roomMetadata = null) => {
+  const joinRoom = (
+    roomId,
+    role = "listener",
+    roomMetadata = null,
+    anonymousName = null
+  ) => {
     const s = socketRef.current || socket;
     if (s && s.emit) {
       // store current room/role in metaRef so reconnects can rejoin
@@ -347,14 +353,32 @@ export function SocketProvider({ children }) {
       const storedParticipantData = JSON.parse(
         localStorage.getItem("participantData") || "{}"
       );
-      const anonymousName = storedParticipantData.anonymous_name || "Anonymous";
+      const finalAnonymousName =
+        anonymousName || storedParticipantData.anonymous_name || "Anonymous";
+
+      console.log("[Socket] Using participant data:", {
+        storedParticipantData,
+        providedAnonymousName: anonymousName,
+        finalAnonymousName,
+        role,
+      });
+
+      // Debug: Log the full localStorage data
+      console.log(
+        "[Socket] Full localStorage participantData:",
+        localStorage.getItem("participantData")
+      );
+      console.log(
+        "[Socket] Full localStorage userData:",
+        localStorage.getItem("userData")
+      );
 
       const joinUserData = {
         userId: storedUserData.userId || userData?.userId || "anonymous-user",
         name: storedUserData.name || userData?.name || "Anonymous User",
         campus: storedUserData.campus || userData?.campus || null,
         location: storedUserData.location || userData?.location || null,
-        anonymousName: anonymousName,
+        anonymousName: finalAnonymousName,
         role: role,
       };
 

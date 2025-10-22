@@ -117,6 +117,25 @@ export function AudioProvider({ children }) {
   };
 
   /**
+   * Check if microphone permission is already granted
+   * @returns {Promise<boolean>} True if permission is granted
+   */
+  const checkMicrophonePermission = async () => {
+    try {
+      if (navigator.permissions) {
+        const permission = await navigator.permissions.query({
+          name: "microphone",
+        });
+        return permission.state === "granted";
+      }
+      return false;
+    } catch (error) {
+      console.log("[Audio] Could not check microphone permission:", error);
+      return false;
+    }
+  };
+
+  /**
    * Update user role and handle audio stream accordingly
    * @param {string} newRole - New role ('speaker' or 'listener')
    */
@@ -126,6 +145,23 @@ export function AudioProvider({ children }) {
     setUserRole(newRole);
     if (newRole === "speaker") {
       await requestMicrophoneAccess();
+    } else if (newRole === "listener") {
+      // For listeners, check if microphone permission is already granted
+      const hasPermission = await checkMicrophonePermission();
+      if (hasPermission) {
+        setMicPermission("granted");
+        setAudioEnabled(true);
+        console.log(
+          "[Audio] Listener mode - microphone permission already granted"
+        );
+      } else {
+        // For listeners, we don't need microphone access, so set audioEnabled to true
+        // This allows listeners to be ready without microphone permission
+        setAudioEnabled(true);
+        console.log(
+          "[Audio] Listener mode - audio enabled without microphone access"
+        );
+      }
     }
     // Do not stop or destroy the local stream on demotion
   };
@@ -656,6 +692,26 @@ export function AudioProvider({ children }) {
       cleanupWebRTC();
     }
   }, [userRole]);
+
+  /**
+   * Check microphone permission on mount and when role changes to listener
+   */
+  useEffect(() => {
+    const checkPermissionOnMount = async () => {
+      if (userRole === "listener") {
+        const hasPermission = await checkMicrophonePermission();
+        if (hasPermission && !audioEnabled) {
+          setMicPermission("granted");
+          setAudioEnabled(true);
+          console.log(
+            "[Audio] Auto-detected microphone permission for listener"
+          );
+        }
+      }
+    };
+
+    checkPermissionOnMount();
+  }, [userRole, audioEnabled]);
 
   const value = {
     audioEnabled,

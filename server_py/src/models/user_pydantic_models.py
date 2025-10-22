@@ -34,6 +34,7 @@ class UserModel(BaseDictModel):
 
     email: EmailStr = Field(..., description="User's email address")
     name: str = Field(..., min_length=2, description="User's full name")
+    hashed_password: str = Field(..., description="Hashed password for authentication")
     # CEFR Progress Tracking
     current_cefr_level: CEFRLevel = Field(..., description="Current CEFR level: A0...C2")
 
@@ -43,7 +44,7 @@ class UserModel(BaseDictModel):
     
 class LoginSignUpResponseModel(BaseDictModel):
     status: str = Field(..., description="Login/Signup status message")
-    data: UserModel = Field(..., description="User for user room")
+    data: Optional[UserModel] = Field(None, description="User for user room")
     message: Optional[str] = Field(None, description="Additional message")
     
 
@@ -78,4 +79,23 @@ class DeleteUserResponseModel(BaseDictModel):
     status: str = Field(..., description="Delete operation status")
     data: str = Field(..., description="Deleted user ID")
     message: Optional[str] = Field(None, description="Additional message")
+
+# --- CEFR Update Model ---
+
+class UpdateUserCEFRModel(BaseDictModel):
+    """Model for updating user CEFR level"""
+    user_id: str = Field(..., description="User ID")
+    current_cefr_level: CEFRLevel = Field(..., description="Updated CEFR level")
+    updated_at: datetime = Field(..., description="Update timestamp")
+
+class UpdateUserLastActiveModel(BaseDictModel):
+    """Model for updating user last active timestamp"""
+    user_id: str = Field(..., description="User ID")
+    last_active: datetime = Field(..., description="Last active timestamp")
+
+class UpdateUserPasswordModel(BaseDictModel):
+    """Model for updating user password"""
+    user_id: str = Field(..., description="User ID")
+    current_password: str = Field(..., description="Current password")
+    new_password: str = Field(..., min_length=6, description="New password")
 

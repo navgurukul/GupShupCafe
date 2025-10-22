@@ -3,11 +3,11 @@
  * Common functions for managing participant data across pages
  */
 
-import { generateAvatarColor } from './helpers'
+import { generateAvatarColor } from "./helpers";
 
 const getApiUrl = () => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:3003'
-}
+  return import.meta.env.VITE_API_URL || "http://localhost:3003";
+};
 
 /**
  * Create a participant in the database
@@ -15,32 +15,50 @@ const getApiUrl = () => {
  * @returns {Promise<Object>} API response
  */
 export async function createParticipant(participantData) {
-  const apiUrl = getApiUrl()
-  
+  const apiUrl = getApiUrl();
+
   try {
     const response = await fetch(`${apiUrl}/participants/`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(participantData),
-    })
+    });
 
-    const result = await response.json()
-    console.log('[ParticipantHelper] Participant created:', result)
-    
+    const result = await response.json();
+    console.log("[ParticipantHelper] Participant created:", result);
+
     // Store participant data in localStorage
-    if (result.status === 'success') {
+    if (result.status === "success" && result.data) {
+      // result.data is now a full ParticipantModel object
+      const participantModel = result.data;
       saveParticipantToLocalStorage({
-        participantId: result.data,
-        ...participantData
-      })
+        participantId: participantModel.participant_id,
+        user_id: participantModel.user_id,
+        room_id: participantModel.room_id,
+        avatar_color: participantModel.avatar_color,
+        anonymous_name: participantModel.anonymous_name,
+        role: participantModel.role,
+        is_ready: participantModel.is_ready,
+        turn_order: participantModel.turn_order,
+        is_speaking: participantModel.is_speaking,
+        is_muted: participantModel.is_muted,
+        socket_id: participantModel.socket_id,
+        starting_cefr_level: participantModel.starting_cefr_level,
+        ending_cefr_level: participantModel.ending_cefr_level,
+        joined_at: participantModel.joined_at,
+        left_at: participantModel.left_at,
+        campusOrLocation: participantModel.campusOrLocation,
+        speaking_time_seconds: participantModel.speaking_time_seconds,
+        created_at: participantModel.created_at,
+      });
     }
-    
-    return result
+
+    return result;
   } catch (error) {
-    console.error('[ParticipantHelper] Error creating participant:', error)
-    throw error
+    console.error("[ParticipantHelper] Error creating participant:", error);
+    throw error;
   }
 }
 
@@ -50,10 +68,16 @@ export async function createParticipant(participantData) {
  */
 export function saveParticipantToLocalStorage(participantData) {
   try {
-    localStorage.setItem('participantData', JSON.stringify(participantData))
-    console.log('[ParticipantHelper] Participant data saved to localStorage:', participantData)
+    console.log(
+      "[ParticipantHelper] Saving participant data to localStorage:",
+      participantData
+    );
+    localStorage.setItem("participantData", JSON.stringify(participantData));
+    console.log(
+      "[ParticipantHelper] Participant data saved to localStorage successfully"
+    );
   } catch (error) {
-    console.error('[ParticipantHelper] Error saving to localStorage:', error)
+    console.error("[ParticipantHelper] Error saving to localStorage:", error);
   }
 }
 
@@ -63,11 +87,14 @@ export function saveParticipantToLocalStorage(participantData) {
  */
 export function getParticipantFromLocalStorage() {
   try {
-    const data = localStorage.getItem('participantData')
-    return data ? JSON.parse(data) : null
+    const data = localStorage.getItem("participantData");
+    return data ? JSON.parse(data) : null;
   } catch (error) {
-    console.error('[ParticipantHelper] Error reading from localStorage:', error)
-    return null
+    console.error(
+      "[ParticipantHelper] Error reading from localStorage:",
+      error
+    );
+    return null;
   }
 }
 
@@ -76,10 +103,12 @@ export function getParticipantFromLocalStorage() {
  */
 export function clearParticipantFromLocalStorage() {
   try {
-    localStorage.removeItem('participantData')
-    console.log('[ParticipantHelper] Participant data cleared from localStorage')
+    localStorage.removeItem("participantData");
+    console.log(
+      "[ParticipantHelper] Participant data cleared from localStorage"
+    );
   } catch (error) {
-    console.error('[ParticipantHelper] Error clearing localStorage:', error)
+    console.error("[ParticipantHelper] Error clearing localStorage:", error);
   }
 }
 
@@ -94,8 +123,13 @@ export async function createParticipantForRoom({
   roomId,
   anonymousName,
   currentCefrLevel,
-  campusOrLocation = null
+  campusOrLocation = null,
 }) {
+  console.log(
+    "[ParticipantHelper] Creating participant with name:",
+    anonymousName
+  );
+
   const participantPayload = {
     user_id: userId,
     room_id: roomId,
@@ -104,10 +138,11 @@ export async function createParticipantForRoom({
     campusOrLocation: campusOrLocation,
     joined_at: new Date().toISOString(),
     starting_cefr_level: currentCefrLevel,
-    ending_cefr_level: currentCefrLevel // Initially same as starting level
-  }
+    ending_cefr_level: currentCefrLevel, // Initially same as starting level
+  };
 
-  return await createParticipant(participantPayload)
+  console.log("[ParticipantHelper] Participant payload:", participantPayload);
+  return await createParticipant(participantPayload);
 }
 
 export default {
@@ -115,5 +150,5 @@ export default {
   saveParticipantToLocalStorage,
   getParticipantFromLocalStorage,
   clearParticipantFromLocalStorage,
-  createParticipantForRoom
-}
+  createParticipantForRoom,
+};

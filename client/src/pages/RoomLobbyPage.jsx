@@ -243,7 +243,30 @@ function RoomLobbyPage() {
           }, 1000); // Small delay to ensure room join is complete
         }
 
-        joinRoom(roomId, selectedRole);
+        // Get the anonymous name from URL parameters first, then fallback to stored data
+        const urlParams = new URLSearchParams(window.location.search);
+        const nameFromUrl = urlParams.get("name");
+        const storedParticipantData = JSON.parse(
+          localStorage.getItem("participantData") || "{}"
+        );
+        const anonymousName =
+          nameFromUrl || storedParticipantData.anonymous_name;
+
+        console.log("[RoomLobby] Using name from URL:", nameFromUrl);
+        console.log("[RoomLobby] Using stored participant data:", {
+          storedParticipantData,
+          anonymousName,
+          roomId,
+          selectedRole,
+        });
+
+        // Debug: Check if the stored name matches what we expect
+        console.log(
+          "[RoomLobby] Full localStorage participantData:",
+          localStorage.getItem("participantData")
+        );
+
+        joinRoom(roomId, selectedRole, null, anonymousName);
       }
     });
     socket.on("disconnect", () => {
@@ -257,25 +280,7 @@ function RoomLobbyPage() {
         updatedParticipants
       );
 
-      // Preserve local ready status during updates
-      const currentLocalParticipant = participants.find(
-        (p) => p.socketId === socket.id
-      );
-      const updatedLocalParticipant = updatedParticipants.find(
-        (p) => p.socketId === socket.id
-      );
-
-      // If we have a local participant and they were ready, preserve that state
-      if (
-        currentLocalParticipant &&
-        currentLocalParticipant.isReady &&
-        updatedLocalParticipant
-      ) {
-        updatedLocalParticipant.isReady = true;
-        console.log(
-          "[Lobby][Debug] Preserved local ready status during update"
-        );
-      }
+      // Use server data as source of truth
 
       setParticipants(updatedParticipants);
 
@@ -380,6 +385,22 @@ function RoomLobbyPage() {
       const { participantId, anonymousName } = data;
 
       setSystemMessage(`🔄 ${anonymousName} has reconnected to the room.`);
+    });
+
+    // Handle discussion started - navigate to roundtable
+    socket.on("discussion-started", (data) => {
+      console.log("[Lobby][Debug] Discussion started:", data);
+      setSystemMessage(
+        "🎉 Discussion has started! Redirecting to roundtable..."
+      );
+
+      // Store discussion start time for the roundtable page
+      sessionStorage.setItem("discussion-start-time", Date.now().toString());
+
+      // Navigate to roundtable page
+      setTimeout(() => {
+        navigate("/roundtable", { replace: true });
+      }, 1000); // Small delay to show the message
     });
 
     // Note: Removed listeners for 'user-ready-update' and 'system-message'
@@ -557,47 +578,16 @@ function RoomLobbyPage() {
       "[Lobby][Debug] Ready button clicked. Participants:",
       participants,
       "AudioEnabled:",
-      audioEnabled
+      audioEnabled,
+      "MicPermission:",
+      micPermission,
+      "SelectedRole:",
+      selectedRole
     );
-    if (participants.length >= minParticipants && audioEnabled) {
+    if (canStart) {
       setIsReady(true);
       console.log("[Lobby][Debug] Emitting signalReady");
       signalReady();
-
-      // Update participant ready status via API
-      try {
-        const participantData = JSON.parse(
-          localStorage.getItem("participantData") || "{}"
-        );
-        const participantId = participantData.participantId;
-
-        if (participantId) {
-          const apiUrl =
-            import.meta.env.VITE_API_URL || "http://localhost:3003";
-          const response = await fetch(`${apiUrl}/participants/ready`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              participant_id: participantId,
-              is_ready: true,
-            }),
-          });
-
-          const result = await response.json();
-          console.log(
-            "[RoomLobby][Debug] Ready status updated via API:",
-            result
-          );
-        } else {
-          console.warn(
-            "[RoomLobby][Debug] No participantId found in localStorage"
-          );
-        }
-      } catch (error) {
-        console.error("[RoomLobby][Debug] Error updating ready status:", error);
-      }
     }
   };
 
@@ -652,7 +642,9 @@ function RoomLobbyPage() {
       if (!isNavigating) {
         setIsNavigating(true);
         setSystemMessage("Discussion starting! Redirecting to roundtable...");
-        console.log(`[RoomLobby][Debug] Navigating to /roundtable/${urlRoomId} now`);
+        console.log(
+          `[RoomLobby][Debug] Navigating to /roundtable/${urlRoomId} now`
+        );
 
         // Mark discussion start time for polling
         setDiscussionStartTime(Date.now());
@@ -676,7 +668,12 @@ function RoomLobbyPage() {
     navigate("/");
   };
 
-  const canStart = participants.length >= minParticipants && audioEnabled;
+  // For listeners, check if they have microphone permission OR audioEnabled
+  // For speakers, require audioEnabled (which includes microphone access)
+  const canStart =
+    participants.length >= minParticipants &&
+    (audioEnabled ||
+      (selectedRole === "listener" && micPermission === "granted"));
 
   // Check if current user is host (explicit host role or first participant)
   const currentUser = participants.find((p) => p.socketId === socket?.id);
@@ -1137,7 +1134,11 @@ function RoomLobbyPage() {
 
           {!canStart && (
             <p className="text-gray-500">
-              {!audioEnabled
+              {!audioEnabled && selectedRole === "speaker"
+                ? "Please enable your microphone to continue"
+                : !audioEnabled &&
+                  selectedRole === "listener" &&
+                  micPermission !== "granted"
                 ? "Please enable your microphone to continue"
                 : "Waiting for minimum participants..."}
             </p>

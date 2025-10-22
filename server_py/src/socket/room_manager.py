@@ -6,7 +6,8 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
+from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, RoomModel, ParticipantModel
+from ..models.room_in_memory import Room, Participant
 from ..models.enums import CEFRLevel, ParticipantRole
 
 
@@ -32,7 +33,7 @@ class RoomManager:
                 max_participants=6,
                 speaking_time=60,
                 num_rounds=3,
-                cefr_level="A1",
+                cefr_level=CEFRLevel.A1,
                 status=RoomStatus.WAITING,
                 current_round=0,
                 current_speaker_index=0,
@@ -209,14 +210,38 @@ class RoomManager:
             updates: Data to update
         """
         room = self.get_room(room_id)
-        participant = room.get_participant_by_id(user_id)
-
+        if not room:
+            print(f"Room {room_id} not found")
+            return
+            
+        # Find the actual Participant object in the room
+        participant = None
+        for p in room.participants:
+            if p.user_id == user_id:
+                participant = p
+                break
+                
         if participant:
-            # Update participant dictionary directly
+            # Update the Participant object attributes
             for key, value in updates.items():
-                participant[key] = value
+                # Map camelCase to snake_case for Participant attributes
+                if key == "isReady":
+                    key = "is_ready"
+                elif key == "socketId":
+                    key = "socket_id"
+                elif key == "anonymousName":
+                    key = "anonymous_name"
+                elif key == "userId":
+                    key = "user_id"
+                
+                if hasattr(participant, key):
+                    setattr(participant, key, value)
+                else:
+                    print(f"Warning: Participant object has no attribute '{key}'")
 
             print(f"Updated user {user_id} in room {room_id}: {updates}")
+        else:
+            print(f"Participant {user_id} not found in room {room_id}")
 
     def get_room_participants(self, room_id: str) -> List[Dict[str, Any]]:
         """
@@ -226,7 +251,21 @@ class RoomManager:
         Returns: Array of participants
         """
         room = self.get_room(room_id)
-        return room.participants  # Already dictionaries, no need to convert
+        # Convert Participant objects to dictionaries
+        participants = []
+        for participant in room.participants:
+            participants.append({
+                "id": participant.user_id,
+                "socketId": participant.socket_id,
+                "anonymousName": participant.anonymous_name,
+                "name": participant.anonymous_name,  # Use anonymous_name as name
+                "campus": None,
+                "location": None,
+                "role": participant.role if isinstance(participant.role, str) else getattr(participant.role, "value", str(participant.role)),
+                "isReady": participant.is_ready,
+                "joinedAt": participant.joined_at.isoformat() if participant.joined_at else None
+            })
+        return participants
 
     def get_discussion_state(self, room_id: str) -> Dict[str, Any]:
         """
