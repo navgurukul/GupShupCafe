@@ -1,7 +1,7 @@
 from src.database.db_connection import conn, cursor
 from src.services.participant_service import participant_service
 from src.services.agent_service import AgentService, agent_service
-from src.models.participant_pydantic_models import ParticipantModel
+from src.models.participant_pydantic_models import CreateParticipantResponseModel
 from src.models.room_pydantic_models import (
     CreateRoomModel, RoomModel, CreateRoomResponseModel,
     UpdateRoomResponseModel, ListRoomsResponseModel, 

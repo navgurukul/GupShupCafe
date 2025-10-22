@@ -6,7 +6,8 @@ Manages discussion rooms and participants
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 
-from ..models import RoomStatus, CreateRoomModel, CreateParticipantModel, Room, Participant
+from ..models import RoomStatus, CreateRoomModel, RoomModel
+from ..models.participant_pydantic_models import CreateParticipantModel, ParticipantModel
 from ..models.enums import CEFRLevel, ParticipantRole
 
 
@@ -14,10 +15,10 @@ class RoomManager:
     """Manages discussion rooms and participants"""
 
     def __init__(self):
-        self.rooms: Dict[str, Room] = {}
+        self.rooms: Dict[str, RoomModel] = {}
         self._skip_cleanup = False
 
-    def get_room(self, room_id: str) -> Room:
+    def get_room(self, room_id: str) -> RoomModel:
         """
         Get or create a room
         Args:
@@ -25,7 +26,7 @@ class RoomManager:
         Returns: Room object
         """
         if room_id not in self.rooms:
-            self.rooms[room_id] = Room(
+            self.rooms[room_id] = RoomModel(
                 room_id=room_id,
                 room_name="General",
                 topic={"title": "General Discussion", "category": "general"},
@@ -100,7 +101,7 @@ class RoomManager:
             participants_data = await db.get_participants_by_room(room_id)
             
             # Reconstruct room object
-            room = Room(
+            room = RoomModel(
                 room_id=room_id,
                 room_name=room_data.get('room_name', 'General'),
                 topic=room_data.get('topic', {}),
@@ -120,14 +121,25 @@ class RoomManager:
             
             # Reconstruct participants
             for p_data in participants_data:
-                participant = Participant(
-                    id=p_data.get('id'),
-                    socket_id=p_data.get('socket_id'),
-                    name=p_data.get('name'),
-                    role=ParticipantRole(p_data.get('role', 'listener')),
+                participant = ParticipantModel(
+                    participant_id=p_data.get('participant_id'),
+                    room_id=room_id,
+                    user_id=p_data.get('user_id'),
+                    anonymous_name=p_data.get('anonymous_name'),
+                    avatar_color=p_data.get('avatar_color'),
+                    role=p_data.get('role', 'participant'),
                     is_ready=p_data.get('is_ready', False),
-                    is_host=p_data.get('is_host', False),
-                    joined_at=p_data.get('joined_at')
+                    turn_order=p_data.get('turn_order', 0),
+                    is_speaking=p_data.get('is_speaking', False),
+                    is_muted=p_data.get('is_muted', False),
+                    socket_id=p_data.get('socket_id'),
+                    starting_cefr_level=p_data.get('starting_cefr_level', 'A1'),
+                    ending_cefr_level=p_data.get('ending_cefr_level'),
+                    joined_at=p_data.get('joined_at'),
+                    left_at=p_data.get('left_at'),
+                    campusOrLocation=p_data.get('campusOrLocation'),
+                    speaking_time_seconds=p_data.get('speaking_time_seconds', 0),
+                    created_at=p_data.get('created_at')
                 )
                 room.participants.append(participant)
             
@@ -159,7 +171,7 @@ class RoomManager:
             }
             role = role_map.get(role.lower(), "listener")
 
-        # Create participant dictionary for the room
+        # Create participant dictionary for the room (compatible with frontend)
         participant_dict = {
             "id": user_data.get("id"),
             "socketId": user_data.get("socketId"),

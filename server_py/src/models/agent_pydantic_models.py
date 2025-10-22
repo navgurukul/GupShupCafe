@@ -7,7 +7,6 @@ import uuid
 from .base_dict_model import BaseDictModel
 
 
-
 # --- Enums for the Agent Model ---
 
 
@@ -23,8 +22,6 @@ class AgentType(str, Enum):
     """Defines the role of the agent in a room."""
     FACILITATOR = "facilitator"
     ENGLISH = "english"
-    TUTOR = "tutor"
-    MODERATOR = "moderator"
 
 
 class AgentModelSource(str, Enum):
@@ -65,6 +62,21 @@ class AgentModel(BaseDictModel):
         from_attributes = True
 
 
+# --- Get Model for retrieving agents ---
+
+class GetAgentModel(BaseDictModel):
+    """Model for getting agent with optional filters"""
+    agent_id: str = Field(..., description="Unique identifier for the agent instance")
+    
+    # All other fields from CreateAgentModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID where the agent operates")
+    agent_model: Optional[str] = Field(None, description="LLM service (Gemini or Bedrock)")
+    agent_type: Optional[str] = Field(None, description="Agent specialization type")
+    status: Optional[str] = Field(None, description="Current agent status")
+    total_interactions: Optional[int] = Field(None, description="Counter for LLM invocations")
+    created_at: Optional[datetime] = Field(None, description="Timestamp of agent creation")
+
+
 class CreateAgentResponseModel(BaseDictModel):
     """Response model for agent creation."""
     success: bool = Field(..., description="Creation success status")
@@ -73,18 +85,20 @@ class CreateAgentResponseModel(BaseDictModel):
 
 # --- Agent Interaction Models ---
 
-class AgentResponseModel(BaseDictModel):
+
+class AgentReplyModel(BaseDictModel):
     """Model for agent response data."""
     agent_id: str = Field(..., description="Agent that generated the response")
     response_text: str = Field(..., description="Generated response text")
-    processing_time: float = Field(...,
-                                   description="Time taken to generate response")
-    confidence_score: Optional[float] = Field(
-        None, description="Confidence in the response")
-    tokens_used: Optional[int] = Field(
-        None, description="Number of tokens consumed")
 
-# --- List Models ---
+
+class AgentReplyResponseModel(BaseDictModel):
+    """Response model for agent replies"""
+    status: str = Field(..., description="Reply operation status")
+    data: AgentReplyModel = Field(..., description="Agent reply data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+    # --- List Models ---
 
 
 class ListAgentsResponseModel(BaseDictModel):
@@ -120,4 +134,3 @@ class DeleteAgentResponseModel(BaseDictModel):
     status: str = Field(..., description="Delete operation status")
     data: str = Field(..., description="Deleted agent ID")
     message: Optional[str] = Field(None, description="Additional message")
-

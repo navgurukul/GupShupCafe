@@ -18,7 +18,7 @@ from src.models import (
     UpdateRoomStatusModel, UpdateRoomStateModel, UpdateRoomEndModel,
     
     # Participant Models
-    CreateParticipantModel, ParticipantModel, CreateParticipantResponseModel,
+    CreateParticipantModel, CreateParticipantResponseModel, CreateParticipantResponseModel,
     ParticipantLeftModel, ParticipantIsMutedModel, ParticipantIsSpeakingModel,
     ParticipantIsReadyModel,
     
@@ -33,7 +33,7 @@ from src.models import (
     # Agent Models
     CreateAgentModel, AgentModel, AgentUpdateModel,
     AgentTranscriptProcessingModel, AgentFeedbackGenerationModel,
-    AgentResponseModel, AgentInteractionStatsModel, AgentHealthModel,
+    AgentResponseTextModel, AgentInteractionStatsModel, AgentHealthModel,
     
     # Enums
     CEFRLevel, ParticipantRole, AgentStatus, AgentType, AgentModelSource
@@ -259,7 +259,7 @@ class TestParticipantModels:
     def test_participant_model_with_id(self):
         """Test ParticipantModel with ID"""
         now = datetime.now()
-        participant = ParticipantModel(
+        participant = CreateParticipantResponseModel(
             participant_id="participant-123",
             created_at=now,
             room_id="room-123",
@@ -528,7 +528,7 @@ class TestAgentModels:
         assert feedback_gen.feedback_type == "comprehensive"
         
         # Agent response
-        response = AgentResponseModel(
+        response = AgentResponseTextModel(
             agent_id="agent-123",
             response_text="Great job on pronunciation!",
             processing_time=2.5,

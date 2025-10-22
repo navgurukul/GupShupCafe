@@ -421,17 +421,35 @@ class TestParticipantRoutes:
     @patch('src.api.participant_routes.participant_service')
     def test_get_participant_success(self, mock_service, client):
         """Test successful participant retrieval"""
-        mock_service.get_participant.return_value = {
-            "status": "success",
-            "data": {
-                "participant_id": "participant-123",
-                "user_id": "user-456",
-                "room_id": "room-123",
-                "anonymous_name": "Blue Panda",
-                "is_ready": True
-            },
-            "message": "Participant found"
-        }
+        from src.models.participant_pydantic_models import CreateParticipantResponseModel, CreateParticipantResponseModel
+        from datetime import datetime
+        
+        participant_data = CreateParticipantResponseModel(
+            participant_id="participant-123",
+            user_id="user-456",
+            room_id="room-123",
+            anonymous_name="Blue Panda",
+            avatar_color="#FF0000",
+            role="participant",
+            is_ready=True,
+            turn_order=1,
+            is_speaking=False,
+            is_muted=False,
+            socket_id="socket-123",
+            starting_cefr_level="B1",
+            ending_cefr_level=None,
+            joined_at=datetime.now(),
+            left_at=None,
+            campusOrLocation="Test Campus",
+            speaking_time_seconds=0,
+            created_at=datetime.now()
+        )
+        
+        mock_service.get_participant.return_value = CreateParticipantResponseModel(
+            status="success",
+            data=participant_data,
+            message="Participant found"
+        )
         
         response = client.get("/participants/user-456/room-123")
         
@@ -443,11 +461,13 @@ class TestParticipantRoutes:
     @patch('src.api.participant_routes.participant_service')
     def test_get_participant_not_found(self, mock_service, client):
         """Test participant not found"""
-        mock_service.get_participant.return_value = {
-            "status": "failure",
-            "data": None,
-            "message": "Participant not found"
-        }
+        from src.models.participant_pydantic_models import CreateParticipantResponseModel
+        
+        mock_service.get_participant.return_value = CreateParticipantResponseModel(
+            status="failure",
+            data=None,
+            message="Participant not found"
+        )
         
         response = client.get("/participants/user-456/room-123")
         
@@ -456,14 +476,57 @@ class TestParticipantRoutes:
     @patch('src.api.participant_routes.participant_service')
     def test_list_participants_for_room(self, mock_service, client):
         """Test listing participants for a room"""
-        mock_service.list_participants_for_room.return_value = {
-            "status": "success",
-            "data": [
-                {"participant_id": "participant-1", "anonymous_name": "Blue Panda"},
-                {"participant_id": "participant-2", "anonymous_name": "Red Dragon"}
-            ],
-            "message": "Participants listed"
-        }
+        from src.models.participant_pydantic_models import ListParticipantsResponseModel, CreateParticipantResponseModel
+        from datetime import datetime
+        
+        participants = [
+            CreateParticipantResponseModel(
+                participant_id="participant-1",
+                user_id="user-1",
+                room_id="room-123",
+                anonymous_name="Blue Panda",
+                avatar_color="#FF0000",
+                role="participant",
+                is_ready=True,
+                turn_order=1,
+                is_speaking=False,
+                is_muted=False,
+                socket_id="socket-1",
+                starting_cefr_level="B1",
+                ending_cefr_level=None,
+                joined_at=datetime.now(),
+                left_at=None,
+                campusOrLocation="Test Campus",
+                speaking_time_seconds=0,
+                created_at=datetime.now()
+            ),
+            CreateParticipantResponseModel(
+                participant_id="participant-2",
+                user_id="user-2",
+                room_id="room-123",
+                anonymous_name="Red Dragon",
+                avatar_color="#00FF00",
+                role="participant",
+                is_ready=False,
+                turn_order=2,
+                is_speaking=False,
+                is_muted=False,
+                socket_id="socket-2",
+                starting_cefr_level="A2",
+                ending_cefr_level=None,
+                joined_at=datetime.now(),
+                left_at=None,
+                campusOrLocation="Test Campus",
+                speaking_time_seconds=0,
+                created_at=datetime.now()
+            )
+        ]
+        
+        mock_service.list_participants_for_room.return_value = ListParticipantsResponseModel(
+            status="success",
+            data=participants,
+            message="Participants listed"
+        )
         
         response = client.get("/participants/room/room-123")
         
@@ -473,81 +536,29 @@ class TestParticipantRoutes:
         assert len(data["data"]) == 2
     
     @patch('src.api.participant_routes.participant_service')
-    def test_update_participant_muted(self, mock_service, client):
-        """Test updating participant muted status"""
-        mock_service.update_participant_muted.return_value = {
-            "status": "success",
-            "data": {"updated": 1},
-            "message": "Participant muted status updated"
-        }
+    def test_update_participant(self, mock_service, client):
+        """Test updating participant with unified method"""
+        from src.models.participant_pydantic_models import UpdateParticipantResponseModel, UpdateParticipantModel
+        
+        update_model = UpdateParticipantModel(
+            is_muted=True,
+            is_speaking=False,
+            is_ready=True
+        )
+        
+        mock_service.update_participant.return_value = UpdateParticipantResponseModel(
+            status="success",
+            data=update_model,
+            message="Participant updated"
+        )
         
         update_data = {
-            "participant_id": "participant-123",
-            "is_muted": True
-        }
-        
-        response = client.patch("/participants/muted", json=update_data)
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-    
-    @patch('src.api.participant_routes.participant_service')
-    def test_update_participant_speaking(self, mock_service, client):
-        """Test updating participant speaking status"""
-        mock_service.update_participant_speaking.return_value = {
-            "status": "success",
-            "data": {"updated": 1},
-            "message": "Participant speaking status updated"
-        }
-        
-        update_data = {
-            "participant_id": "participant-123",
-            "is_speaking": True
-        }
-        
-        response = client.patch("/participants/speaking", json=update_data)
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-    
-    @patch('src.api.participant_routes.participant_service')
-    def test_update_participant_ready(self, mock_service, client):
-        """Test updating participant ready status"""
-        mock_service.update_participant_ready.return_value = {
-            "status": "success",
-            "data": {"updated": 1},
-            "message": "Participant ready status updated"
-        }
-        
-        update_data = {
-            "participant_id": "participant-123",
+            "is_muted": True,
+            "is_speaking": False,
             "is_ready": True
         }
         
-        response = client.patch("/participants/ready", json=update_data)
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "success"
-    
-    @patch('src.api.participant_routes.participant_service')
-    def test_update_participant_left(self, mock_service, client):
-        """Test updating participant left status"""
-        mock_service.update_participant_left.return_value = {
-            "status": "success",
-            "data": {"updated": 1},
-            "message": "Participant left status updated"
-        }
-        
-        update_data = {
-            "participant_id": "participant-123",
-            "left_at": datetime.now().isoformat(),
-            "ending_cefr_level": "B2"
-        }
-        
-        response = client.patch("/participants/left", json=update_data)
+        response = client.patch("/participants/participant-123", json=update_data)
         
         assert response.status_code == 200
         data = response.json()

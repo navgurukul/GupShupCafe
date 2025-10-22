@@ -13,7 +13,7 @@ from ..models import (
     AgentUpdateModel,
     AgentTranscriptProcessingModel,
     AgentFeedbackGenerationModel,
-    AgentResponseModel,
+    AgentResponseTextModel,
     AgentInteractionStatsModel,
     AgentHealthModel,
     AgentType
@@ -97,7 +97,7 @@ async def delete_agent(agent_id: str):
     return {"success": True, "message": "Agent deleted successfully"}
 
 
-@router.post("/{agent_id}/process-transcript", response_model=AgentResponseModel)
+@router.post("/{agent_id}/process-transcript", response_model=AgentResponseTextModel)
 async def process_transcript(
     agent_id: str, 
     processing_data: AgentTranscriptProcessingModel

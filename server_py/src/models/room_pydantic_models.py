@@ -49,6 +49,33 @@ class CreateRoomModel(BaseDictModel):
     # Metadata
     created_by: str = Field(..., description="User ID who created the room")
 
+# --- Get Model for retrieving rooms ---
+
+class GetRoomModel(BaseDictModel):
+    """Model for getting room with optional filters"""
+    room_id: str = Field(..., description="Room UUID, Primary Key")
+    
+    # All other fields from CreateRoomModel as optional
+    room_name: Optional[str] = Field(None, description="Human-readable room name")
+    topic_title: Optional[str] = Field(None, description="Discussion topic")
+    topic_category: Optional[str] = Field(None, description="Topic category")
+    max_participants: Optional[int] = Field(None, description="Maximum number of participants")
+    speaking_time_per_turn: Optional[int] = Field(None, description="Speaking time per turn in seconds")
+    num_rounds: Optional[int] = Field(None, description="Number of discussion rounds")
+    cefr_level: Optional[CEFRLevel] = Field(None, description="CEFR level for the room")
+    status: Optional[RoomStatus] = Field(None, description="Room status")
+    current_round: Optional[int] = Field(None, description="Current round number")
+    current_speaker_index: Optional[int] = Field(None, description="Current speaker index")
+    participant_count: Optional[int] = Field(None, description="Number of participants")
+    started_at: Optional[datetime] = Field(None, description="Room start time")
+    ended_at: Optional[datetime] = Field(None, description="Room end time")
+    duration_seconds: Optional[int] = Field(None, description="Room duration in seconds")
+    facilitator_agent_id: Optional[str] = Field(None, description="AWS Strands facilitator agent instance ID")
+    english_agent_id: Optional[str] = Field(None, description="AWS Strands English agent instance ID")
+    created_by: Optional[str] = Field(None, description="User ID who created the room")
+    created_at: Optional[datetime] = Field(None, description="Timestamp when room was created")
+
+
 # --- Model for data read from DB (includes PK and creation time) ---
 
 class RoomModel(CreateRoomModel):

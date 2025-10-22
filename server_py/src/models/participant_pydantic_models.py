@@ -50,6 +50,32 @@ class CreateParticipantModel(BaseDictModel):
         default=0, description="Total speaking time in seconds")
 
 
+# --- Get Model for retrieving participants ---
+
+class GetParticipantModel(BaseDictModel):
+    """Model for getting participant with optional filters"""
+    participant_id: str = Field(..., description="Participant UUID, Primary Key")
+    
+    # All other fields from CreateParticipantModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID (foreign key)")
+    user_id: Optional[str] = Field(None, description="User ID (foreign key)")
+    anonymous_name: Optional[str] = Field(None, description="Anonymous name like 'Blue Panda', 'Red Dragon'")
+    avatar_color: Optional[str] = Field(None, description="Hex color code for avatar")
+    role: Optional[str] = Field(None, description="Role: participant, host, listener")
+    is_ready: Optional[bool] = Field(None, description="Ready to start discussion")
+    turn_order: Optional[int] = Field(None, description="Order in speaking turns")
+    is_speaking: Optional[bool] = Field(None, description="Currently speaking")
+    is_muted: Optional[bool] = Field(None, description="Microphone muted")
+    socket_id: Optional[str] = Field(None, description="Socket.io connection ID")
+    starting_cefr_level: Optional[str] = Field(None, description="CEFR level at room start")
+    ending_cefr_level: Optional[str] = Field(None, description="CEFR level at room end")
+    joined_at: Optional[datetime] = Field(None, description="Timestamp when participant joined")
+    left_at: Optional[datetime] = Field(None, description="Timestamp when participant left")
+    campusOrLocation: Optional[str] = Field(None, description="Campus or location of the participant")
+    speaking_time_seconds: Optional[int] = Field(None, description="Total speaking time in seconds")
+    created_at: Optional[datetime] = Field(None, description="Timestamp when participant was created")
+
+
 # --- Model for data read from DB (includes PK and creation time) ---
 
 
@@ -66,8 +92,9 @@ class ParticipantModel(CreateParticipantModel):
 
 class CreateParticipantResponseModel(BaseDictModel):
     status: str = Field(..., description="Participant creation status message")
-    data: ParticipantModel = Field(..., description="Participant user ID")
+    data: str = Field(..., description="Participant ID")
     message: Optional[str] = Field(None, description="Additional message")
+
 
 
 # --- List Models ---

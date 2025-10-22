@@ -14,7 +14,7 @@ from strands.models import Model
 from ..agents.debate_facilitator_agent import DebateFacilitatorAgent
 from ..agents.english_feedback_agent import EnglishFeedbackAgent
 
-from ..models.transcript_pydantic_models import TranscriptModel, UpdateTranscriptProcessingModel
+from ..models.transcript_pydantic_models import TranscriptModel, UpdateTranscriptModel, UpdateTranscriptResponseModel
 from .transcript_service import transcript_service
 from .feedback_service import feedback_service
 
@@ -22,12 +22,10 @@ from ..database.database import db
 from ..models import (
     CreateAgentModel,
     AgentModel,
-    AgentUpdateModel,
-    AgentTranscriptProcessingModel,
-    AgentFeedbackGenerationModel,
-    AgentResponseModel,
-    AgentInteractionStatsModel,
-    AgentHealthModel,
+    AgentReplyModel,
+    AgentReplyResponseModel,
+    UpdateAgentModel,
+    UpdateAgentResponseModel,
     AgentStatus,
     AgentType,
     AgentModelSource
@@ -40,7 +38,7 @@ class AgentService:
     @staticmethod
     async def create_agent(agent_data: CreateAgentModel) -> str:
         """Create a new agent instance.
-        
+
         # FLAG: NOT CONVERTIBLE - This function returns str instead of pydantic model
         # TODO: Convert to use CreateAgentResponseModel
         """
@@ -66,13 +64,13 @@ class AgentService:
     async def create_room_agents(room_id: str, room_topic: str = None) -> Dict[str, str]:
         """
         Create both facilitator and English feedback agents for a room.
-        
+
         # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
         # TODO: Convert to use appropriate response model
 
         Returns dict with agent_ids: {'facilitator': agent_id, 'english': agent_id}
         """
-       
+
         # Create facilitator agent
         facilitator_data = CreateAgentModel(
             room_id=room_id,
@@ -111,7 +109,7 @@ class AgentService:
     @staticmethod
     async def get_agents_by_room(room_id: str) -> List[AgentModel]:
         """Get all agents for a specific room.
-        
+
         # FLAG: NOT CONVERTIBLE - This function returns List instead of pydantic model
         # TODO: Convert to use ListAgentsResponseModel
         """
@@ -125,18 +123,18 @@ class AgentService:
     @staticmethod
     async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> bool:
         """Update agent properties.
-        
+
         # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
         # TODO: Convert to use UpdateAgentResponseModel
         """
         update_dict = {}
-        
+
         if update_data.status:
             update_dict["status"] = update_data.status.value
-            
+
         if not update_dict:
             return False
-            
+
         # Use existing database method to update status
         try:
             if "status" in update_dict:
@@ -144,7 +142,7 @@ class AgentService:
         except Exception as e:
             print(f"Error updating agent {agent_id}: {e}")
             return False
-        
+
         return True
 
     @staticmethod
@@ -158,9 +156,9 @@ class AgentService:
             return False
 
     @staticmethod
-    async def delete_agent(agent_id: str) -> bool:
+    async def delete_agent(agent_id: str) -> DeleteAgentResponseModel:
         """Delete an agent.
-        
+
         # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
         # TODO: Convert to use DeleteAgentResponseModel
         """
@@ -173,10 +171,10 @@ class AgentService:
 
     @staticmethod
     async def process_transcript_for_feedback(
-        agent_id: str, 
-        transcript_id: str, 
+        agent_id: str,
+        transcript_id: str,
         feedback_type: str = "instant"
-    ) -> AgentResponseModel:
+    ) -> AgentResponseTextModel:
         """
         Process a transcript to generate feedback.
         This method coordinates with transcript and feedback services.
@@ -185,7 +183,7 @@ class AgentService:
         agent = await AgentService.get_agent(agent_id)
         if not agent:
             raise ValueError(f"Agent {agent_id} not found")
-        
+
         # Update agent status to processing
         try:
             await db.update_agent_status(agent_id, AgentStatus.PROCESSING.value)
@@ -194,12 +192,12 @@ class AgentService:
 
         try:
             processing_start = datetime.utcnow()
-            
+
             # Get transcript data from database
             transcript_data = await db.get_transcript(transcript_id)
             if not transcript_data:
                 raise ValueError(f"Transcript {transcript_id} not found")
-            
+
             # Generate feedback based on agent type
             if agent.agent_type == AgentType.ENGLISH.value:
                 feedback_text = await AgentService._generate_english_feedback(
@@ -211,7 +209,7 @@ class AgentService:
                 )
             else:
                 feedback_text = f"Processed transcript for {agent.agent_type} agent"
-            
+
             # Store feedback in database
             feedback_id = str(uuid.uuid4())
             feedback_data = {
@@ -231,25 +229,27 @@ class AgentService:
                 print(f"Error saving feedback for agent {agent_id}: {e}")
 
             processing_end = datetime.utcnow()
-            processing_time = (processing_end - processing_start).total_seconds()
-            
+            processing_time = (
+                processing_end - processing_start).total_seconds()
+
             # Increment interaction counter
             await AgentService.increment_interactions(agent_id)
-            
+
             # Update agent status back to active
             try:
                 await db.update_agent_status(agent_id, AgentStatus.ACTIVE.value)
             except Exception as e:
                 print(f"Error updating agent {agent_id} status to active: {e}")
 
-            return AgentResponseModel(
+            return AgentResponseTextModel(
                 agent_id=agent_id,
                 response_text=feedback_text,
                 processing_time=processing_time,
                 confidence_score=0.95,
-                tokens_used=len(feedback_text.split()) * 1.3  # Rough token estimate
+                tokens_used=len(feedback_text.split()) *
+                1.3  # Rough token estimate
             )
-            
+
         except Exception as e:
             # Update agent status to error
             try:
@@ -260,8 +260,8 @@ class AgentService:
 
     @staticmethod
     async def _generate_english_feedback(
-        agent: AgentModel, 
-        transcript_data: Dict[str, Any], 
+        agent: AgentModel,
+        transcript_data: Dict[str, Any],
         feedback_type: str
     ) -> str:
         """Generate English language feedback for a transcript."""
@@ -269,27 +269,30 @@ class AgentService:
         transcript_text = transcript_data.get("transcript_text", "")
         word_count = transcript_data.get("word_count", 0)
         speech_rate = transcript_data.get("speech_rate", 0)
-        
+
         if feedback_type == "instant":
             # Generate quick, actionable feedback
             feedback_points = []
-            
+
             if word_count < 20:
                 feedback_points.append("Try to elaborate more on your ideas")
             elif word_count > 100:
-                feedback_points.append("Great detail! Consider being more concise")
-            
+                feedback_points.append(
+                    "Great detail! Consider being more concise")
+
             if speech_rate > 3.0:
-                feedback_points.append("Good pace! Your speech is clear and easy to follow")
+                feedback_points.append(
+                    "Good pace! Your speech is clear and easy to follow")
             elif speech_rate < 1.5:
-                feedback_points.append("Try speaking a bit faster to maintain engagement")
-            
+                feedback_points.append(
+                    "Try speaking a bit faster to maintain engagement")
+
             # Add grammar/vocabulary feedback based on text analysis
             if len(transcript_text.split('.')) > 3:
                 feedback_points.append("Nice use of complex sentences!")
-            
+
             return " | ".join(feedback_points) if feedback_points else "Keep up the good work!"
-        
+
         else:  # comprehensive feedback
             return f"""Comprehensive Analysis:
             
@@ -301,27 +304,34 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
 
     @staticmethod
     async def _generate_facilitator_response(
-        agent: AgentModel, 
+        agent: AgentModel,
         transcript_data: Dict[str, Any]
-    ) -> str:
+    ) -> Agent:
         """Generate facilitator response based on participant input."""
         # This is a placeholder - in production, this would call the LLM service
         transcript_text = transcript_data.get("transcript_text", "")
-        
+        response_text = ""
         # Analyze the content and generate appropriate facilitator response
         if "agree" in transcript_text.lower():
-            return "I appreciate you sharing that perspective. What specific examples support your viewpoint?"
+            response_text = "I appreciate you sharing that perspective. What specific examples support your viewpoint?"
         elif "disagree" in transcript_text.lower():
-            return "Thank you for presenting a different angle. Can you help us understand your reasoning?"
+            response_text = "Thank you for presenting a different angle. Can you help us understand your reasoning?"
         elif "?" in transcript_text:
-            return "That's an excellent question. Let's explore this together. What do others think?"
+            response_text = "That's an excellent question. Let's explore this together. What do others think?"
         else:
-            return "Interesting point! How do you think this connects to what we discussed earlier?"
+            response_text = "Interesting point! How do you think this connects to what we discussed earlier?"
+        AgentReplyResponseModel(
+            "success",
+            AgentReplyModel(
+                agent.agent_id,
+                response_text
+            )
+        )
 
     @staticmethod
     async def generate_facilitator_turn_response(
-        room_id: str, 
-        recent_transcripts: List[Dict[str, Any]], 
+        room_id: str,
+        recent_transcripts: List[Dict[str, Any]],
         feedback_summaries: List[Dict[str, Any]]
     ) -> str:
         """
@@ -329,11 +339,12 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
         """
         # Get the facilitator agent for this room
         agents = await AgentService.get_agents_by_room(room_id)
-        facilitator = next((a for a in agents if a.agent_type == AgentType.FACILITATOR.value), None)
-        
+        facilitator = next(
+            (a for a in agents if a.agent_type == AgentType.FACILITATOR.value), None)
+
         if not facilitator:
             return "Thank you all for your thoughtful contributions to this discussion."
-        
+
         # Analyze recent conversation themes
         themes = []
         for transcript in recent_transcripts[-3:]:  # Last 3 transcripts
@@ -344,7 +355,7 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
                 themes.append("diversity")
             if any(word in text for word in ["example", "instance", "case"]):
                 themes.append("examples")
-        
+
         # Generate response based on themes and feedback
         if "examples" in themes:
             response = "I've noticed several of you are sharing concrete examples, which really enriches our discussion. "
@@ -352,28 +363,28 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
             response = "It's fascinating to see the different perspectives emerging here. "
         else:
             response = "Thank you all for your thoughtful contributions. "
-        
+
         # Add feedback-based insights
         if feedback_summaries:
             response += "I can see everyone is working hard to express complex ideas clearly. "
-        
+
         # Add forward-looking question
         response += "As we continue, I'd like us to consider: How might these different viewpoints actually complement each other?"
-        
+
         return response
 
     @staticmethod
-    async def get_agent_stats(agent_id: str) -> Optional[AgentInteractionStatsModel]:
+    async def get_agent_stats(agent_id: str) -> UpdateAgentResponseModel:
         """Get agent interaction statistics."""
         agent = await AgentService.get_agent(agent_id)
         if not agent:
             return None
-        
+
         # Get feedback counts from database
         from ..database.database import Database
         db = Database()
         await db.initialize()
-        
+
         try:
             # Count instant feedback
             instant_feedback_result = await db.db.execute(
@@ -381,43 +392,45 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
                 (agent_id,)
             )
             instant_feedback_count = (await instant_feedback_result.fetchone())['count']
-            
+
             # Count comprehensive feedback
             comprehensive_feedback_result = await db.db.execute(
                 "SELECT COUNT(*) as count FROM feedback WHERE agent_id = ? AND feedback_type = 'comprehensive'",
                 (agent_id,)
             )
             comprehensive_feedback_count = (await comprehensive_feedback_result.fetchone())['count']
-            
+
             # Calculate average processing time
             processing_time_result = await db.db.execute(
                 "SELECT AVG(processing_time) as avg_time FROM feedback WHERE agent_id = ? AND processing_time IS NOT NULL",
                 (agent_id,)
             )
             avg_processing_time = (await processing_time_result.fetchone())['avg_time']
-            
+
             # Get last interaction time
             last_interaction_result = await db.db.execute(
                 "SELECT MAX(created_at) as last_interaction FROM feedback WHERE agent_id = ?",
                 (agent_id,)
             )
             last_interaction = (await last_interaction_result.fetchone())['last_interaction']
-            
+
         except Exception as e:
             print(f"Error getting agent stats: {e}")
             instant_feedback_count = 0
             comprehensive_feedback_count = 0
             avg_processing_time = None
             last_interaction = None
-        
-        return AgentInteractionStatsModel(
-            agent_id=agent_id,
-            total_interactions=agent.total_interactions,
-            instant_feedback_count=instant_feedback_count,
-            comprehensive_feedback_count=comprehensive_feedback_count,
-            average_processing_time=avg_processing_time,
-            last_interaction=last_interaction
-        )
+
+        return UpdateAgentResponseModel(
+            "success",
+            UpdateAgentModel(
+                agent_id=agent_id,
+                total_interactions=agent.total_interactions,
+                instant_feedback_count=instant_feedback_count,
+                comprehensive_feedback_count=comprehensive_feedback_count,
+                average_processing_time=avg_processing_time,
+                last_interaction=last_interaction
+            ))
 
     @staticmethod
     async def check_agent_health(agent_id: str) -> Optional[AgentHealthModel]:
@@ -425,12 +438,12 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
         agent = await AgentService.get_agent(agent_id)
         if not agent:
             return None
-        
+
         # Get error count from database
         from ..database.database import Database
         db = Database()
         await db.initialize()
-        
+
         try:
             # Count errors in the last 24 hours
             error_count_result = await db.db.execute(
@@ -438,7 +451,7 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
                 (agent_id,)
             )
             error_count = (await error_count_result.fetchone())['error_count']
-            
+
             # Calculate uptime percentage (simplified - in production, track actual uptime)
             total_interactions = agent.total_interactions
             if total_interactions > 0:
@@ -446,21 +459,23 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
                 uptime_percentage = (success_count / total_interactions) * 100
             else:
                 uptime_percentage = 100.0
-                
+
         except Exception as e:
             print(f"Error calculating agent health: {e}")
             error_count = 0
             uptime_percentage = 99.5
-        
+
         # Simple health check - in production, this would ping the LLM service
         health_status = AgentStatus.ACTIVE if agent.status == "active" else AgentStatus.ERROR
-        
-        return AgentHealthModel(
-            agent_id=agent_id,
-            status=health_status,
-            last_health_check=datetime.utcnow(),
-            error_count=error_count,
-            uptime_percentage=uptime_percentage
+
+        return UpdateAgentResponseModel(
+            "sucess",
+            UpdateAgentModel(agent_id=agent_id,
+                                   status=health_status,
+                                   last_health_check=datetime.utcnow(),
+                                   error_count=error_count,
+                                   uptime_percentage=uptime_percentage
+                                   )
         )
 
     @staticmethod

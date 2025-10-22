@@ -16,7 +16,7 @@ const getApiUrl = () => {
  */
 export async function createParticipant(participantData) {
   const apiUrl = getApiUrl()
-  
+
   try {
     const response = await fetch(`${apiUrl}/participants/`, {
       method: 'POST',
@@ -28,7 +28,7 @@ export async function createParticipant(participantData) {
 
     const result = await response.json()
     console.log('[ParticipantHelper] Participant created:', result)
-    
+
     // Store participant data in localStorage
     if (result.status === 'success') {
       saveParticipantToLocalStorage({
@@ -36,7 +36,7 @@ export async function createParticipant(participantData) {
         ...participantData
       })
     }
-    
+
     return result
   } catch (error) {
     console.error('[ParticipantHelper] Error creating participant:', error)
