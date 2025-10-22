@@ -21,11 +21,20 @@ from .feedback_service import feedback_service
 from ..database.database import db
 from ..models import (
     CreateAgentModel,
+    CreateAgentResponseModel,
     AgentModel,
     AgentReplyModel,
     AgentReplyResponseModel,
     UpdateAgentModel,
     UpdateAgentResponseModel,
+    DeleteAgentResponseModel,
+    AgentUpdateModel,
+    AgentTranscriptProcessingModel,
+    AgentFeedbackGenerationModel,
+    AgentInteractionStatsModel,
+    AgentHealthModel,
+    AgentResponseTextModel,
+    ListAgentsResponseModel,
     AgentStatus,
     AgentType,
     AgentModelSource
@@ -36,12 +45,8 @@ class AgentService:
     """Service class for agent operations and interactions."""
 
     @staticmethod
-    async def create_agent(agent_data: CreateAgentModel) -> str:
-        """Create a new agent instance.
-
-        # FLAG: NOT CONVERTIBLE - This function returns str instead of pydantic model
-        # TODO: Convert to use CreateAgentResponseModel
-        """
+    async def create_agent(agent_data: CreateAgentModel) -> CreateAgentResponseModel:
+        """Create a new agent instance."""
         agent_id = str(uuid.uuid4())
 
         db_data = {
@@ -55,18 +60,35 @@ class AgentService:
 
         try:
             await db.create_agent(db_data)
-            return agent_id
+            
+            # Create the agent model for response
+            agent_model = AgentModel(
+                agent_id=agent_id,
+                room_id=agent_data.room_id,
+                agent_model=agent_data.agent_model.value,
+                agent_type=agent_data.agent_type.value,
+                status=agent_data.status.value if agent_data.status else AgentStatus.ACTIVE.value,
+                total_interactions=0,
+                created_at=datetime.utcnow()
+            )
+            
+            return CreateAgentResponseModel(
+                success=True,
+                data=agent_model,
+                message="Agent created successfully"
+            )
         except Exception as e:
             print(f"Error creating agent: {e}")
-            return None
+            return CreateAgentResponseModel(
+                success=False,
+                data=None,
+                message=f"Failed to create agent: {str(e)}"
+            )
 
     @staticmethod
     async def create_room_agents(room_id: str, room_topic: str = None) -> Dict[str, str]:
         """
         Create both facilitator and English feedback agents for a room.
-
-        # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
-        # TODO: Convert to use appropriate response model
 
         Returns dict with agent_ids: {'facilitator': agent_id, 'english': agent_id}
         """
@@ -77,7 +99,8 @@ class AgentService:
             agent_model=AgentModelSource.GEMINI,
             agent_type=AgentType.FACILITATOR,
         )
-        facilitator_id = await AgentService.create_agent(facilitator_data)
+        facilitator_response = await AgentService.create_agent(facilitator_data)
+        facilitator_id = facilitator_response.data.agent_id if facilitator_response.success else None
 
         # Create English feedback agent
         english_data = CreateAgentModel(
@@ -85,8 +108,8 @@ class AgentService:
             agent_model=AgentModelSource.GEMINI,
             agent_type=AgentType.ENGLISH,
         )
-
-        english_id = await AgentService.create_agent(english_data)
+        english_response = await AgentService.create_agent(english_data)
+        english_id = english_response.data.agent_id if english_response.success else None
 
         return {
             "facilitator_agent_id": facilitator_id,
@@ -107,43 +130,62 @@ class AgentService:
             return None
 
     @staticmethod
-    async def get_agents_by_room(room_id: str) -> List[AgentModel]:
-        """Get all agents for a specific room.
-
-        # FLAG: NOT CONVERTIBLE - This function returns List instead of pydantic model
-        # TODO: Convert to use ListAgentsResponseModel
-        """
+    async def get_agents_by_room(room_id: str) -> ListAgentsResponseModel:
+        """Get all agents for a specific room."""
         try:
             agents_data = await db.get_agents_by_room(room_id)
-            return [AgentModel(**agent) for agent in agents_data]
+            agents = [AgentModel(**agent) for agent in agents_data]
+            return ListAgentsResponseModel(
+                status="success",
+                data=agents,
+                message=f"Found {len(agents)} agents for room {room_id}"
+            )
         except Exception as e:
             print(f"Error fetching agents for room {room_id}: {e}")
-            return []
+            return ListAgentsResponseModel(
+                status="error",
+                data=[],
+                message=f"Failed to fetch agents: {str(e)}"
+            )
 
     @staticmethod
-    async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> bool:
-        """Update agent properties.
-
-        # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
-        # TODO: Convert to use UpdateAgentResponseModel
-        """
+    async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> UpdateAgentResponseModel:
+        """Update agent properties."""
         update_dict = {}
 
         if update_data.status:
             update_dict["status"] = update_data.status.value
 
         if not update_dict:
-            return False
+            return UpdateAgentResponseModel(
+                status="error",
+                data=update_data,
+                message="No valid fields to update"
+            )
 
         # Use existing database method to update status
         try:
             if "status" in update_dict:
-                await db.update_agent_status(agent_id, update_dict["status"])
+                result = await db.update_agent_status(agent_id, update_dict["status"])
+                if result > 0:
+                    return UpdateAgentResponseModel(
+                        status="success",
+                        data=update_data,
+                        message="Agent updated successfully"
+                    )
+                else:
+                    return UpdateAgentResponseModel(
+                        status="error",
+                        data=update_data,
+                        message="Agent not found or no changes made"
+                    )
         except Exception as e:
             print(f"Error updating agent {agent_id}: {e}")
-            return False
-
-        return True
+            return UpdateAgentResponseModel(
+                status="error",
+                data=update_data,
+                message=f"Failed to update agent: {str(e)}"
+            )
 
     @staticmethod
     async def increment_interactions(agent_id: str, count: int = 1) -> bool:
@@ -157,17 +199,28 @@ class AgentService:
 
     @staticmethod
     async def delete_agent(agent_id: str) -> DeleteAgentResponseModel:
-        """Delete an agent.
-
-        # FLAG: NOT CONVERTIBLE - This function returns bool instead of pydantic model
-        # TODO: Convert to use DeleteAgentResponseModel
-        """
+        """Delete an agent."""
         try:
             result = await db.delete_agent(agent_id)
-            return result > 0
+            if result > 0:
+                return DeleteAgentResponseModel(
+                    status="success",
+                    data=agent_id,
+                    message="Agent deleted successfully"
+                )
+            else:
+                return DeleteAgentResponseModel(
+                    status="error",
+                    data=agent_id,
+                    message="Agent not found"
+                )
         except Exception as e:
             print(f"Error deleting agent {agent_id}: {e}")
-            return False
+            return DeleteAgentResponseModel(
+                status="error",
+                data=agent_id,
+                message=f"Failed to delete agent: {str(e)}"
+            )
 
     @staticmethod
     async def process_transcript_for_feedback(
@@ -374,7 +427,7 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
         return response
 
     @staticmethod
-    async def get_agent_stats(agent_id: str) -> UpdateAgentResponseModel:
+    async def get_agent_stats(agent_id: str) -> AgentInteractionStatsModel:
         """Get agent interaction statistics."""
         agent = await AgentService.get_agent(agent_id)
         if not agent:
@@ -421,16 +474,14 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
             avg_processing_time = None
             last_interaction = None
 
-        return UpdateAgentResponseModel(
-            "success",
-            UpdateAgentModel(
-                agent_id=agent_id,
-                total_interactions=agent.total_interactions,
-                instant_feedback_count=instant_feedback_count,
-                comprehensive_feedback_count=comprehensive_feedback_count,
-                average_processing_time=avg_processing_time,
-                last_interaction=last_interaction
-            ))
+        return AgentInteractionStatsModel(
+            agent_id=agent_id,
+            total_interactions=agent.total_interactions,
+            successful_interactions=agent.total_interactions - (instant_feedback_count + comprehensive_feedback_count),
+            failed_interactions=instant_feedback_count + comprehensive_feedback_count,
+            average_response_time=avg_processing_time or 0.0,
+            last_interaction=last_interaction
+        )
 
     @staticmethod
     async def check_agent_health(agent_id: str) -> Optional[AgentHealthModel]:
@@ -467,28 +518,32 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
 
         # Simple health check - in production, this would ping the LLM service
         health_status = AgentStatus.ACTIVE if agent.status == "active" else AgentStatus.ERROR
+        is_healthy = health_status == AgentStatus.ACTIVE and uptime_percentage > 95.0
 
-        return UpdateAgentResponseModel(
-            "sucess",
-            UpdateAgentModel(agent_id=agent_id,
-                                   status=health_status,
-                                   last_health_check=datetime.utcnow(),
-                                   error_count=error_count,
-                                   uptime_percentage=uptime_percentage
-                                   )
+        return AgentHealthModel(
+            agent_id=agent_id,
+            status=health_status,
+            is_healthy=is_healthy,
+            last_health_check=datetime.utcnow(),
+            error_message=None if is_healthy else f"Uptime: {uptime_percentage:.1f}%, Errors: {error_count}",
+            uptime_seconds=int(uptime_percentage * 3600)  # Simplified uptime calculation
         )
 
     @staticmethod
     async def get_agents_by_type(room_id: str, agent_type: AgentType) -> List[AgentModel]:
         """Get agents by type for a specific room."""
-        all_agents = await AgentService.get_agents_by_room(room_id)
-        return [agent for agent in all_agents if agent.agent_type == agent_type.value]
+        all_agents_response = await AgentService.get_agents_by_room(room_id)
+        if all_agents_response.status == "success":
+            return [agent for agent in all_agents_response.data if agent.agent_type == agent_type.value]
+        return []
 
     @staticmethod
     async def get_active_agents(room_id: str) -> List[AgentModel]:
         """Get all active agents for a room."""
-        all_agents = await AgentService.get_agents_by_room(room_id)
-        return [agent for agent in all_agents if agent.status == AgentStatus.ACTIVE.value]
+        all_agents_response = await AgentService.get_agents_by_room(room_id)
+        if all_agents_response.status == "success":
+            return [agent for agent in all_agents_response.data if agent.status == AgentStatus.ACTIVE.value]
+        return []
 
 
 # Singleton instance

@@ -23,8 +23,38 @@ function RoundtablePage() {
   const { enableSpeaking, disableSpeaking, enableAudioPlayback, userRole } =
     useAudio();
 
-  // Note: Room joining is handled by LobbyPage, no need to rejoin here
-  // This prevents duplicate join-room events and state conflicts
+  // Room joining logic - need to rejoin when navigating to roundtable
+  useEffect(() => {
+    if (socket && connected && urlRoomId) {
+      console.log("[Roundtable] Rejoining room:", urlRoomId);
+
+      // Get stored data from localStorage
+      const storedUserData = JSON.parse(
+        localStorage.getItem("userData") || "{}"
+      );
+      const storedParticipantData = JSON.parse(
+        localStorage.getItem("participantData") || "{}"
+      );
+
+      // Get role from URL params or stored data
+      const urlParams = new URLSearchParams(window.location.search);
+      const role =
+        urlParams.get("role") || storedParticipantData.role || "listener";
+
+      // Join the room
+      socket.emit("join-room", {
+        roomId: urlRoomId,
+        userId: storedUserData.userId,
+        name: storedUserData.name || "Anonymous",
+        campus: null,
+        location: null,
+        anonymousName: storedParticipantData.anonymous_name || "Anonymous",
+        role: role,
+      });
+
+      console.log("[Roundtable] Rejoined room:", urlRoomId, "as", role);
+    }
+  }, [socket, connected, urlRoomId]);
 
   // Discussion state
   const [participants, setParticipants] = useState([]);
@@ -67,13 +97,15 @@ function RoundtablePage() {
 
       try {
         const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
-        const response = await fetch(`${apiUrl}/agents/room/${urlRoomId}/type/facilitator`);
+        const response = await fetch(
+          `${apiUrl}/agents/room/${urlRoomId}/type/facilitator`
+        );
         const agents = await response.json();
 
         if (agents && agents.length > 0) {
           const facilitator = agents[0];
           console.log("[Roundtable] Fetched facilitator agent:", facilitator);
-          
+
           // Create facilitator participant object
           const facilitatorParticipant = {
             id: `agent_${facilitator.agent_id}`,
@@ -83,12 +115,15 @@ function RoundtablePage() {
             isReady: true,
             isAgent: true,
             agentId: facilitator.agent_id,
-            agentType: facilitator.agent_type
+            agentType: facilitator.agent_type,
           };
-          
+
           setFacilitatorAgent(facilitatorParticipant);
         } else {
-          console.log("[Roundtable] No facilitator agent found for room:", urlRoomId);
+          console.log(
+            "[Roundtable] No facilitator agent found for room:",
+            urlRoomId
+          );
         }
       } catch (error) {
         console.error("[Roundtable] Error fetching facilitator agent:", error);
@@ -288,7 +323,7 @@ function RoundtablePage() {
           },
           body: JSON.stringify({
             roomId: urlRoomId,
-            context: "turn_response"
+            context: "turn_response",
           }),
         }
       );
@@ -301,7 +336,7 @@ function RoundtablePage() {
 
         // Show facilitator response for a duration based on text length
         const displayDuration = Math.max(3000, responseText.length * 50); // 50ms per character, min 3s
-        
+
         // Auto-advance to next participant after facilitator finishes
         setTimeout(() => {
           setFacilitatorTurnActive(false);
@@ -313,7 +348,10 @@ function RoundtablePage() {
         }, displayDuration);
       }
     } catch (error) {
-      console.error("[Roundtable] Error generating facilitator response:", error);
+      console.error(
+        "[Roundtable] Error generating facilitator response:",
+        error
+      );
       setFacilitatorTurnActive(false);
     }
   };
@@ -481,7 +519,8 @@ function RoundtablePage() {
                   AI Roundtable
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Round {round} • {participants.length} participants {facilitatorAgent ? "+ AI Facilitator" : ""}
+                  Round {round} • {participants.length} participants{" "}
+                  {facilitatorAgent ? "+ AI Facilitator" : ""}
                 </p>
               </div>
             </div>
@@ -633,7 +672,7 @@ function RoundtablePage() {
                   key={participant.id}
                   className={`flex items-center space-x-3 p-2 rounded-md transition-colors ${
                     currentSpeaker && currentSpeaker.id === participant.id
-                      ? participant.isAgent 
+                      ? participant.isAgent
                         ? "bg-blue-100 border border-blue-200"
                         : "bg-green-100 border border-green-200"
                       : "bg-gray-50"
@@ -650,14 +689,16 @@ function RoundtablePage() {
                             ? "bg-blue-500"
                             : "bg-green-500"
                           : participant.isAgent
-                            ? "bg-blue-600"
-                            : "bg-primary-600"
+                          ? "bg-blue-600"
+                          : "bg-primary-600"
                       }`}
                     >
                       {participant.isAgent ? (
                         <Bot className="w-4 h-4" />
                       ) : (
-                        participant.anonymousName.charAt(0).toUpperCase()
+                        (participant.anonymousName || "A")
+                          .charAt(0)
+                          .toUpperCase()
                       )}
                     </div>
                   </div>
@@ -671,13 +712,21 @@ function RoundtablePage() {
                           : "text-gray-900"
                       }`}
                     >
-                      {participant.anonymousName}
+                      {participant.anonymousName || "Anonymous"}
                       {participant.id === user?.id && " (You)"}
                       {participant.isAgent && " 🤖"}
                     </p>
                     {currentSpeaker && currentSpeaker.id === participant.id && (
-                      <p className={`text-xs ${participant.isAgent ? "text-blue-600" : "text-green-600"}`}>
-                        {participant.isAgent ? "Facilitating now" : "Speaking now"}
+                      <p
+                        className={`text-xs ${
+                          participant.isAgent
+                            ? "text-blue-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {participant.isAgent
+                          ? "Facilitating now"
+                          : "Speaking now"}
                       </p>
                     )}
                   </div>

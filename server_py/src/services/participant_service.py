@@ -58,7 +58,7 @@ class Participant_service:
                 
                 return CreateParticipantResponseModel(
                     status="success",
-                    data=existing_participant_model,
+                    data=existing_participant[0],  # participant_id
                     message="Participant already exists in this room"
                 )
             
@@ -97,7 +97,7 @@ class Participant_service:
                     participant_model.left_at,
                     participant_model.campusOrLocation,
                     0,  # Initial speaking time
-                    created_at
+                    datetime.now()
                 )
             )
             self.conn.commit()
@@ -126,7 +126,7 @@ class Participant_service:
             
             return CreateParticipantResponseModel(
                 status="success",
-                data=created_participant,
+                data=participant_id,
                 message="Participant created successfully"
             )
         except Exception as e:

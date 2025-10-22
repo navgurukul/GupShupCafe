@@ -62,6 +62,7 @@ from .feedback_pydantic_models import (
 )
 from .transcript_pydantic_models import (
     CreateTranscriptModel,
+    CreateTranscriptModelResponse,
     GetTranscriptModel,
     TranscriptModel,
     ListTranscriptsResponseModel,
@@ -89,7 +90,8 @@ from .agent_pydantic_models import (
     AgentTranscriptProcessingModel,
     AgentFeedbackGenerationModel,
     AgentInteractionStatsModel,
-    AgentHealthModel
+    AgentHealthModel,
+    AgentResponseTextModel
 )
 from .enums import CEFRLevel, ParticipantRole
 
@@ -153,6 +155,7 @@ __all__ = [
     "DeleteFeedbackResponseModel",
     # Transcript Models
     "CreateTranscriptModel",
+    "CreateTranscriptModelResponse",
     "GetTranscriptModel",
     "TranscriptModel",
     "ListTranscriptsResponseModel",
@@ -180,6 +183,7 @@ __all__ = [
     "AgentFeedbackGenerationModel",
     "AgentInteractionStatsModel",
     "AgentHealthModel",
+    "AgentResponseTextModel",
     # Enums
     "CEFRLevel",
     "ParticipantRole",

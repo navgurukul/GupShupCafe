@@ -8,7 +8,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from src.models import (
     LoginModel, SignUpModel, LoginSignUpResponseModel,
-    UserModel, UpdateUserModel, UpdateUserResponseModel
+    UserModel, UpdateUserModel, UpdateUserResponseModel,
+    UpdateUserCEFRModel, UpdateUserLastActiveModel, UpdateUserPasswordModel,
+    ListUsersResponseModel, DeleteUserResponseModel
 )
 from src.database.db_connection import conn, cursor
 
@@ -150,43 +152,70 @@ class User_services:
             print(f"Error getting user: {e}")
             raise e
 
-    def list_users(self) -> dict:
-        """List all users
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use ListUsersResponseModel
-        """
+    def list_users(self) -> ListUsersResponseModel:
+        """List all users"""
         try:
             self.cursor.execute("SELECT user_id, name, email, topic_categories, current_cefr_level, created_at, last_active FROM users ORDER BY created_at DESC")
             rows = self.cursor.fetchall()
             cols = [d[0] for d in self.cursor.description]
-            return {"status": "success", "data": [dict(zip(cols, r)) for r in rows], "message": "Users listed"}
+            
+            # Convert rows to UserModel objects
+            users = []
+            for row in rows:
+                row_dict = dict(zip(cols, row))
+                # Normalize topic categories list
+                categories_raw = row_dict.get('topic_categories', '') or ""
+                topic_categories = [c.strip() for c in categories_raw.split(",") if c and c.strip()]
+                row_dict['topic_categories'] = topic_categories
+                
+                # Normalize CEFR level to string
+                cefr_value = row_dict.get('current_cefr_level', 'A0')
+                row_dict['current_cefr_level'] = str(cefr_value)
+                
+                users.append(UserModel(**row_dict))
+            
+            return ListUsersResponseModel(
+                status="success",
+                data=users,
+                message=f"Found {len(users)} users"
+            )
         except Exception as e:
             print(f"Error listing users: {e}")
-            return {"status": "failure", "data": [], "message": f"Failed to list users: {e}"}
+            return ListUsersResponseModel(
+                status="error",
+                data=[],
+                message=f"Failed to list users: {str(e)}"
+            )
 
     
-    def delete_user(self, user_id: str) -> dict:
-        """Delete user
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use DeleteUserResponseModel
-        """
+    def delete_user(self, user_id: str) -> DeleteUserResponseModel:
+        """Delete user"""
         try:
             self.cursor.execute("DELETE FROM users WHERE user_id=?", (user_id,))
             self.conn.commit()
-            return {"status": "success", "data": {"deleted": self.cursor.rowcount}, "message": "User deleted"}
+            if self.cursor.rowcount > 0:
+                return DeleteUserResponseModel(
+                    status="success",
+                    data=user_id,
+                    message="User deleted successfully"
+                )
+            else:
+                return DeleteUserResponseModel(
+                    status="error",
+                    data=user_id,
+                    message="User not found"
+                )
         except Exception as e:
             print(f"Error deleting user: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to delete user: {e}"}
+            return DeleteUserResponseModel(
+                status="error",
+                data=user_id,
+                message=f"Failed to delete user: {str(e)}"
+            )
 
-    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> dict:
-        """Update user's CEFR level
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use UpdateUserResponseModel
-        """
+    def update_user_cefr_level(self, update: UpdateUserCEFRModel) -> UpdateUserResponseModel:
+        """Update user's CEFR level"""
         try:
             self.cursor.execute(
                 "UPDATE users SET current_cefr_level=? WHERE user_id=?",
@@ -194,19 +223,27 @@ class User_services:
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "CEFR level updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="CEFR level updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating CEFR level: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update CEFR level: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update CEFR level: {str(e)}"
+            )
 
-    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> dict:
-        """Update user's last active timestamp
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use UpdateUserResponseModel
-        """
+    def update_user_last_active(self, update: UpdateUserLastActiveModel) -> UpdateUserResponseModel:
+        """Update user's last active timestamp"""
         try:
             self.cursor.execute(
                 "UPDATE users SET last_active=? WHERE user_id=?",
@@ -214,36 +251,64 @@ class User_services:
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Last active updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="Last active updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating last active: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update last active: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update last active: {str(e)}"
+            )
 
-    def update_user_password(self, update: UpdateUserPasswordModel) -> dict:
-        """Update user's password
-        
-        # FLAG: NOT CONVERTIBLE - This function returns dict instead of pydantic model
-        # TODO: Convert to use UpdateUserResponseModel
-        """
+    def update_user_password(self, update: UpdateUserPasswordModel) -> UpdateUserResponseModel:
+        """Update user's password"""
         try:
             if update.old_password == update.new_password:
-                return {"status": "failure", "data": None, "message": "New password must be different from old password"}
+                return UpdateUserResponseModel(
+                    status="error",
+                    data=update,
+                    message="New password must be different from old password"
+                )
             if not self.verify_password(update.old_password, self.get_user_password_hash(update.user_id)):
-                return {"status": "failure", "data": None, "message": "Old password is incorrect"}
+                return UpdateUserResponseModel(
+                    status="error",
+                    data=update,
+                    message="Old password is incorrect"
+                )
             self.cursor.execute(
                 "UPDATE users SET hashed_password=? WHERE user_id=?",
                 (self.hash_password(update.new_password), update.user_id)
             )
             self.conn.commit()
             if self.cursor.rowcount > 0:
-                return {"status": "success", "data": {"updated": self.cursor.rowcount}, "message": "Password updated"}
-            return {"status": "failure", "data": None, "message": "User not found"}
+                return UpdateUserResponseModel(
+                    status="success",
+                    data=update,
+                    message="Password updated successfully"
+                )
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message="User not found"
+            )
         except Exception as e:
             print(f"Error updating password: {e}")
             self.conn.rollback()
-            return {"status": "failure", "data": None, "message": f"Failed to update password: {e}"}
+            return UpdateUserResponseModel(
+                status="error",
+                data=update,
+                message=f"Failed to update password: {str(e)}"
+            )
 
 if __name__ == "__main__":
     # Initialize the service

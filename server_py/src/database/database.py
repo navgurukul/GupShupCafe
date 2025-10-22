@@ -400,8 +400,8 @@ class Database:
         query = """
             INSERT INTO participants (
                 participant_id, user_id, room_id, anonymous_name, campusOrLocation,
-                joined_at, left_at, speaking_time_seconds
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                joined_at, left_at, speaking_time_seconds, starting_cefr_level
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
         # Combine campus and location into campusOrLocation
@@ -427,7 +427,8 @@ class Database:
                 "joinedAt") or participant_data.get("joined_at"),
             participant_data.get("leftAt") or participant_data.get("left_at"),
             participant_data.get("speakingTimeSeconds") or participant_data.get(
-                "speaking_time_seconds", 0)
+                "speaking_time_seconds", 0),
+            participant_data.get("starting_cefr_level", "A1")
         ))
 
         await self.db.commit()

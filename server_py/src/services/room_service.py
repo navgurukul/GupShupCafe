@@ -649,6 +649,24 @@ class Room_service:
                     facilitator_agent_id=facilitator_id,
                     english_agent_id=english_id
                 )
+                # Trigger socket events to broadcast to all participants
+                try:
+                    from ..socket.socket_handlers import check_and_start_discussion
+                    from ..socket.room_manager import room_manager
+                    from ..socket.socket_handlers import sio
+                    
+                    # Get the room to trigger the discussion start logic
+                    room = room_manager.get_room(room_id)
+                    if room:
+                        # Set flag to indicate this is a REST API trigger
+                        room._rest_api_trigger = True
+                        # Call the socket handler's discussion start logic
+                        await check_and_start_discussion(sio, room_id, room_manager)
+                        print(f"[RoomService] Triggered discussion start events for room {room_id}")
+                except Exception as e:
+                    print(f"[RoomService] Error triggering socket events: {e}")
+                    # Continue even if socket events fail
+                
                 return UpdateRoomResponseModel(
                     status="success", 
                     data=update_model, 

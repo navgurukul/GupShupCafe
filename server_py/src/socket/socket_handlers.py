@@ -255,7 +255,7 @@ async def setup_socket_handlers(sio: socketio.AsyncServer):
                 print(f"[Backend] Joined new room: {room_id}")
                 
                 # Check if user already exists in room (reconnection case)
-                existing_user = room_manager.get_room(room_id).get_participant_by_id(effective_user_data["id"])
+                existing_user = room_manager.get_participant_by_id(room_id, effective_user_data["id"])
                 
                 if existing_user:
                     # Update existing user's socket ID and preserve their state
@@ -1106,9 +1106,11 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
         if not room:
             return
         
-        # Don't start if already active
-        if room.status == "in_progress":
-            return
+        # Don't start if already active, but allow if we're triggering from REST API
+        if room.status.value == "in_progress":
+            # Check if this is a REST API trigger by looking for a special flag
+            if not getattr(room, '_rest_api_trigger', False):
+                return
         
         # Check if we have minimum participants ready
         min_participants = int(os.getenv("MIN_PARTICIPANTS", "1"))
@@ -1150,14 +1152,17 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                 cefr_level = cefr_map.get(cefr_level, 'A1')
             
             # Update room in database with discussion start information
+            # Extract topic title from topic dictionary
+            topic_title = topic.get("title", "General Discussion") if isinstance(topic, dict) else str(topic)
+            
             await db.update_room(room_id, {
                 "room_name": room_name,
-                "topic": topic,
-                "participantCount": len(ready_participants),
-                "startedAt": datetime.now().isoformat(),
-                "endedAt": None,
-                "durationSeconds": None,
-                "roundsCompleted": 0,
+                "topic_title": topic_title,
+                "participant_count": len(ready_participants),
+                "started_at": datetime.now().isoformat(),
+                "ended_at": None,
+                "duration_seconds": None,
+                "rounds_completed": 0,
                 "status": "active",
                 "cefr_level": cefr_level
             })
@@ -1169,9 +1174,9 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
                 print(f"[Backend] Created agents for room {room_id}: {agent_ids}")
                 
                 # Update the room record with the facilitator agent_id
-                if 'facilitator' in agent_ids:
-                    await db.update_room(room_id, {"agent_id": agent_ids['facilitator']})
-                    print(f"[Backend] Updated room {room_id} with facilitator agent {agent_ids['facilitator']}")
+                if agent_ids.get('facilitator_agent_id'):
+                    await db.update_room(room_id, {"facilitator_agent_id": agent_ids['facilitator_agent_id']})
+                    print(f"[Backend] Updated room {room_id} with facilitator agent {agent_ids['facilitator_agent_id']}")
                     
             except Exception as e:
                 print(f"[Backend] Error creating agents for room {room_id}: {str(e)}")
@@ -1208,7 +1213,7 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             # Update room state
             from ..models.enums import RoomStatus
             room.status = RoomStatus.IN_PROGRESS
-            room.topic = topic
+            room.topic = {"title": topic_title, "category": topic_category or "general"}
             room.current_speaker_index = 0
             room.current_round = 1
             room.started_at = datetime.now().isoformat()
@@ -1221,7 +1226,7 @@ async def check_and_start_discussion(sio: socketio.AsyncServer, room_id: str, ac
             
             # Emit discussion started
             await sio.emit("discussion-started", {
-                "topic": topic,
+                "topic": topic_title,
                 "firstSpeaker": first_speaker if first_speaker else None,
                 "duration": duration
             }, room=room_id)

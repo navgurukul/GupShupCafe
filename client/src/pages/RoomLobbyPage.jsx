@@ -397,9 +397,9 @@ function RoomLobbyPage() {
       // Store discussion start time for the roundtable page
       sessionStorage.setItem("discussion-start-time", Date.now().toString());
 
-      // Navigate to roundtable page
+      // Navigate to roundtable page with room ID
       setTimeout(() => {
-        navigate("/roundtable", { replace: true });
+        navigate(`/roundtable/${urlRoomId}?role=${urlRole}`, { replace: true });
       }, 1000); // Small delay to show the message
     });
 
@@ -615,46 +615,22 @@ function RoomLobbyPage() {
    * Handle discussion start
    */
   const startDiscussion = async () => {
-    console.log("[Lobby][Debug] Starting discussion");
-    // Send an API call to start discussion
+    console.log("[Lobby][Debug] Starting discussion via socket");
+    // Use socket event instead of REST API
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3003";
-      const response = await fetch(`${apiUrl}/rooms/${roomId}/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      if (socket) {
+        socket.emit("start-discussion", {
           topic_category: roomDetails?.topicCategory,
-        }),
-      });
-
-      const result = await response?.json();
-      if (result?.status !== "success") {
-        console.error(
-          "[RoomLobby][Debug] Failed to start discussion via API:",
-          result
-        );
+        });
+        console.log("[RoomLobby][Debug] Discussion start event emitted");
+      } else {
+        console.error("[RoomLobby][Debug] Socket not connected");
         return;
       }
-
-      console.log("[RoomLobby][Debug] Discussion started via API:", result);
-      if (!isNavigating) {
-        setIsNavigating(true);
-        setSystemMessage("Discussion starting! Redirecting to roundtable...");
-        console.log(
-          `[RoomLobby][Debug] Navigating to /roundtable/${urlRoomId} now`
-        );
-
-        // Mark discussion start time for polling
-        setDiscussionStartTime(Date.now());
-
-        // Store discussion start time in sessionStorage for roundtable page
-        sessionStorage.setItem("discussion-start-time", Date.now().toString());
-
-        // Navigate to roundtable
-        navigate(`/roundtable/${urlRoomId}?role=${urlRole}`, { replace: true });
-      }
+      // Don't navigate here - wait for 'discussion-started' event
+      setSystemMessage(
+        "Starting discussion... Please wait for all participants."
+      );
     } catch (error) {
       console.error("[Lobby][Debug] Error starting discussion:", error);
     }
@@ -1036,11 +1012,11 @@ function RoomLobbyPage() {
                     className="w-10 h-10 bg-primary-600 rounded-full flex items-center 
                                   justify-center text-white font-semibold"
                   >
-                    {participant.anonymousName.charAt(0).toUpperCase()}
+                    {(participant.anonymousName || "A").charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">
-                      {participant.anonymousName}
+                      {participant.anonymousName || "Anonymous"}
                     </p>
                     <div className="flex items-center space-x-2">
                       <span
