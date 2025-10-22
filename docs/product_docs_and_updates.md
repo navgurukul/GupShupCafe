@@ -3854,3 +3854,128 @@ cd server_py && python run_agent_tests.py
 # Run all socket handler tests
 cd server_py && python -m pytest tests/test_socket_handlers.py tests/test_agent_socket_handlers.py -v
 ```
+---
+
+
+## 2025-10-22 16:30 UTC — Speech-to-Text Integration for All Participants & Mute Button Fix
+
+**Date**: 2025-10-22 16:30 UTC  
+**Type**: Feature | Bugfix | Enhancement  
+**Commit Message**: Integrate Speech-to-Text for all participants and fix mute button functionality
+
+**Changes:**
+
+### 1. Fixed Mute Button Logic (AudioContext.jsx)
+- **Critical Bug Fix**: Corrected inverted mute button logic where `track.enabled = isMuted` should be `track.enabled = !isMuted`
+- **Added**: Socket emission for mute state changes to sync with server via `audio-state-change` event
+- **Enhanced**: Better logging and state tracking for mute/unmute operations
+- **Result**: Mute button now works correctly for all participants
+
+### 2. Enhanced SpeechToTextPanel Component
+- **Added**: Support for all participants with `participantId` and `roomId` props
+- **Added**: Compact mode for space-efficient display in participant cards
+- **Added**: Comprehensive error handling with user-friendly error messages
+- **Added**: Automatic transcript sending to server via `transcript-received` socket event
+- **Added**: Confidence scores and timestamps for transcript accuracy
+- **Enhanced**: Better browser compatibility detection and graceful degradation
+- **Added**: Real-time transcript synchronization with backend for AI processing
+
+### 3. Updated ParticipantCard Component
+- **Added**: Speech-to-text transcription display for current speaker
+- **Added**: Compact transcription view positioned above participant avatar
+- **Added**: `showTranscription` prop to control when transcriptions are shown
+- **Enhanced**: Better visual integration with existing participant card design
+
+### 4. Enhanced RoundtableView Component
+- **Added**: Pass `showTranscription` prop to ParticipantCard components
+- **Updated**: Enable transcriptions when discussion is started
+- **Maintained**: Existing visual layout and participant positioning
+
+### 5. Comprehensive RoundTablePage Updates
+- **Added**: Individual transcription panel for current speaker (full view)
+- **Added**: Comprehensive transcription sidebar showing all participants
+- **Added**: Compact transcription views for all participants in real-time
+- **Added**: Proper participant and room ID passing to transcription components
+- **Enhanced**: Better organization of transcription displays (current speaker + all participants)
+- **Filtered**: AI agents excluded from transcription (they don't speak via microphone)
+
+### 6. Enhanced ParticipantControls Component
+- **Fixed**: Mute button styling to properly reflect current state
+- **Added**: "Enable Mic" button when microphone access is needed
+- **Enhanced**: Better visual feedback for mute/unmute states
+- **Improved**: Button colors now correctly indicate muted (red) vs unmuted (green) states
+
+**Technical Implementation:**
+
+### Data Flow
+1. **User speaks** → Web Speech API captures audio in real-time
+2. **Speech converted to text** → Displayed immediately in UI
+3. **Final transcript** → Sent to server via `transcript-received` socket event
+4. **Server processes** → Stores transcript and triggers AI feedback processing
+
+### Socket Events Used
+- `transcript-received` - Send final transcripts to server with metadata
+- `audio-state-change` - Sync mute state changes with server
+- Maintains compatibility with existing WebRTC and room management events
+
+### Server Compliance
+- **Uses server's expected data models** from `participant_pydantic_models.py`
+- **Follows socket event patterns** from `socket_handlers.py`
+- **Maintains compatibility** with existing room and participant management
+- **Transcript data structure** matches server's expected format with confidence scores
+
+### Browser Requirements
+- **Chrome or Edge browser** (for Web Speech API support)
+- **Microphone permissions** granted by user
+- **Stable internet connection** for real-time transcript synchronization
+
+**User Experience:**
+
+### Speech-to-Text Features
+- **Real-time transcription** for all participants using Web Speech API
+- **Automatic server sync** - transcripts sent to backend for AI processing
+- **Compact and full views** - space-efficient compact mode for multiple participants
+- **Error handling** - graceful degradation when speech recognition fails
+- **Visual indicators** - clear status showing listening/paused states
+
+### Mute Button Functionality
+- **Fixed logic** - mute/unmute now works correctly for all participants
+- **Visual feedback** - proper button styling based on current mute state
+- **Server synchronization** - mute state changes sent to server in real-time
+- **Microphone access** - proper handling of permission states and access requests
+
+**Impact:**
+- **Enhanced Discussion Experience**: All participants can see real-time transcriptions
+- **Better Accessibility**: Speech-to-text improves accessibility for hearing-impaired users
+- **AI Integration Ready**: Transcripts automatically sent to server for AI feedback processing
+- **Fixed Critical Bug**: Mute button now works correctly, resolving major usability issue
+- **Improved UX**: Better visual feedback and error handling throughout audio controls
+- **Production Ready**: Comprehensive error handling and browser compatibility checks
+
+**Files Modified:**
+- `client/src/contexts/AudioContext.jsx` - Fixed mute logic, added server sync
+- `client/src/components/feedback/SpeechToTextPanel.jsx` - Enhanced with multi-participant support
+- `client/src/components/ui/ParticipantCard.jsx` - Added compact transcription display
+- `client/src/components/ui/RoundtableView.jsx` - Enabled transcription integration
+- `client/src/pages/RoundTablePage.jsx` - Comprehensive transcription panels
+- `client/src/components/ParticipantControls.jsx` - Fixed mute button styling and logic
+- `docs/speech_to_text_integration_summary.md` - Comprehensive implementation documentation
+
+**Testing:**
+- ✅ All components pass ESLint with no errors
+- ✅ Mute button functionality verified across all participant states
+- ✅ Speech-to-text works in Chrome and Edge browsers
+- ✅ Transcripts successfully sent to server via socket events
+- ✅ Compact and full transcription views display correctly
+- ✅ Error handling works when speech recognition is unavailable
+
+**Documentation:**
+- Created comprehensive implementation guide at `docs/speech_to_text_integration_summary.md`
+- Updated product changelog with detailed technical implementation notes
+- Documented browser requirements and compatibility considerations
+
+**Next Steps:**
+- Monitor transcript processing performance on server side
+- Consider adding transcript history/persistence in UI
+- Evaluate adding language selection for international users
+- Test with multiple simultaneous speakers for accuracy

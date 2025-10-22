@@ -634,12 +634,39 @@ function RoundtablePage() {
             discussionEnded={discussionEnded}
           />
 
-          {/* Speech to Text - Show when current user is speaking */}
-          {discussionStarted && isCurrentUserSpeaking() && (
+          {/* Speech to Text - Show for current speaker */}
+          {discussionStarted && currentSpeaker && !currentSpeaker.isAgent && (
             <SpeechToTextPanel
-              isActive={isCurrentUserSpeaking()}
-              speakerName={user?.anonymousName || "You"}
+              isActive={currentSpeaker.id === user?.id}
+              speakerName={currentSpeaker.anonymousName || "Current Speaker"}
+              participantId={currentSpeaker.id}
+              roomId={urlRoomId}
+              compact={false}
             />
+          )}
+
+          {/* All Participants Speech-to-Text (compact view) */}
+          {discussionStarted && (
+            <div className="bg-white rounded-lg shadow-sm p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">
+                Live Transcriptions
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {allParticipants
+                  .filter(p => !p.isAgent) // Exclude AI agents
+                  .map((participant) => (
+                    <div key={participant.id} className="border-b border-gray-100 pb-2 last:border-b-0">
+                      <SpeechToTextPanel
+                        isActive={currentSpeaker && currentSpeaker.id === participant.id}
+                        speakerName={participant.anonymousName}
+                        participantId={participant.id}
+                        roomId={urlRoomId}
+                        compact={true}
+                      />
+                    </div>
+                  ))}
+              </div>
+            </div>
           )}
 
           {/* Facilitator Response Display */}

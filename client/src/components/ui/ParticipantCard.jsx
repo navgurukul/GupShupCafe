@@ -1,5 +1,7 @@
 import AudioLevelBar from "./AudioLevelBar";
+import SpeechToTextPanel from "../feedback/SpeechToTextPanel";
 import { Bot } from "lucide-react";
+import { useParams } from "react-router-dom";
 
 /**
  * ParticipantCard Component
@@ -10,7 +12,9 @@ function ParticipantCard({
   isCurrentSpeaker,
   position,
   remoteStream,
+  showTranscription = false,
 }) {
+  const { roomId } = useParams();
   /**
    * Get card styling based on participant state
    */
@@ -160,6 +164,19 @@ function ParticipantCard({
 
       {/* Name Label */}
       {displayName()}
+
+      {/* Speech-to-Text Panel (compact version for current speaker) */}
+      {showTranscription && isCurrentSpeaker && !participant.isAgent && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 w-48 z-10">
+          <SpeechToTextPanel
+            isActive={isCurrentSpeaker}
+            speakerName={participant.anonymousName}
+            participantId={participant.id}
+            roomId={roomId}
+            compact={true}
+          />
+        </div>
+      )}
     </div>
   );
 }
