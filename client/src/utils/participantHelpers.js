@@ -34,24 +34,8 @@ export async function createParticipant(participantData) {
       // result.data is now a full ParticipantModel object
       const participantModel = result.data;
       saveParticipantToLocalStorage({
-        participantId: participantModel.participant_id,
-        user_id: participantModel.user_id,
-        room_id: participantModel.room_id,
-        avatar_color: participantModel.avatar_color,
-        anonymous_name: participantModel.anonymous_name,
-        role: participantModel.role,
-        is_ready: participantModel.is_ready,
-        turn_order: participantModel.turn_order,
-        is_speaking: participantModel.is_speaking,
-        is_muted: participantModel.is_muted,
-        socket_id: participantModel.socket_id,
-        starting_cefr_level: participantModel.starting_cefr_level,
-        ending_cefr_level: participantModel.ending_cefr_level,
-        joined_at: participantModel.joined_at,
-        left_at: participantModel.left_at,
-        campusOrLocation: participantModel.campusOrLocation,
-        speaking_time_seconds: participantModel.speaking_time_seconds,
-        created_at: participantModel.created_at,
+        participantId: result.data,
+        ...participantData,
       });
     }
 

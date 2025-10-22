@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.feedback_pydantic_models import InstantFeedbackModel, ComprehensiveFeedbackModel
+from src.models import InstantFeedbackModel, ComprehensiveFeedbackModel
 from src.database.db_connection import conn, cursor
 
 class Feedback_service:

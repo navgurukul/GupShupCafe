@@ -6,6 +6,7 @@ from .base_dict_model import BaseDictModel, DictMixin
 from .participant_pydantic_models import (
     CreateParticipantModel, 
     CreateParticipantResponseModel,
+    GetParticipantModel,
     ParticipantModel,
     ListParticipantsResponseModel,
     UpdateParticipantModel,
@@ -19,6 +20,7 @@ from .participant_pydantic_models import (
 from .room_pydantic_models import (
     CreateRoomModel,
     CreateRoomResponseModel,
+    GetRoomModel,
     RoomModel,
     ListRoomsResponseModel,
     UpdateRoomModel,
@@ -30,6 +32,7 @@ from .user_pydantic_models import (
     LoginSignUpResponseModel, 
     LoginModel, 
     SignUpModel,
+    GetUserModel,
     UserModel,
     ListUsersResponseModel,
     UpdateUserModel,
@@ -41,8 +44,10 @@ from .user_pydantic_models import (
 )
 from .feedback_pydantic_models import (
     CreateInstantFeedbackModel,
+    GetInstantFeedbackModel,
     InstantFeedbackModel,
     CreateComprehensiveFeedbackModel,
+    GetComprehensiveFeedbackModel,
     ComprehensiveFeedbackModel,
     CreateInstantFeedbackResponseModel,
     CreateComprehensiveFeedbackResponseModel,
@@ -57,6 +62,7 @@ from .feedback_pydantic_models import (
 )
 from .transcript_pydantic_models import (
     CreateTranscriptModel,
+    GetTranscriptModel,
     TranscriptModel,
     ListTranscriptsResponseModel,
     UpdateTranscriptModel,
@@ -68,8 +74,10 @@ from .transcript_pydantic_models import (
 from .agent_pydantic_models import (
     CreateAgentModel,
     CreateAgentResponseModel,
+    GetAgentModel,
     AgentModel,
-    AgentResponseModel,
+    AgentReplyModel,
+    AgentReplyResponseModel,
     AgentStatus,
     AgentType,
     AgentModelSource,
@@ -93,6 +101,7 @@ __all__ = [
     # Participant Models
     "CreateParticipantModel",
     "CreateParticipantResponseModel",
+    "GetParticipantModel",
     "ParticipantModel",
     "ListParticipantsResponseModel",
     "UpdateParticipantModel",
@@ -105,6 +114,7 @@ __all__ = [
     # Room Models
     "CreateRoomModel",
     "CreateRoomResponseModel",
+    "GetRoomModel",
     "RoomModel",
     "ListRoomsResponseModel",
     "UpdateRoomModel",
@@ -115,6 +125,7 @@ __all__ = [
     "LoginSignUpResponseModel",
     "LoginModel",
     "SignUpModel",
+    "GetUserModel",
     "UserModel",
     "ListUsersResponseModel",
     "UpdateUserModel",
@@ -125,8 +136,10 @@ __all__ = [
     "UpdateUserPasswordModel",
     # Feedback Models
     "CreateInstantFeedbackModel",
+    "GetInstantFeedbackModel",
     "InstantFeedbackModel",
     "CreateComprehensiveFeedbackModel",
+    "GetComprehensiveFeedbackModel",
     "ComprehensiveFeedbackModel",
     "CreateInstantFeedbackResponseModel",
     "CreateComprehensiveFeedbackResponseModel",
@@ -140,6 +153,7 @@ __all__ = [
     "DeleteFeedbackResponseModel",
     # Transcript Models
     "CreateTranscriptModel",
+    "GetTranscriptModel",
     "TranscriptModel",
     "ListTranscriptsResponseModel",
     "UpdateTranscriptModel",
@@ -150,8 +164,10 @@ __all__ = [
     # Agent Models
     "CreateAgentModel",
     "CreateAgentResponseModel",
+    "GetAgentModel",
     "AgentModel",
-    "AgentResponseModel",
+    "AgentReplyModel",
+    "AgentReplyResponseModel",
     "AgentStatus",
     "AgentType",
     "AgentModelSource",

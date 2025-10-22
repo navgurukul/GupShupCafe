@@ -3,7 +3,7 @@ API Routes
 RESTful endpoints for the application
 """
 from fastapi import APIRouter, HTTPException
-from ..models.room_pydantic_models import (
+from ..models import (
     CreateRoomModel, CreateRoomResponseModel, 
     UpdateRoomResponseModel, ListRoomsResponseModel, 
     UpdateRoomModel, DeleteRoomResponseModel,

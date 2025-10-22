@@ -7,7 +7,6 @@ import uuid
 from .base_dict_model import BaseDictModel
 
 
-
 # --- Enums for the Agent Model ---
 
 
@@ -23,8 +22,6 @@ class AgentType(str, Enum):
     """Defines the role of the agent in a room."""
     FACILITATOR = "facilitator"
     ENGLISH = "english"
-    TUTOR = "tutor"
-    MODERATOR = "moderator"
 
 
 class AgentModelSource(str, Enum):
@@ -65,6 +62,21 @@ class AgentModel(BaseDictModel):
         from_attributes = True
 
 
+# --- Get Model for retrieving agents ---
+
+class GetAgentModel(BaseDictModel):
+    """Model for getting agent with optional filters"""
+    agent_id: str = Field(..., description="Unique identifier for the agent instance")
+    
+    # All other fields from CreateAgentModel as optional
+    room_id: Optional[str] = Field(None, description="Room ID where the agent operates")
+    agent_model: Optional[str] = Field(None, description="LLM service (Gemini or Bedrock)")
+    agent_type: Optional[str] = Field(None, description="Agent specialization type")
+    status: Optional[str] = Field(None, description="Current agent status")
+    total_interactions: Optional[int] = Field(None, description="Counter for LLM invocations")
+    created_at: Optional[datetime] = Field(None, description="Timestamp of agent creation")
+
+
 class CreateAgentResponseModel(BaseDictModel):
     """Response model for agent creation."""
     success: bool = Field(..., description="Creation success status")
@@ -73,18 +85,20 @@ class CreateAgentResponseModel(BaseDictModel):
 
 # --- Agent Interaction Models ---
 
-class AgentResponseModel(BaseDictModel):
+
+class AgentReplyModel(BaseDictModel):
     """Model for agent response data."""
     agent_id: str = Field(..., description="Agent that generated the response")
     response_text: str = Field(..., description="Generated response text")
-    processing_time: float = Field(...,
-                                   description="Time taken to generate response")
-    confidence_score: Optional[float] = Field(
-        None, description="Confidence in the response")
-    tokens_used: Optional[int] = Field(
-        None, description="Number of tokens consumed")
 
-# --- List Models ---
+
+class AgentReplyResponseModel(BaseDictModel):
+    """Response model for agent replies"""
+    status: str = Field(..., description="Reply operation status")
+    data: AgentReplyModel = Field(..., description="Agent reply data")
+    message: Optional[str] = Field(None, description="Additional message")
+
+    # --- List Models ---
 
 
 class ListAgentsResponseModel(BaseDictModel):
@@ -120,43 +134,3 @@ class DeleteAgentResponseModel(BaseDictModel):
     status: str = Field(..., description="Delete operation status")
     data: str = Field(..., description="Deleted agent ID")
     message: Optional[str] = Field(None, description="Additional message")
-
-# --- Additional Agent Models ---
-
-class AgentUpdateModel(BaseDictModel):
-    """Model for updating agent details"""
-    agent_id: str = Field(..., description="Agent ID")
-    status: Optional[AgentStatus] = Field(None, description="Updated agent status")
-    total_interactions: Optional[int] = Field(None, description="Updated total interactions count")
-
-class AgentTranscriptProcessingModel(BaseDictModel):
-    """Model for agent transcript processing"""
-    agent_id: str = Field(..., description="Agent ID")
-    transcript_id: str = Field(..., description="Transcript ID")
-    processing_status: str = Field(..., description="Processing status")
-    processing_result: Optional[str] = Field(None, description="Processing result")
-
-class AgentFeedbackGenerationModel(BaseDictModel):
-    """Model for agent feedback generation"""
-    agent_id: str = Field(..., description="Agent ID")
-    participant_id: str = Field(..., description="Participant ID")
-    feedback_type: str = Field(..., description="Type of feedback generated")
-    feedback_content: str = Field(..., description="Feedback content")
-
-class AgentInteractionStatsModel(BaseDictModel):
-    """Model for agent interaction statistics"""
-    agent_id: str = Field(..., description="Agent ID")
-    total_interactions: int = Field(..., description="Total interactions count")
-    successful_interactions: int = Field(..., description="Successful interactions count")
-    failed_interactions: int = Field(..., description="Failed interactions count")
-    average_response_time: float = Field(..., description="Average response time in seconds")
-
-class AgentHealthModel(BaseDictModel):
-    """Model for agent health status"""
-    agent_id: str = Field(..., description="Agent ID")
-    status: str = Field(..., description="Agent status")
-    last_activity: datetime = Field(..., description="Last activity timestamp")
-    health_score: float = Field(..., description="Health score (0.0-1.0)")
-    error_count: int = Field(..., description="Error count")
-    uptime_seconds: int = Field(..., description="Uptime in seconds")
-

@@ -16,7 +16,7 @@ from src.services.feedback_service import feedback_service
 from src.services.transcript_service import transcript_service
 
 from src.models import (
-    LoginModel, SignUpModel, UserModel, UpdateUserCEFRModel,
+    LoginModel, SignUpModel, UserModel,
     CreateRoomModel, RoomStatus, CEFRLevel,
     CreateParticipantModel, ParticipantLeftModel,
     CreateAgentModel, AgentModelSource, AgentType, AgentStatus
@@ -382,35 +382,34 @@ class TestParticipantService:
     
     def test_list_participants_for_room(self, participant_service):
         """Test listing participants for a room"""
-        # Mock participants data
+        from datetime import datetime
+        # Mock participants data with all required fields
         participants_data = [
-            ("participant-1", "user-1", "room-123", "Blue Panda"),
-            ("participant-2", "user-2", "room-123", "Red Dragon")
+            ("participant-1", "user-1", "room-123", "Blue Panda", "#FF0000", "participant", 1, 1, 0, 0, "socket-1", "B1", None, datetime.now(), None, "Campus", 0, datetime.now()),
+            ("participant-2", "user-2", "room-123", "Red Dragon", "#00FF00", "participant", 0, 2, 0, 0, "socket-2", "A2", None, datetime.now(), None, "Campus", 0, datetime.now())
         ]
         participant_service.cursor.fetchall.return_value = participants_data
-        participant_service.cursor.description = [
-            ("participant_id",), ("user_id",), ("room_id",), ("anonymous_name",)
-        ]
         
         result = participant_service.list_participants_for_room("room-123")
         
-        assert result["status"] == "success"
-        assert len(result["data"]) == 2
+        assert result.status == "success"
+        assert len(result.data) == 2
     
-    def test_update_participant_muted(self, participant_service):
-        """Test updating participant muted status"""
+    def test_update_participant(self, participant_service):
+        """Test updating participant with unified method"""
         participant_service.cursor.rowcount = 1
         
-        from src.models.participant_pydantic_models import ParticipantIsMutedModel
-        update_model = ParticipantIsMutedModel(
-            participant_id="participant-123",
-            is_muted=True
+        from src.models.participant_pydantic_models import UpdateParticipantModel
+        update_model = UpdateParticipantModel(
+            is_muted=True,
+            is_speaking=False,
+            is_ready=True
         )
         
-        result = participant_service.update_participant_muted(update_model)
+        result = participant_service.update_participant("participant-123", update_model)
         
-        assert result["status"] == "success"
-        assert result["message"] == "Participant muted status updated"
+        assert result.status == "success"
+        assert result.message == "Participant updated"
 
 
 class TestAgentService:

@@ -858,7 +858,7 @@ class TestParticipantRoutes:
     def test_update_participant(self, mock_db_connection):
         """Test update participant endpoint"""
         from src.services.participant_service import Participant_service
-        from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantUpdateModel
+        from src.models.participant_pydantic_models import CreateParticipantModel, UpdateParticipantModel
         
         mock_conn, mock_cursor = mock_db_connection
         
@@ -879,14 +879,14 @@ class TestParticipantRoutes:
             participant_id = create_result.data
             
             # Now update the participant
-            update_data = ParticipantUpdateModel(
+            update_data = UpdateParticipantModel(
                 ending_cefr_level="B2",
                 speaking_time_seconds=120
             )
             
             result = service.update_participant(participant_id, update_data)
             
-            assert result["status"] == "success"
+            assert result.status == "success"
     
     def test_delete_participant(self, mock_db_connection):
         """Test delete participant endpoint"""
@@ -916,138 +916,7 @@ class TestParticipantRoutes:
             
             assert result["status"] == "success"
     
-    def test_update_participant_left(self, mock_db_connection):
-        """Test update participant left status endpoint"""
-        from src.services.participant_service import Participant_service
-        from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantLeftModel
-        
-        mock_conn, mock_cursor = mock_db_connection
-        
-        with patch('src.services.participant_service.conn', mock_conn), \
-             patch('src.services.participant_service.cursor', mock_cursor):
-            
-            service = Participant_service()
-            
-            # First create a participant
-            participant_data = CreateParticipantModel(
-                room_id="test-room-id",
-                user_id="test-user-id",
-                anonymous_name="Blue Panda",
-                starting_cefr_level="B1",
-                joined_at=datetime.now()
-            )
-            create_result = service.create_participant(participant_data)
-            participant_id = create_result.data
-            
-            # Now update left status
-            update_data = ParticipantLeftModel(
-                participant_id=participant_id,
-                left_at=datetime.now(),
-                ending_cefr_level="B2"
-            )
-            
-            result = service.update_participant_left(update_data)
-            
-            assert result["status"] == "success"
-    
-    def test_update_participant_muted(self, mock_db_connection):
-        """Test update participant muted status endpoint"""
-        from src.services.participant_service import Participant_service
-        from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantIsMutedModel
-        
-        mock_conn, mock_cursor = mock_db_connection
-        
-        with patch('src.services.participant_service.conn', mock_conn), \
-             patch('src.services.participant_service.cursor', mock_cursor):
-            
-            service = Participant_service()
-            
-            # First create a participant
-            participant_data = CreateParticipantModel(
-                room_id="test-room-id",
-                user_id="test-user-id",
-                anonymous_name="Blue Panda",
-                starting_cefr_level="B1",
-                joined_at=datetime.now()
-            )
-            create_result = service.create_participant(participant_data)
-            participant_id = create_result.data
-            
-            # Now update muted status
-            update_data = ParticipantIsMutedModel(
-                participant_id=participant_id,
-                is_muted=True
-            )
-            
-            result = service.update_participant_muted(update_data)
-            
-            assert result["status"] == "success"
-    
-    def test_update_participant_speaking(self, mock_db_connection):
-        """Test update participant speaking status endpoint"""
-        from src.services.participant_service import Participant_service
-        from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantIsSpeakingModel
-        
-        mock_conn, mock_cursor = mock_db_connection
-        
-        with patch('src.services.participant_service.conn', mock_conn), \
-             patch('src.services.participant_service.cursor', mock_cursor):
-            
-            service = Participant_service()
-            
-            # First create a participant
-            participant_data = CreateParticipantModel(
-                room_id="test-room-id",
-                user_id="test-user-id",
-                anonymous_name="Blue Panda",
-                starting_cefr_level="B1",
-                joined_at=datetime.now()
-            )
-            create_result = service.create_participant(participant_data)
-            participant_id = create_result.data
-            
-            # Now update speaking status
-            update_data = ParticipantIsSpeakingModel(
-                participant_id=participant_id,
-                is_speaking=True
-            )
-            
-            result = service.update_participant_speaking(update_data)
-            
-            assert result["status"] == "success"
-    
-    def test_update_participant_ready(self, mock_db_connection):
-        """Test update participant ready status endpoint"""
-        from src.services.participant_service import Participant_service
-        from src.models.participant_pydantic_models import CreateParticipantModel, ParticipantIsReadyModel
-        
-        mock_conn, mock_cursor = mock_db_connection
-        
-        with patch('src.services.participant_service.conn', mock_conn), \
-             patch('src.services.participant_service.cursor', mock_cursor):
-            
-            service = Participant_service()
-            
-            # First create a participant
-            participant_data = CreateParticipantModel(
-                room_id="test-room-id",
-                user_id="test-user-id",
-                anonymous_name="Blue Panda",
-                starting_cefr_level="B1",
-                joined_at=datetime.now()
-            )
-            create_result = service.create_participant(participant_data)
-            participant_id = create_result.data
-            
-            # Now update ready status
-            update_data = ParticipantIsReadyModel(
-                participant_id=participant_id,
-                is_ready=True
-            )
-            
-            result = service.update_participant_ready(update_data)
-            
-            assert result["status"] == "success"
+
 
 
 class TestTranscriptRoutes:

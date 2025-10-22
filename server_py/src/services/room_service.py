@@ -1,14 +1,13 @@
 from src.database.db_connection import conn, cursor
 from src.services.participant_service import participant_service
 from src.services.agent_service import AgentService, agent_service
-from src.models.participant_pydantic_models import ParticipantModel
-from src.models.room_pydantic_models import (
+from src.models import (
+    CreateParticipantResponseModel,
     CreateRoomModel, RoomModel, CreateRoomResponseModel,
     UpdateRoomResponseModel, ListRoomsResponseModel, 
     UpdateRoomModel, DeleteRoomResponseModel,
-    RoomStatus
+    RoomStatus, CEFRLevel
 )
-from src.models.enums import CEFRLevel
 import uuid
 import sys
 import os

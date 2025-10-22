@@ -6,8 +6,14 @@ from typing import Dict, Any
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.transcript_pydantic_models import (
-    CreateTranscriptModel, UpdateTranscriptProcessingModel, UpdateTranscriptAudioURLModel
+from src.models import (
+    CreateTranscriptModel,
+    TranscriptModel,
+    ListTranscriptsResponseModel,
+    UpdateTranscriptResponseModel,
+    DeleteTranscriptResponseModel,
+    UpdateTranscriptProcessingModel,
+    UpdateTranscriptAudioURLModel
 )
 from src.database.db_connection import conn, cursor
 
@@ -16,7 +22,7 @@ class Transcript_service:
         self.conn = conn
         self.cursor = cursor
 
-    def create_transcript(self, model: CreateTranscriptModel) -> Dict[str, Any]:
+    def create_transcript(self, model: CreateTranscriptModel) -> CreateTranscriptModelResponse:
         """Create a new transcript
         
         # FLAG: NOT CONVERTIBLE - This function returns Dict instead of pydantic model
