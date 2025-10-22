@@ -22,8 +22,8 @@ class RoomManager:
         """
         Get or create a room
         Args:
-            room_id: Room identifier
-        Returns: Room object
+            room_id: RoomModel identifier
+        Returns: RoomModel object
         """
         if room_id not in self.rooms:
             self.rooms[room_id] = RoomModel(
@@ -49,7 +49,7 @@ class RoomManager:
         """
         Synchronize room state to database
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             db: Database instance
         """
         if room_id not in self.rooms:
@@ -127,7 +127,7 @@ class RoomManager:
                     user_id=p_data.get('user_id'),
                     anonymous_name=p_data.get('anonymous_name'),
                     avatar_color=p_data.get('avatar_color'),
-                    role=p_data.get('role', 'participant'),
+                    role=ParticipantRole(p_data.get('role', ParticipantRole.PARTICIPANT)),
                     is_ready=p_data.get('is_ready', False),
                     turn_order=p_data.get('turn_order', 0),
                     is_speaking=p_data.get('is_speaking', False),
@@ -155,7 +155,7 @@ class RoomManager:
         """
         Add user to room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_data: User data
         """
         room = self.get_room(room_id)
@@ -177,8 +177,7 @@ class RoomManager:
             "socketId": user_data.get("socketId"),
             "anonymousName": user_data.get("anonymousName"),
             "name": user_data.get("name"),
-            "campus": user_data.get("campus"),
-            "location": user_data.get("location"),
+            "campusOrLocation": user_data.get("campusOrLocation"),
             "role": role,
             "isReady": user_data.get("isReady", False),
             "joinedAt": user_data.get("joinedAt", datetime.now().isoformat())
@@ -195,7 +194,7 @@ class RoomManager:
         """
         Remove user from room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
         """
         room = self.get_room(room_id)
@@ -216,7 +215,7 @@ class RoomManager:
         """
         Update user data in room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
             updates: Data to update
         """
@@ -234,7 +233,7 @@ class RoomManager:
         """
         Get room participants
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         Returns: Array of participants
         """
         room = self.get_room(room_id)
@@ -244,7 +243,7 @@ class RoomManager:
         """
         Get room discussion state
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         Returns: Discussion state
         """
         room = self.get_room(room_id)
@@ -263,7 +262,7 @@ class RoomManager:
         """
         Check if user is the current speaker
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
         Returns: True if user is current speaker
         """
@@ -274,7 +273,7 @@ class RoomManager:
         """
         Change user role in room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
             new_role: New role ('speaker' or 'listener')
         Returns: Success status
@@ -299,7 +298,7 @@ class RoomManager:
         """
         Get role statistics for a room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         Returns: Role statistics
         """
         room = self.get_room(room_id)
@@ -318,7 +317,7 @@ class RoomManager:
         """
         Check if user can become speaker (based on room limits)
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             max_speakers: Maximum allowed speakers (default: 6)
         Returns: Can become speaker
         """
@@ -329,7 +328,7 @@ class RoomManager:
         """
         Clean up room resources
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         """
         if room_id in self.rooms:
             room = self.rooms[room_id]
@@ -380,7 +379,7 @@ class RoomManager:
         """
         Get the current host of a room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         Returns: Host participant or None
         """
         room = self.get_room(room_id)
@@ -400,7 +399,7 @@ class RoomManager:
         Assign a new host when the current host leaves
         Preserves discussion state and host privileges
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
         Returns: New host participant or None
         """
         room = self.get_room(room_id)
@@ -433,7 +432,7 @@ class RoomManager:
         """
         Check if a user is the host of a room
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
         Returns: True if user is host
         """
@@ -444,7 +443,7 @@ class RoomManager:
         """
         Preserve host state when host disconnects
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
         Returns: Preserved host state
         """
@@ -479,7 +478,7 @@ class RoomManager:
         """
         Restore host privileges if user was previously the host
         Args:
-            room_id: Room identifier
+            room_id: RoomModel identifier
             user_id: User identifier
         Returns: True if host privileges were restored
         """

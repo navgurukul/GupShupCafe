@@ -3712,3 +3712,71 @@ async def get_participant(participant_id: str, filters: GetParticipantModel = De
 
 **Documentation Added:**
 - `docs/get_models_documentation.md`
+## 
+2025-10-22 — AI Facilitator Agent Integration in RoundtablePage
+
+**Date**: 2025-10-22  
+**Type**: Feature | AI Integration | Discussion Enhancement  
+**Commit Message**: Add AI facilitator agent seat and turns to RoundtablePage with visual indicators and response display
+
+**Changes:**
+
+### 1. AI Facilitator Agent Integration
+- **Added facilitator agent fetching** from backend API
+  - Fetches facilitator agent using `/agents/room/{roomId}/type/facilitator` endpoint
+  - Creates facilitator participant object with agent metadata
+  - Integrates facilitator into discussion flow seamlessly
+- **Enhanced participant management**:
+  - `facilitatorAgent` state for agent data
+  - `allParticipants` state combining human participants + facilitator
+  - Strategic positioning of facilitator in participant list (after every 2-3 participants)
+
+### 2. Facilitator Turn Management
+- **Implemented facilitator turn detection** in speaker change handler
+  - Detects when current speaker is facilitator agent
+  - Sets `facilitatorTurnActive` state and disables user speaking
+  - Triggers `handleFacilitatorTurn()` function
+- **AI response generation**:
+  - Calls `/agents/{agentId}/generate-facilitator-response` API endpoint
+  - Passes room context and recent conversation data
+  - Displays generated response with appropriate timing
+  - Auto-advances to next participant after response completion
+- **Turn duration calculation**: Response display time based on text length (50ms per character, minimum 3 seconds)
+
+### 3. Visual Enhancements
+- **Updated RoundtableView component**:
+  - Added facilitator response bubble display during agent turns
+  - Enhanced current speaker highlighting with agent-specific styling
+  - Blue color scheme for agent participants vs green for human participants
+  - Bot icon integration for visual agent identification
+- **Enhanced ParticipantCard component**:
+  - Agent-specific styling (blue theme vs primary/green for humans)
+  - Bot icon avatar for agent participants
+  - Agent role indicator (🤖) and "AI Facilitator" label
+  - Conditional audio level display (disabled for agents)
+- **Participants list improvements**:
+  - Agent participants marked with 🤖 emoji
+  - "Facilitating now" vs "Speaking now" status text
+  - Blue color scheme for agent interactions
+
+### 4. UI/UX Improvements
+- **Header updates**: Shows participant count + "AI Facilitator" indicator
+- **Facilitator response panel**: Dedicated display area in right sidebar during agent turns
+  - Bot icon and "AI Facilitator" header
+  - Response text in styled container
+  - "Facilitating discussion..." status indicator with pulsing animation
+- **Enhanced participant list**: Visual distinction between human participants and AI facilitator
+
+### 5. Technical Implementation
+- **Import updates**: Added `useParams` for room ID extraction, `Bot` icon from lucide-react
+- **State management**: New states for facilitator agent, turn management, and response display
+- **API integration**: Seamless integration with existing agent service endpoints
+- **Socket event handling**: Enhanced to detect and manage facilitator turns
+- **Component prop passing**: Updated RoundtableView with facilitator-specific props
+
+### 6. Backend Integration Points
+- **Agent Service**: Utilizes existing `get_agents_by_type()` and `generate_facilitator_turn_response()` methods
+- **Agent Routes**: Leverages `/agents/room/{room_id}/type/facilitator` and facilitator response generation endpoints
+- **Database**: Reads from agents table using room_id and AgentType.FACILITATOR filter
+
+**Impact**: This update transforms the discussion experience by adding an intelligent AI facilitator that can guide conversations, ask follow-up questions, and maintain discussion flow. The facilitator appears as a natural participant in the roundtable view while providing contextually relevant responses based on the ongoing conversation.

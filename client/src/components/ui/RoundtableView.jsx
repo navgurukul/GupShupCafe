@@ -1,13 +1,20 @@
 import React, { useContext } from 'react'
 import ParticipantCard from './ParticipantCard'
-import { useAudio } from '../../hooks/useAudio'
-import { Brain } from 'lucide-react'
+import { useAudio } from '../../contexts/AudioContext'
+import { Brain, Bot } from 'lucide-react'
 
 /**
  * RoundtableView Component
  * Visual representation of the roundtable with participants arranged in a circle
  */
-function RoundtableView({ participants, currentSpeaker, currentTopic, discussionStarted }) {
+function RoundtableView({ 
+  participants, 
+  currentSpeaker, 
+  currentTopic, 
+  discussionStarted, 
+  facilitatorResponse, 
+  facilitatorTurnActive 
+}) {
   // Get audio context using custom hook
   const audioCtx = useAudio()
   // You may need to adjust this depending on how remote streams are tracked in AudioContext
@@ -139,13 +146,42 @@ function RoundtableView({ participants, currentSpeaker, currentTopic, discussion
 
       {/* Current Speaker Highlight */}
       {discussionStarted && currentSpeaker && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 
-                        bg-green-100 border border-green-200 px-4 py-2 rounded-full">
+        <div className={`absolute top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full ${
+          currentSpeaker.isAgent 
+            ? 'bg-blue-100 border border-blue-200' 
+            : 'bg-green-100 border border-green-200'
+        }`}>
           <div className="flex items-center space-x-2 text-sm">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-green-800 font-medium">
-              {currentSpeaker.anonymousName} is speaking
+            <div className={`w-2 h-2 rounded-full animate-pulse ${
+              currentSpeaker.isAgent ? 'bg-blue-500' : 'bg-green-500'
+            }`}></div>
+            {currentSpeaker.isAgent && <Bot className="w-4 h-4 text-blue-600" />}
+            <span className={`font-medium ${
+              currentSpeaker.isAgent ? 'text-blue-800' : 'text-green-800'
+            }`}>
+              {currentSpeaker.anonymousName} is {currentSpeaker.isAgent ? 'facilitating' : 'speaking'}
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Facilitator Response Bubble */}
+      {facilitatorTurnActive && facilitatorResponse && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 max-w-md">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-lg">
+            <div className="flex items-start space-x-2">
+              <Bot className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm text-blue-900 font-medium mb-1">AI Facilitator</p>
+                <p className="text-sm text-gray-800 leading-relaxed">
+                  {facilitatorResponse}
+                </p>
+              </div>
+            </div>
+            {/* Speech bubble pointer */}
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+              <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-blue-200"></div>
+            </div>
           </div>
         </div>
       )}

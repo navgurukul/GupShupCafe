@@ -14,6 +14,7 @@ from ..services.room_service import room_service
 from .timer_manager import timer_manager
 from ..ai.topic_generator import generate_discussion_topic
 from ..database.database import db
+from .room_manager import room_manager
 
 
 async def process_transcript_for_english_feedback(room_id: str, transcript_id: str):
