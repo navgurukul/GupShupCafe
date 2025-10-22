@@ -645,8 +645,6 @@ function LobbyPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* URL Test Component - for debugging */}
-      <URLTest />
 
       {/* Header */}
       <header className="bg-white shadow-sm border-b">

@@ -76,7 +76,3 @@ npm run dev
 
 ## 📄 License
 Open source - see individual files for specific licensing.
-
-## 🌍 Live Repository
-This platform is available as a dedicated repository at:
-**https://github.com/theemubin/GupShup-Cafe**
