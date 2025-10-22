@@ -7,7 +7,7 @@ from typing import Optional, Iterable
 # Add the project root directory to Python path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.models.participant_pydantic_models import (
+from src.models import (
     CreateParticipantModel, CreateParticipantResponseModel, UpdateParticipantModel,
     ParticipantModel, ListParticipantsResponseModel,
     UpdateParticipantResponseModel, DeleteParticipantResponseModel

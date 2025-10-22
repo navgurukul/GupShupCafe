@@ -3,9 +3,9 @@ API Routes for Participants
 RESTful endpoints for participant management
 """
 from fastapi import APIRouter, HTTPException
-from ..models.participant_pydantic_models import (
+from ..models import (
     CreateParticipantModel, CreateParticipantResponseModel, UpdateParticipantModel,
-    CreateParticipantResponseModel, ListParticipantsResponseModel, UpdateParticipantResponseModel,
+    ListParticipantsResponseModel, UpdateParticipantResponseModel,
     DeleteParticipantResponseModel
 )
 from ..services.participant_service import Participant_service

@@ -34,6 +34,9 @@ from .user_pydantic_models import (
     UpdateUserModel,
     UpdateUserResponseModel,
     DeleteUserResponseModel,
+    UpdateUserCEFRModel,
+    UpdateUserLastActiveModel,
+    UpdateUserPasswordModel,
 )
 from .feedback_pydantic_models import (
     CreateInstantFeedbackModel,
@@ -61,6 +64,8 @@ from .transcript_pydantic_models import (
     UpdateTranscriptModel,
     UpdateTranscriptResponseModel,
     DeleteTranscriptResponseModel,
+    UpdateTranscriptProcessingModel,
+    UpdateTranscriptAudioURLModel,
 )
 from .agent_pydantic_models import (
     CreateAgentModel,
@@ -113,6 +118,9 @@ __all__ = [
     "UpdateUserModel",
     "UpdateUserResponseModel",
     "DeleteUserResponseModel",
+    "UpdateUserCEFRModel",
+    "UpdateUserLastActiveModel",
+    "UpdateUserPasswordModel",
     # Feedback Models
     "CreateInstantFeedbackModel",
     "GetInstantFeedbackModel",

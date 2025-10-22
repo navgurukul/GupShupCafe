@@ -14,7 +14,7 @@ from strands.models import Model
 from ..agents.debate_facilitator_agent import DebateFacilitatorAgent
 from ..agents.english_feedback_agent import EnglishFeedbackAgent
 
-from ..models.transcript_pydantic_models import TranscriptModel, UpdateTranscriptModel, UpdateTranscriptResponseModel
+from ..models import TranscriptModel, UpdateTranscriptModel, UpdateTranscriptResponseModel
 from .transcript_service import transcript_service
 from .feedback_service import feedback_service
 
