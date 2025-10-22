@@ -128,7 +128,7 @@ class CreateComprehensiveFeedbackModel(BaseFeedbackModel):
 
     # Comparative Reflection (Optional)
     comparative_performance: str = Field(..., description="Comparative performance (e.g., more fluent / more confident / less detailed / more reflective compared to others)")
-    comparative_suggestion: str = Field(..., description="Specific suggestion (e.g., summarizing others’ points, asking questions, or elaborating more)")
+    comparative_suggestion: str = Field(..., description="Specific suggestion (e.g., summarizing others' points, asking questions, or elaborating more)")
 
     # Summary Feedback
     summary_strength: str = Field(..., description="Strength area (e.g., expressing your opinions clearly or staying engaged)")

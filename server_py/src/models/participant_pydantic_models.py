@@ -70,44 +70,6 @@ class CreateParticipantResponseModel(BaseDictModel):
     message: Optional[str] = Field(None, description="Additional message")
 
 
-# --- Model for Updating Participant Info ---
-
-
-class JoinRoomAsParticipantModel(BaseDictModel):
-    room_id: str = Field(..., description="ID of the room to join")
-    participant_number: int = Field(...,
-                                    description="Participant number for joining the room")
-    anonymous_name: str = Field(..., min_length=2,
-                                description="Anonymous name for the participant")
-    campusOrLocation: Optional[str] = Field(
-        None, description="Campus or Location of the participant")
-
-
-class ParticipantLeftModel(BaseDictModel):
-    participant_id: str = Field(..., description="Participant UUID")
-    left_at: Optional[datetime] = Field(
-        None, description="Timestamp when participant left")
-    ending_cefr_level: Optional[str] = Field(
-        None, description="CEFR level at room end")
-
-
-class ParticipantIsMutedModel(BaseDictModel):
-    participant_id: str = Field(..., description="Participant UUID")
-    is_muted: Optional[bool] = Field(
-        None, description="Is the participant muted?")
-
-
-class ParticipantIsSpeakingModel(BaseDictModel):
-    participant_id: str = Field(..., description="Participant UUID")
-    is_speaking: Optional[bool] = Field(
-        None, description="Is the participant speaking?")
-
-
-class ParticipantIsReadyModel(BaseDictModel):
-    participant_id: str = Field(..., description="Participant UUID")
-    is_ready: Optional[bool] = Field(
-        None, description="Is the participant ready?")
-
 # --- List Models ---
 
 class ListParticipantsResponseModel(BaseDictModel):
