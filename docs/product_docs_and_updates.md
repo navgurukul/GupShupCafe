@@ -3780,3 +3780,202 @@ async def get_participant(participant_id: str, filters: GetParticipantModel = De
 - **Database**: Reads from agents table using room_id and AgentType.FACILITATOR filter
 
 **Impact**: This update transforms the discussion experience by adding an intelligent AI facilitator that can guide conversations, ask follow-up questions, and maintain discussion flow. The facilitator appears as a natural participant in the roundtable view while providing contextually relevant responses based on the ongoing conversation.
+
+## 2025-10-22 — Agent Socket Handler Testing Implementation
+
+**Date**: 2025-10-22  
+**Type**: Testing | Documentation | Agent System  
+**Commit Message**: Add comprehensive tests for agent-related socket handlers and background processing
+
+**Changes:**
+
+### 1. Agent Socket Handler Test Suite
+- **Created comprehensive test file** `test_agent_socket_handlers.py` with 15+ test cases
+- **Covers all agent-related socket functions**:
+  - `process_transcript_for_english_feedback()` - Background transcript processing
+  - `transcript_received` - Socket event for handling speech transcripts
+  - `request_facilitator_response` - Socket event for facilitator TTS requests
+  - `get_instant_feedback` - Socket event for participant feedback requests
+  - Agent creation during discussion start in `check_and_start_discussion()`
+
+### 2. Test Categories and Coverage
+- **Background Processing Tests**: Async task handling for English feedback agent
+- **Socket Event Handler Tests**: All agent-related socket events with proper mocking
+- **Integration Tests**: Agent creation during discussion start, failure handling
+- **Error Handling Tests**: Graceful handling of missing rooms, invalid data, service failures
+
+### 3. Testing Infrastructure
+- **Mock fixtures**: `mock_sio()` for Socket.io server, `setup_test_room_with_agents()` for test data
+- **Comprehensive mocking patterns**: Database operations, agent service calls, async tasks
+- **Test runner script**: `run_agent_tests.py` for easy test execution
+- **Proper async/await testing**: All socket handlers tested with AsyncMock
+
+### 4. Documentation and Guides
+- **Created detailed testing guide** `docs/agent_socket_handlers_testing.md`
+- **Documented all agent functions** with purpose, flow, and data structures
+- **Provided testing patterns** for socket handlers, database mocking, agent service mocking
+- **Included mock data examples** and common assertion patterns
+- **Error handling testing strategies** for robust agent system testing
+
+### 5. Key Agent Functions Tested
+- **English Feedback Processing**: Background async processing of transcripts for instant feedback
+- **Facilitator Response Generation**: TTS-ready responses based on conversation context
+- **Instant Feedback Retrieval**: Participant-specific feedback with fallback messages
+- **Agent Creation Integration**: Automatic agent setup during discussion start
+- **Error Recovery**: Graceful handling when agent services fail
+
+### 6. Testing Best Practices Implemented
+- **Isolated unit tests**: Each function tested independently with proper mocking
+- **Integration testing**: Agent creation flow tested end-to-end
+- **Error boundary testing**: All failure scenarios covered
+- **Async testing patterns**: Proper handling of background tasks and socket events
+- **Mock data consistency**: Realistic test data matching production schemas
+
+**Technical Notes:**
+- Tests use pytest with AsyncMock for proper async function testing
+- Socket handler testing pattern extracts handlers from registered events
+- Database operations fully mocked to avoid test database dependencies
+- Agent service calls mocked to test integration without external dependencies
+- Background task creation verified using `asyncio.create_task` mocking
+
+**Files Added:**
+- `server_py/tests/test_agent_socket_handlers.py` - Main test suite
+- `server_py/run_agent_tests.py` - Test runner script
+- `docs/agent_socket_handlers_testing.md` - Comprehensive testing guide
+
+**Testing Commands:**
+```bash
+# Run agent tests specifically
+cd server_py && python -m pytest tests/test_agent_socket_handlers.py -v
+
+# Run with test runner script
+cd server_py && python run_agent_tests.py
+
+# Run all socket handler tests
+cd server_py && python -m pytest tests/test_socket_handlers.py tests/test_agent_socket_handlers.py -v
+```
+---
+
+
+## 2025-10-22 16:30 UTC — Speech-to-Text Integration for All Participants & Mute Button Fix
+
+**Date**: 2025-10-22 16:30 UTC  
+**Type**: Feature | Bugfix | Enhancement  
+**Commit Message**: Integrate Speech-to-Text for all participants and fix mute button functionality
+
+**Changes:**
+
+### 1. Fixed Mute Button Logic (AudioContext.jsx)
+- **Critical Bug Fix**: Corrected inverted mute button logic where `track.enabled = isMuted` should be `track.enabled = !isMuted`
+- **Added**: Socket emission for mute state changes to sync with server via `audio-state-change` event
+- **Enhanced**: Better logging and state tracking for mute/unmute operations
+- **Result**: Mute button now works correctly for all participants
+
+### 2. Enhanced SpeechToTextPanel Component
+- **Added**: Support for all participants with `participantId` and `roomId` props
+- **Added**: Compact mode for space-efficient display in participant cards
+- **Added**: Comprehensive error handling with user-friendly error messages
+- **Added**: Automatic transcript sending to server via `transcript-received` socket event
+- **Added**: Confidence scores and timestamps for transcript accuracy
+- **Enhanced**: Better browser compatibility detection and graceful degradation
+- **Added**: Real-time transcript synchronization with backend for AI processing
+
+### 3. Updated ParticipantCard Component
+- **Added**: Speech-to-text transcription display for current speaker
+- **Added**: Compact transcription view positioned above participant avatar
+- **Added**: `showTranscription` prop to control when transcriptions are shown
+- **Enhanced**: Better visual integration with existing participant card design
+
+### 4. Enhanced RoundtableView Component
+- **Added**: Pass `showTranscription` prop to ParticipantCard components
+- **Updated**: Enable transcriptions when discussion is started
+- **Maintained**: Existing visual layout and participant positioning
+
+### 5. Comprehensive RoundTablePage Updates
+- **Added**: Individual transcription panel for current speaker (full view)
+- **Added**: Comprehensive transcription sidebar showing all participants
+- **Added**: Compact transcription views for all participants in real-time
+- **Added**: Proper participant and room ID passing to transcription components
+- **Enhanced**: Better organization of transcription displays (current speaker + all participants)
+- **Filtered**: AI agents excluded from transcription (they don't speak via microphone)
+
+### 6. Enhanced ParticipantControls Component
+- **Fixed**: Mute button styling to properly reflect current state
+- **Added**: "Enable Mic" button when microphone access is needed
+- **Enhanced**: Better visual feedback for mute/unmute states
+- **Improved**: Button colors now correctly indicate muted (red) vs unmuted (green) states
+
+**Technical Implementation:**
+
+### Data Flow
+1. **User speaks** → Web Speech API captures audio in real-time
+2. **Speech converted to text** → Displayed immediately in UI
+3. **Final transcript** → Sent to server via `transcript-received` socket event
+4. **Server processes** → Stores transcript and triggers AI feedback processing
+
+### Socket Events Used
+- `transcript-received` - Send final transcripts to server with metadata
+- `audio-state-change` - Sync mute state changes with server
+- Maintains compatibility with existing WebRTC and room management events
+
+### Server Compliance
+- **Uses server's expected data models** from `participant_pydantic_models.py`
+- **Follows socket event patterns** from `socket_handlers.py`
+- **Maintains compatibility** with existing room and participant management
+- **Transcript data structure** matches server's expected format with confidence scores
+
+### Browser Requirements
+- **Chrome or Edge browser** (for Web Speech API support)
+- **Microphone permissions** granted by user
+- **Stable internet connection** for real-time transcript synchronization
+
+**User Experience:**
+
+### Speech-to-Text Features
+- **Real-time transcription** for all participants using Web Speech API
+- **Automatic server sync** - transcripts sent to backend for AI processing
+- **Compact and full views** - space-efficient compact mode for multiple participants
+- **Error handling** - graceful degradation when speech recognition fails
+- **Visual indicators** - clear status showing listening/paused states
+
+### Mute Button Functionality
+- **Fixed logic** - mute/unmute now works correctly for all participants
+- **Visual feedback** - proper button styling based on current mute state
+- **Server synchronization** - mute state changes sent to server in real-time
+- **Microphone access** - proper handling of permission states and access requests
+
+**Impact:**
+- **Enhanced Discussion Experience**: All participants can see real-time transcriptions
+- **Better Accessibility**: Speech-to-text improves accessibility for hearing-impaired users
+- **AI Integration Ready**: Transcripts automatically sent to server for AI feedback processing
+- **Fixed Critical Bug**: Mute button now works correctly, resolving major usability issue
+- **Improved UX**: Better visual feedback and error handling throughout audio controls
+- **Production Ready**: Comprehensive error handling and browser compatibility checks
+
+**Files Modified:**
+- `client/src/contexts/AudioContext.jsx` - Fixed mute logic, added server sync
+- `client/src/components/feedback/SpeechToTextPanel.jsx` - Enhanced with multi-participant support
+- `client/src/components/ui/ParticipantCard.jsx` - Added compact transcription display
+- `client/src/components/ui/RoundtableView.jsx` - Enabled transcription integration
+- `client/src/pages/RoundTablePage.jsx` - Comprehensive transcription panels
+- `client/src/components/ParticipantControls.jsx` - Fixed mute button styling and logic
+- `docs/speech_to_text_integration_summary.md` - Comprehensive implementation documentation
+
+**Testing:**
+- ✅ All components pass ESLint with no errors
+- ✅ Mute button functionality verified across all participant states
+- ✅ Speech-to-text works in Chrome and Edge browsers
+- ✅ Transcripts successfully sent to server via socket events
+- ✅ Compact and full transcription views display correctly
+- ✅ Error handling works when speech recognition is unavailable
+
+**Documentation:**
+- Created comprehensive implementation guide at `docs/speech_to_text_integration_summary.md`
+- Updated product changelog with detailed technical implementation notes
+- Documented browser requirements and compatibility considerations
+
+**Next Steps:**
+- Monitor transcript processing performance on server side
+- Consider adding transcript history/persistence in UI
+- Evaluate adding language selection for international users
+- Test with multiple simultaneous speakers for accuracy

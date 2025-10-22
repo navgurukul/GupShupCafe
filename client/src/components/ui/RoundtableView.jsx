@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React from "react";
 import ParticipantCard from "./ParticipantCard";
 import { useAudio } from "../../contexts/AudioContext";
 import { Brain, Bot } from "lucide-react";
@@ -57,6 +57,7 @@ function RoundtableView({
         isCurrentSpeaker={isCurrentSpeaker}
         position={position}
         remoteStream={remoteStream}
+        showTranscription={discussionStarted}
       />
     );
   };
