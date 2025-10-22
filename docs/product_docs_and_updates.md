@@ -3780,3 +3780,77 @@ async def get_participant(participant_id: str, filters: GetParticipantModel = De
 - **Database**: Reads from agents table using room_id and AgentType.FACILITATOR filter
 
 **Impact**: This update transforms the discussion experience by adding an intelligent AI facilitator that can guide conversations, ask follow-up questions, and maintain discussion flow. The facilitator appears as a natural participant in the roundtable view while providing contextually relevant responses based on the ongoing conversation.
+
+## 2025-10-22 — Agent Socket Handler Testing Implementation
+
+**Date**: 2025-10-22  
+**Type**: Testing | Documentation | Agent System  
+**Commit Message**: Add comprehensive tests for agent-related socket handlers and background processing
+
+**Changes:**
+
+### 1. Agent Socket Handler Test Suite
+- **Created comprehensive test file** `test_agent_socket_handlers.py` with 15+ test cases
+- **Covers all agent-related socket functions**:
+  - `process_transcript_for_english_feedback()` - Background transcript processing
+  - `transcript_received` - Socket event for handling speech transcripts
+  - `request_facilitator_response` - Socket event for facilitator TTS requests
+  - `get_instant_feedback` - Socket event for participant feedback requests
+  - Agent creation during discussion start in `check_and_start_discussion()`
+
+### 2. Test Categories and Coverage
+- **Background Processing Tests**: Async task handling for English feedback agent
+- **Socket Event Handler Tests**: All agent-related socket events with proper mocking
+- **Integration Tests**: Agent creation during discussion start, failure handling
+- **Error Handling Tests**: Graceful handling of missing rooms, invalid data, service failures
+
+### 3. Testing Infrastructure
+- **Mock fixtures**: `mock_sio()` for Socket.io server, `setup_test_room_with_agents()` for test data
+- **Comprehensive mocking patterns**: Database operations, agent service calls, async tasks
+- **Test runner script**: `run_agent_tests.py` for easy test execution
+- **Proper async/await testing**: All socket handlers tested with AsyncMock
+
+### 4. Documentation and Guides
+- **Created detailed testing guide** `docs/agent_socket_handlers_testing.md`
+- **Documented all agent functions** with purpose, flow, and data structures
+- **Provided testing patterns** for socket handlers, database mocking, agent service mocking
+- **Included mock data examples** and common assertion patterns
+- **Error handling testing strategies** for robust agent system testing
+
+### 5. Key Agent Functions Tested
+- **English Feedback Processing**: Background async processing of transcripts for instant feedback
+- **Facilitator Response Generation**: TTS-ready responses based on conversation context
+- **Instant Feedback Retrieval**: Participant-specific feedback with fallback messages
+- **Agent Creation Integration**: Automatic agent setup during discussion start
+- **Error Recovery**: Graceful handling when agent services fail
+
+### 6. Testing Best Practices Implemented
+- **Isolated unit tests**: Each function tested independently with proper mocking
+- **Integration testing**: Agent creation flow tested end-to-end
+- **Error boundary testing**: All failure scenarios covered
+- **Async testing patterns**: Proper handling of background tasks and socket events
+- **Mock data consistency**: Realistic test data matching production schemas
+
+**Technical Notes:**
+- Tests use pytest with AsyncMock for proper async function testing
+- Socket handler testing pattern extracts handlers from registered events
+- Database operations fully mocked to avoid test database dependencies
+- Agent service calls mocked to test integration without external dependencies
+- Background task creation verified using `asyncio.create_task` mocking
+
+**Files Added:**
+- `server_py/tests/test_agent_socket_handlers.py` - Main test suite
+- `server_py/run_agent_tests.py` - Test runner script
+- `docs/agent_socket_handlers_testing.md` - Comprehensive testing guide
+
+**Testing Commands:**
+```bash
+# Run agent tests specifically
+cd server_py && python -m pytest tests/test_agent_socket_handlers.py -v
+
+# Run with test runner script
+cd server_py && python run_agent_tests.py
+
+# Run all socket handler tests
+cd server_py && python -m pytest tests/test_socket_handlers.py tests/test_agent_socket_handlers.py -v
+```

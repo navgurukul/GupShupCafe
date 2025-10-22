@@ -16,11 +16,12 @@ from ..models import (
     AgentResponseTextModel,
     AgentInteractionStatsModel,
     AgentHealthModel,
-    AgentType
+    AgentType,
+    ListAgentsResponseModel
 )
 from ..services.agent_service import agent_service
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(tags=["agents"])
 
 
 @router.post("/", response_model=CreateAgentResponseModel)
@@ -52,11 +53,21 @@ async def get_agent(agent_id: str):
     return agent
 
 
-@router.get("/room/{room_id}", response_model=List[AgentModel])
+@router.get("/room/{room_id}", response_model=ListAgentsResponseModel)
 async def get_agents_by_room(room_id: str):
     """Get all agents for a specific room."""
-    agents = await agent_service.get_agents_by_room(room_id)
-    return agents
+    try:
+        agents = await agent_service.get_agents_by_room(room_id)
+        return ListAgentsResponseModel(
+            status="success",
+            data=agents,
+            message=f"Found {len(agents)} agents for room {room_id}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get agents for room: {str(e)}"
+        )
 
 
 @router.get("/room/{room_id}/type/{agent_type}", response_model=List[AgentModel])

@@ -1,6 +1,7 @@
 """
 Agent Service
 Business logic for AI agent management and interactions with transcripts/feedback
+Integrates with actual Strands-based agents for live responses
 """
 
 from typing import Optional, List, Dict, Any
@@ -8,11 +9,13 @@ from datetime import datetime
 import uuid
 import asyncio
 import json
-from strands import Agent, tool
-from strands.models import Model
+import logging
 
-from ..agents.debate_facilitator_agent import DebateFacilitatorAgent
+# Import actual agent implementations
 from ..agents.english_feedback_agent import EnglishFeedbackAgent
+from ..agents.debate_facilitator_agent import DebateFacilitatorAgent
+from ..agents.agentcore import AgentCore
+from ..llm.strands_model_adapter import StrandsModelAdapter
 
 from ..models import TranscriptModel, UpdateTranscriptModel, UpdateTranscriptResponseModel
 from .transcript_service import transcript_service
@@ -40,9 +43,68 @@ from ..models import (
     AgentModelSource
 )
 
+logger = logging.getLogger(__name__)
+
 
 class AgentService:
-    """Service class for agent operations and interactions."""
+    """Service class for agent operations and interactions with live Strands agents."""
+    
+    # Class-level cache for agent instances
+    _agent_instances: Dict[str, Any] = {}
+    _agent_core: Optional[AgentCore] = None
+
+    @staticmethod
+    def _get_or_create_agent_core() -> AgentCore:
+        """Get or create the AgentCore instance (singleton pattern)."""
+        if AgentService._agent_core is None:
+            try:
+                AgentService._agent_core = AgentCore(
+                    model_provider=None,  # Uses environment default
+                    max_tokens=500,
+                    enable_mcp_tools=True
+                )
+                AgentService._agent_core.activate_mcp_tools()
+                logger.info("✅ AgentCore initialized and MCP tools activated")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to initialize AgentCore with MCP tools: {e}")
+                # Fallback without MCP tools
+                AgentService._agent_core = AgentCore(
+                    model_provider=None,
+                    max_tokens=500,
+                    enable_mcp_tools=False
+                )
+                logger.info("✅ AgentCore initialized without MCP tools")
+        
+        return AgentService._agent_core
+    
+    @staticmethod
+    def _get_agent_instance(agent_id: str, agent_type: str) -> Optional[Any]:
+        """Get cached agent instance or create new one."""
+        if agent_id in AgentService._agent_instances:
+            return AgentService._agent_instances[agent_id]
+        
+        try:
+            # Create Strands model
+            model = StrandsModelAdapter.create_model()
+            
+            # Create appropriate agent instance
+            if agent_type == AgentType.ENGLISH.value:
+                agent_instance = EnglishFeedbackAgent(model)
+            elif agent_type == AgentType.FACILITATOR.value:
+                agent_instance = DebateFacilitatorAgent(model)
+            else:
+                logger.error(f"Unknown agent type: {agent_type}")
+                return None
+            
+            # Cache the instance
+            AgentService._agent_instances[agent_id] = agent_instance
+            logger.info(f"✅ Created and cached {agent_type} agent instance: {agent_id}")
+            
+            return agent_instance
+            
+        except Exception as e:
+            logger.error(f"Failed to create agent instance {agent_id}: {e}")
+            return None
 
     @staticmethod
     async def create_agent(agent_data: CreateAgentModel) -> CreateAgentResponseModel:
@@ -130,23 +192,15 @@ class AgentService:
             return None
 
     @staticmethod
-    async def get_agents_by_room(room_id: str) -> ListAgentsResponseModel:
+    async def get_agents_by_room(room_id: str) -> List[AgentModel]:
         """Get all agents for a specific room."""
         try:
             agents_data = await db.get_agents_by_room(room_id)
             agents = [AgentModel(**agent) for agent in agents_data]
-            return ListAgentsResponseModel(
-                status="success",
-                data=agents,
-                message=f"Found {len(agents)} agents for room {room_id}"
-            )
+            return agents
         except Exception as e:
             print(f"Error fetching agents for room {room_id}: {e}")
-            return ListAgentsResponseModel(
-                status="error",
-                data=[],
-                message=f"Failed to fetch agents: {str(e)}"
-            )
+            return []
 
     @staticmethod
     async def update_agent(agent_id: str, update_data: AgentUpdateModel) -> UpdateAgentResponseModel:
@@ -227,7 +281,7 @@ class AgentService:
         agent_id: str,
         transcript_id: str,
         feedback_type: str = "instant"
-    ) -> AgentResponseTextModel:
+    ) -> AgentReplyModel:
         """
         Process a transcript to generate feedback.
         This method coordinates with transcript and feedback services.
@@ -294,13 +348,9 @@ class AgentService:
             except Exception as e:
                 print(f"Error updating agent {agent_id} status to active: {e}")
 
-            return AgentResponseTextModel(
+            return AgentReplyModel(
                 agent_id=agent_id,
-                response_text=feedback_text,
-                processing_time=processing_time,
-                confidence_score=0.95,
-                tokens_used=len(feedback_text.split()) *
-                1.3  # Rough token estimate
+                response_text=feedback_text
             )
 
         except Exception as e:
@@ -317,69 +367,161 @@ class AgentService:
         transcript_data: Dict[str, Any],
         feedback_type: str
     ) -> str:
-        """Generate English language feedback for a transcript."""
-        # This is a placeholder - in production, this would call the LLM service
-        transcript_text = transcript_data.get("transcript_text", "")
-        word_count = transcript_data.get("word_count", 0)
-        speech_rate = transcript_data.get("speech_rate", 0)
-
-        if feedback_type == "instant":
-            # Generate quick, actionable feedback
-            feedback_points = []
-
-            if word_count < 20:
-                feedback_points.append("Try to elaborate more on your ideas")
-            elif word_count > 100:
-                feedback_points.append(
-                    "Great detail! Consider being more concise")
-
-            if speech_rate > 3.0:
-                feedback_points.append(
-                    "Good pace! Your speech is clear and easy to follow")
-            elif speech_rate < 1.5:
-                feedback_points.append(
-                    "Try speaking a bit faster to maintain engagement")
-
-            # Add grammar/vocabulary feedback based on text analysis
-            if len(transcript_text.split('.')) > 3:
-                feedback_points.append("Nice use of complex sentences!")
-
-            return " | ".join(feedback_points) if feedback_points else "Keep up the good work!"
-
-        else:  # comprehensive feedback
-            return f"""Comprehensive Analysis:
+        """Generate English language feedback using the actual EnglishFeedbackAgent."""
+        try:
+            # Get the actual agent instance
+            agent_instance = AgentService._get_agent_instance(
+                agent.agent_id, 
+                agent.agent_type
+            )
             
-Fluency: Your speech rate of {speech_rate:.1f} words/second shows good control.
-Content: You used {word_count} words effectively to express your ideas.
-Suggestions: Continue practicing with varied vocabulary and complex sentence structures.
+            if not agent_instance:
+                logger.error(f"Failed to get English agent instance for {agent.agent_id}")
+                return "Unable to generate feedback at this time."
             
-Overall: Strong participation! Focus on expanding your ideas with specific examples."""
+            # Prepare data for the agent
+            transcript_text = transcript_data.get("transcript_text", "")
+            room_id = transcript_data.get("room_id", "")
+            participant_id = transcript_data.get("participant_id", "")
+            
+            # Get room context if available
+            try:
+                from .room_service import room_service
+                room_data = await room_service.get_room(room_id)
+                topic = room_data.topic if room_data else "general discussion"
+            except Exception as e:
+                logger.warning(f"Could not get room context: {e}")
+                topic = "general discussion"
+            
+            # Prepare context for the agent
+            context = {
+                "topic": topic,
+                "feedback_type": feedback_type,
+                "speaker_info": {
+                    "participant_id": participant_id,
+                    "word_count": transcript_data.get("word_count", 0),
+                    "speech_rate": transcript_data.get("speech_rate", 0)
+                }
+            }
+            
+            # Call the actual agent
+            analysis_data = {
+                "text": transcript_text,
+                "context": context
+            }
+            
+            result = await agent_instance.analyze(analysis_data)
+            
+            # Format the response based on feedback type
+            if feedback_type == "instant":
+                # Quick feedback format
+                cefr_level = result.get("cefr_level", "")
+                suggestions = result.get("suggestions", [])
+                
+                feedback_parts = []
+                if cefr_level:
+                    feedback_parts.append(f"CEFR Level: {cefr_level}")
+                
+                if suggestions:
+                    # Take first 2 suggestions for instant feedback
+                    for suggestion in suggestions[:2]:
+                        feedback_parts.append(f"• {suggestion}")
+                
+                return " | ".join(feedback_parts) if feedback_parts else "Keep practicing!"
+            
+            else:  # comprehensive feedback
+                # Return the full analysis text
+                return result.get("analysis", "Comprehensive analysis completed.")
+                
+        except Exception as e:
+            logger.error(f"Error generating English feedback: {e}")
+            # Fallback to simple feedback
+            transcript_text = transcript_data.get("transcript_text", "")
+            word_count = len(transcript_text.split()) if transcript_text else 0
+            
+            if feedback_type == "instant":
+                return f"Good contribution! ({word_count} words) Keep practicing your English skills."
+            else:
+                return f"Thank you for your participation. Your contribution of {word_count} words shows engagement with the topic. Continue practicing to improve your fluency and vocabulary."
 
     @staticmethod
     async def _generate_facilitator_response(
         agent: AgentModel,
         transcript_data: Dict[str, Any]
-    ) -> Agent:
-        """Generate facilitator response based on participant input."""
-        # This is a placeholder - in production, this would call the LLM service
-        transcript_text = transcript_data.get("transcript_text", "")
-        response_text = ""
-        # Analyze the content and generate appropriate facilitator response
-        if "agree" in transcript_text.lower():
-            response_text = "I appreciate you sharing that perspective. What specific examples support your viewpoint?"
-        elif "disagree" in transcript_text.lower():
-            response_text = "Thank you for presenting a different angle. Can you help us understand your reasoning?"
-        elif "?" in transcript_text:
-            response_text = "That's an excellent question. Let's explore this together. What do others think?"
-        else:
-            response_text = "Interesting point! How do you think this connects to what we discussed earlier?"
-        AgentReplyResponseModel(
-            "success",
-            AgentReplyModel(
-                agent.agent_id,
-                response_text
+    ) -> str:
+        """Generate facilitator response using the actual DebateFacilitatorAgent."""
+        try:
+            # Get the actual agent instance
+            agent_instance = AgentService._get_agent_instance(
+                agent.agent_id, 
+                agent.agent_type
             )
-        )
+            
+            if not agent_instance:
+                logger.error(f"Failed to get Facilitator agent instance for {agent.agent_id}")
+                return "Thank you for your contribution to the discussion."
+            
+            # Prepare context for the facilitator
+            transcript_text = transcript_data.get("transcript_text", "")
+            room_id = transcript_data.get("room_id", "")
+            participant_id = transcript_data.get("participant_id", "")
+            
+            # Get room and participant context
+            try:
+                from .room_service import room_service
+                from .participant_service import participant_service
+                
+                room_data = await room_service.get_room(room_id)
+                topic = room_data.topic if room_data else "the current topic"
+                
+                participant_data = await participant_service.get_participant(participant_id)
+                speaker_name = participant_data.anonymous_name if participant_data else "Speaker"
+                
+            except Exception as e:
+                logger.warning(f"Could not get room/participant context: {e}")
+                topic = "the current topic"
+                speaker_name = "Speaker"
+            
+            # Get recent statements for context
+            try:
+                recent_transcripts = await db.get_recent_transcripts(room_id, limit=5)
+                previous_statements = [
+                    t.get("transcript_text", "") 
+                    for t in recent_transcripts 
+                    if t.get("transcript_text")
+                ]
+            except Exception as e:
+                logger.warning(f"Could not get recent transcripts: {e}")
+                previous_statements = []
+            
+            # Prepare context for the facilitator agent
+            context = {
+                "topic": topic,
+                "current_speaker": {"anonymous_name": speaker_name},
+                "turn_number": len(previous_statements) + 1,
+                "previous_statements": previous_statements,
+                "current_round": 1,  # Could be enhanced to track actual rounds
+                "total_rounds": 3
+            }
+            
+            # Generate facilitator response
+            response = await agent_instance.facilitate_turn(context)
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error generating facilitator response: {e}")
+            # Fallback responses based on content analysis
+            transcript_text = transcript_data.get("transcript_text", "").lower()
+            
+            if "agree" in transcript_text:
+                return "I appreciate you sharing that perspective. What specific examples support your viewpoint?"
+            elif "disagree" in transcript_text:
+                return "Thank you for presenting a different angle. Can you help us understand your reasoning?"
+            elif "?" in transcript_text:
+                return "That's an excellent question. Let's explore this together. What do others think?"
+            else:
+                return "Interesting point! How do you think this connects to what we discussed earlier?"
 
     @staticmethod
     async def generate_facilitator_turn_response(
@@ -388,43 +530,91 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
         feedback_summaries: List[Dict[str, Any]]
     ) -> str:
         """
-        Generate facilitator's speaking turn response based on recent conversation and feedback.
+        Generate facilitator's speaking turn response using the actual DebateFacilitatorAgent.
         """
-        # Get the facilitator agent for this room
-        agents = await AgentService.get_agents_by_room(room_id)
-        facilitator = next(
-            (a for a in agents if a.agent_type == AgentType.FACILITATOR.value), None)
+        try:
+            # Get the facilitator agent for this room
+            agents = await AgentService.get_agents_by_room(room_id)
+            facilitator = next(
+                (a for a in agents if a.agent_type == AgentType.FACILITATOR.value), None)
 
-        if not facilitator:
-            return "Thank you all for your thoughtful contributions to this discussion."
+            if not facilitator:
+                return "Thank you all for your thoughtful contributions to this discussion."
 
-        # Analyze recent conversation themes
-        themes = []
-        for transcript in recent_transcripts[-3:]:  # Last 3 transcripts
-            text = transcript.get("transcript_text", "").lower()
-            if any(word in text for word in ["important", "significant", "key"]):
-                themes.append("importance")
-            if any(word in text for word in ["different", "various", "multiple"]):
-                themes.append("diversity")
-            if any(word in text for word in ["example", "instance", "case"]):
-                themes.append("examples")
+            # Get the actual agent instance
+            agent_instance = AgentService._get_agent_instance(
+                facilitator.agent_id, 
+                facilitator.agent_type
+            )
+            
+            if not agent_instance:
+                logger.error(f"Failed to get Facilitator agent instance for {facilitator.agent_id}")
+                return "Thank you all for your thoughtful contributions to this discussion."
 
-        # Generate response based on themes and feedback
-        if "examples" in themes:
-            response = "I've noticed several of you are sharing concrete examples, which really enriches our discussion. "
-        elif "diversity" in themes:
-            response = "It's fascinating to see the different perspectives emerging here. "
-        else:
-            response = "Thank you all for your thoughtful contributions. "
+            # Get room context
+            try:
+                from .room_service import room_service
+                room_data = await room_service.get_room(room_id)
+                topic = room_data.topic if room_data else "the current discussion"
+            except Exception as e:
+                logger.warning(f"Could not get room context: {e}")
+                topic = "the current discussion"
 
-        # Add feedback-based insights
-        if feedback_summaries:
-            response += "I can see everyone is working hard to express complex ideas clearly. "
+            # Extract statements from recent transcripts
+            statements = [
+                transcript.get("transcript_text", "")
+                for transcript in recent_transcripts
+                if transcript.get("transcript_text")
+            ]
 
-        # Add forward-looking question
-        response += "As we continue, I'd like us to consider: How might these different viewpoints actually complement each other?"
+            # Prepare context for the facilitator
+            context = {
+                "topic": topic,
+                "statements": statements,
+                "participants": len(set(t.get("participant_id") for t in recent_transcripts if t.get("participant_id"))),
+                "feedback_summaries": feedback_summaries
+            }
 
-        return response
+            # Use the facilitator agent to suggest topic direction
+            response = await agent_instance.suggest_topic_direction(statements)
+            
+            # If the response is too short, enhance it with encouragement
+            if len(response.split()) < 10:
+                encouragement = await agent_instance.generate_speaking_prompt(topic, context)
+                response = f"{response} {encouragement}"
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error generating facilitator turn response: {e}")
+            
+            # Fallback logic
+            themes = []
+            for transcript in recent_transcripts[-3:]:  # Last 3 transcripts
+                text = transcript.get("transcript_text", "").lower()
+                if any(word in text for word in ["important", "significant", "key"]):
+                    themes.append("importance")
+                if any(word in text for word in ["different", "various", "multiple"]):
+                    themes.append("diversity")
+                if any(word in text for word in ["example", "instance", "case"]):
+                    themes.append("examples")
+
+            # Generate response based on themes and feedback
+            if "examples" in themes:
+                response = "I've noticed several of you are sharing concrete examples, which really enriches our discussion. "
+            elif "diversity" in themes:
+                response = "It's fascinating to see the different perspectives emerging here. "
+            else:
+                response = "Thank you all for your thoughtful contributions. "
+
+            # Add feedback-based insights
+            if feedback_summaries:
+                response += "I can see everyone is working hard to express complex ideas clearly. "
+
+            # Add forward-looking question
+            response += "As we continue, I'd like us to consider: How might these different viewpoints actually complement each other?"
+
+            return response
 
     @staticmethod
     async def get_agent_stats(agent_id: str) -> AgentInteractionStatsModel:
@@ -484,7 +674,7 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
         )
 
     @staticmethod
-    async def check_agent_health(agent_id: str) -> Optional[AgentHealthModel]:
+    async def check_agent_health(agent_id: str) -> Optional[Dict[str, Any]]:
         """Check agent health status."""
         agent = await AgentService.get_agent(agent_id)
         if not agent:
@@ -532,18 +722,183 @@ Overall: Strong participation! Focus on expanding your ideas with specific examp
     @staticmethod
     async def get_agents_by_type(room_id: str, agent_type: AgentType) -> List[AgentModel]:
         """Get agents by type for a specific room."""
-        all_agents_response = await AgentService.get_agents_by_room(room_id)
-        if all_agents_response.status == "success":
-            return [agent for agent in all_agents_response.data if agent.agent_type == agent_type.value]
-        return []
+        all_agents = await AgentService.get_agents_by_room(room_id)
+        return [agent for agent in all_agents if agent.agent_type == agent_type.value]
 
     @staticmethod
     async def get_active_agents(room_id: str) -> List[AgentModel]:
         """Get all active agents for a room."""
-        all_agents_response = await AgentService.get_agents_by_room(room_id)
-        if all_agents_response.status == "success":
-            return [agent for agent in all_agents_response.data if agent.status == AgentStatus.ACTIVE.value]
-        return []
+        all_agents = await AgentService.get_agents_by_room(room_id)
+        return [agent for agent in all_agents if agent.status == AgentStatus.ACTIVE.value]
+
+    @staticmethod
+    async def generate_live_agent_response(
+        room_id: str,
+        agent_type: AgentType,
+        context: Dict[str, Any]
+    ) -> Optional[str]:
+        """
+        Generate live agent response for socket events.
+        
+        Args:
+            room_id: Room ID where the agent operates
+            agent_type: Type of agent (ENGLISH or FACILITATOR)
+            context: Context data including transcripts, participants, etc.
+            
+        Returns:
+            Generated response text or None if failed
+        """
+        try:
+            # Get the agent for this room and type
+            agents = await AgentService.get_agents_by_room(room_id)
+            target_agent = next(
+                (a for a in agents if a.agent_type == agent_type.value), None)
+            
+            if not target_agent:
+                logger.warning(f"No {agent_type.value} agent found for room {room_id}")
+                return None
+            
+            # Get the actual agent instance
+            agent_instance = AgentService._get_agent_instance(
+                target_agent.agent_id, 
+                target_agent.agent_type
+            )
+            
+            if not agent_instance:
+                logger.error(f"Failed to get agent instance for {target_agent.agent_id}")
+                return None
+            
+            # Generate response based on agent type
+            if agent_type == AgentType.ENGLISH:
+                # For English agent, analyze the latest transcript
+                latest_transcript = context.get("latest_transcript", {})
+                if not latest_transcript:
+                    return None
+                
+                # Get room topic for context
+                try:
+                    from .room_service import room_service
+                    room_data = await room_service.get_room(room_id)
+                    topic = room_data.topic if room_data else "general discussion"
+                except Exception:
+                    topic = "general discussion"
+                
+                analysis_data = {
+                    "text": latest_transcript.get("transcript_text", ""),
+                    "context": {
+                        "topic": topic,
+                        "feedback_type": "instant",
+                        "speaker_info": {
+                            "participant_id": latest_transcript.get("participant_id", ""),
+                            "word_count": latest_transcript.get("word_count", 0),
+                            "speech_rate": latest_transcript.get("speech_rate", 0)
+                        }
+                    }
+                }
+                
+                result = await agent_instance.analyze(analysis_data)
+                
+                # Format for instant feedback
+                cefr_level = result.get("cefr_level", "")
+                suggestions = result.get("suggestions", [])
+                
+                feedback_parts = []
+                if cefr_level:
+                    feedback_parts.append(f"CEFR Level: {cefr_level}")
+                
+                if suggestions:
+                    for suggestion in suggestions[:2]:  # Limit to 2 suggestions
+                        feedback_parts.append(f"• {suggestion}")
+                
+                return " | ".join(feedback_parts) if feedback_parts else "Keep practicing!"
+            
+            elif agent_type == AgentType.FACILITATOR:
+                # For Facilitator agent, provide turn guidance or topic direction
+                recent_transcripts = context.get("recent_transcripts", [])
+                
+                if not recent_transcripts:
+                    # Generate opening prompt
+                    try:
+                        from .room_service import room_service
+                        room_data = await room_service.get_room(room_id)
+                        topic = room_data.topic if room_data else "the current topic"
+                    except Exception:
+                        topic = "the current topic"
+                    
+                    return await agent_instance.generate_speaking_prompt(topic)
+                
+                # Extract statements for topic direction
+                statements = [
+                    t.get("transcript_text", "")
+                    for t in recent_transcripts
+                    if t.get("transcript_text")
+                ]
+                
+                return await agent_instance.suggest_topic_direction(statements)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error generating live agent response: {e}")
+            return None
+
+    @staticmethod
+    async def provide_encouragement_to_participant(
+        room_id: str,
+        participant_id: str
+    ) -> Optional[str]:
+        """
+        Generate encouragement for a specific participant using the facilitator agent.
+        
+        Args:
+            room_id: Room ID
+            participant_id: Participant to encourage
+            
+        Returns:
+            Encouragement message or None if failed
+        """
+        try:
+            # Get facilitator agent
+            agents = await AgentService.get_agents_by_room(room_id)
+            facilitator = next(
+                (a for a in agents if a.agent_type == AgentType.FACILITATOR.value), None)
+            
+            if not facilitator:
+                return None
+            
+            agent_instance = AgentService._get_agent_instance(
+                facilitator.agent_id, 
+                facilitator.agent_type
+            )
+            
+            if not agent_instance:
+                return None
+            
+            # Get participant and room context
+            try:
+                from .participant_service import participant_service
+                from .room_service import room_service
+                
+                participant_data = await participant_service.get_participant(participant_id)
+                room_data = await room_service.get_room(room_id)
+                
+                participant_info = {
+                    "anonymous_name": participant_data.anonymous_name if participant_data else "participant"
+                }
+                
+                context = {
+                    "topic": room_data.topic if room_data else "this topic"
+                }
+                
+                return await agent_instance.provide_encouragement(participant_info, context)
+                
+            except Exception as e:
+                logger.warning(f"Could not get participant/room context: {e}")
+                return "Thank you for your participation! Please share your thoughts."
+            
+        except Exception as e:
+            logger.error(f"Error providing encouragement: {e}")
+            return None
 
 
 # Singleton instance
