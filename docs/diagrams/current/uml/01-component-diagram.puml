@@ -1,6 +1,6 @@
-@startuml GupShup Cafe - MVP Component Diagram
+@startuml GupShup Cafe - Component Diagram (Current State)
 
-' Use latest PlantUML version features
+' PlantUML version 1.2025.x
 !theme plain
 skinparam componentStyle rectangle
 skinparam backgroundColor #FEFEFE
@@ -21,43 +21,96 @@ skinparam component {
     FontColor #263238
 }
 
-title GupShup Cafe - MVP Component Architecture
+title GupShup Cafe - Component Architecture (Testing Branch)
 
-package "Client Layer" {
+package "Client Layer (client/)" {
     component "React 18 + Vite" as ReactApp <<frontend>> {
-        component "Pages" as Pages
-        component "Contexts" as Contexts
-        component "Components" as Components
+        component "Pages" as Pages {
+            component "LoginPage" as Login
+            component "SignupPage" as Signup
+            component "LobbyPage" as Lobby
+            component "RoomLobbyPage" as RoomLobby
+            component "RoundtablePage" as Roundtable
+            component "BroadcastTestPage" as BroadcastTest
+            component "AudioTestPage" as AudioTest
+        }
+        
+        component "Contexts" as Contexts {
+            component "AuthContext" as Auth
+            component "SocketContext" as Socket
+            component "AudioContext" as Audio
+        }
+        
+        component "Components" as Components {
+            component "UI Components" as UIComps
+            component "Feedback Components" as FeedbackComps
+            component "Common Components" as CommonComps
+        }
+        
+        component "Utils" as Utils {
+            component "participantHelpers" as PartHelpers
+            component "constants" as Constants
+        }
         
         Pages -[hidden]down- Contexts
         Contexts -[hidden]down- Components
+        Components -[hidden]down- Utils
     }
     
     component "WebRTC Engine" as WebRTC <<frontend>> {
         component "Audio Manager" as AudioMgr
         component "Peer Connections" as PeerConn
+        component "Speech-to-Text" as STT
     }
     
     component "Socket.io Client" as SocketClient <<frontend>>
     
     note right of ReactApp
         Key Pages:
-        - LoginPage (OAuth)
-        - LobbyPage
-        - RoundtablePage
+        - LoginPage/SignupPage (Auth)
+        - LobbyPage (Room Discovery)
+        - RoomLobbyPage (Room Waiting)
+        - RoundtablePage (Discussion)
+        - BroadcastTestPage (Testing)
         
         Key Contexts:
-        - AuthContext
-        - SocketContext
-        - AudioContext
+        - AuthContext (User Auth)
+        - SocketContext (Socket.io)
+        - AudioContext (WebRTC + Audio)
+        
+        New Features:
+        - Anonymous names
+        - Room sharing via URLs
+        - Participant helpers
+        - Speech-to-text integration
     end note
 }
 
-package "Backend Layer (server_py)" {
+package "Backend Layer (server_py/)" {
     component "FastAPI Server" as FastAPI <<backend>> {
-        component "REST Routes" as RESTRoutes
-        component "Socket Handlers" as SocketHandlers
-        component "WebRTC Signaling" as WebRTCSignal
+        component "REST Routes" as RESTRoutes {
+            component "User Routes" as UserRoutes
+            component "Room Routes" as RoomRoutes
+            component "Participant Routes" as PartRoutes
+            component "Feedback Routes" as FeedbackRoutes
+            component "Transcript Routes" as TranscriptRoutes
+            component "Agent Routes" as AgentRoutes
+        }
+        
+        component "Socket Handlers" as SocketHandlers {
+            component "Room Events" as RoomEvents
+            component "WebRTC Signaling" as WebRTCSignal
+            component "Agent Events" as AgentEvents
+        }
+    }
+    
+    component "Services Layer" as Services <<backend>> {
+        component "User Service" as UserSvc
+        component "Room Service" as RoomSvc
+        component "Participant Service" as PartSvc
+        component "Feedback Service" as FeedbackSvc
+        component "Transcript Service" as TranscriptSvc
+        component "Agent Service" as AgentSvc
     }
     
     component "Room Manager" as RoomMgr <<backend>> {
@@ -67,24 +120,41 @@ package "Backend Layer (server_py)" {
     }
     
     component "Database Service" as DBService <<backend>> {
-        component "SQLite (EFS)" as SQLite
-        component "Session Store" as SessionStore
-        component "User Store" as UserStore
+        component "SQLite" as SQLite
+        component "CRUD Operations" as CRUD
+        component "Migrations" as Migrations
+    }
+    
+    component "Pydantic Models" as Models <<backend>> {
+        component "User Models" as UserModels
+        component "Room Models" as RoomModels
+        component "Participant Models" as PartModels
+        component "Feedback Models" as FeedbackModels
+        component "Transcript Models" as TranscriptModels
+        component "Agent Models" as AgentModels
     }
     
     note right of FastAPI
         Running on:
-        - AWS Fargate (ECS)
-        - Python 3.11 container
-        - Port 3003 internal
-        - ALB for load balancing
+        - Python 3.11 
+        - Port 3003
+        - FastAPI + Socket.io
+        
+        Complete CRUD APIs:
+        - Users (signup, login, profile)
+        - Rooms (create, list, update, delete)
+        - Participants (join, ready, mute)
+        - Feedback (instant, comprehensive)
+        - Transcripts (create, process)
+        - Agents (facilitator, feedback)
     end note
 }
 
-package "AI Layer (AWS Strands)" {
-    component "Multi-Agent Orchestrator" as Orchestrator <<ai>> {
-        component "Agent Coordinator" as AgentCoord
-        component "Feedback Router" as FeedbackRouter
+package "AI Layer (Strands SDK + MCP)" {
+    component "Multi-Agent System" as Orchestrator <<ai>> {
+        component "AWSStrandsOrchestrator" as AgentCoord
+        component "AgentCore Runtime" as AgentCore
+        component "Strands Model Adapter" as ModelAdapter
     }
     
     component "EnglishFeedbackAgent" as EnglishAgent <<ai>> {
@@ -97,18 +167,58 @@ package "AI Layer (AWS Strands)" {
     component "DebateFacilitatorAgent" as FacilitatorAgent <<ai>> {
         component "Turn Controller" as TurnCtrl
         component "Topic Guidance" as TopicGuide
-        component "Moderation" as Moderation
+        component "Discussion Moderation" as Moderation
+        component "Response Generation" as RespGen
+    }
+    
+    component "MCP Tools" as MCPTools <<ai>> {
+        component "Debate Room Tools" as DebateTools {
+            component "topic_selector" as TopicSel
+            component "get_next_speaker" as NextSpeaker
+            component "validate_turn" as ValidateTurn
+            component "analyze_discussion" as AnalyzeDisc
+        }
+        
+        component "Grammar Tools" as GrammarTools {
+            component "check_grammar" as CheckGrammar
+            component "analyze_vocabulary" as AnalyzeVocab
+            component "detect_fillers" as DetectFillers
+            component "analyze_structure" as AnalyzeStruct
+        }
+    }
+    
+    component "MCP Infrastructure" as MCPInfra <<ai>> {
+        component "Debate Tools Server" as DebateServer
+        component "Grammar Tools Server" as GrammarServer
+        component "MCPToolsManager" as MCPManager
     }
     
     note right of Orchestrator
-        Instant Feedback Mode:
-        - 2-3 second response
-        - Real-time grammar tips
+        Agent System:
+        - Strands SDK integration
+        - Pluggable LLM providers
+        - MCP tools support
+        - AgentCore wrapper
         
-        Comprehensive Mode:
-        - Detailed analysis
-        - Progress tracking
-        - CEFR trajectory
+        Feedback Modes:
+        - Instant (2-3 sec)
+        - Comprehensive (detailed)
+        
+        Facilitator Features:
+        - Turn management
+        - AI speaking turns
+        - TTS response generation
+    end note
+    
+    note right of MCPTools
+        MCP Servers:
+        - Port 8000: Debate Tools
+        - Port 8001: Grammar Tools
+        
+        Protocol:
+        - Streamable HTTP transport
+        - JSON-RPC methods
+        - Tool registration
     end note
 }
 
@@ -125,16 +235,23 @@ package "Infrastructure Layer" {
         component "ALB" as ALB
     }
     
-    component "AWS Bedrock" as Bedrock <<infrastructure>> {
-        component "Claude 3 (Production)" as Claude
-        component "Model Registry" as ModelReg
+    component "EFS Storage" as EFS <<infrastructure>> {
+        component "SQLite Database" as EFSDb
+        component "Shared Storage" as SharedStorage
     }
     
-    component "Gemini API" as Gemini <<infrastructure>> {
-        note bottom
-            Development only
-            Free tier usage
-        end note
+    component "LLM Providers" as LLMProviders <<infrastructure>> {
+        component "AWS Bedrock" as Bedrock {
+            component "Claude 3 (Prod)" as Claude
+            component "Amazon Nova (Prod)" as Nova
+        }
+        
+        component "Google Gemini" as Gemini {
+            note bottom
+                Development only
+                Free tier
+            end note
+        }
     }
     
     component "AWS AgentCore" as AgentCore <<infrastructure>> {
@@ -142,44 +259,62 @@ package "Infrastructure Layer" {
         component "Identity & Permissions" as IAM
         component "Internet Access" as Internet
     }
+    
+    note right of LLMProviders
+        Pluggable Architecture:
+        - Set LLM_PROVIDER env var
+        - Switch: bedrock | gemini
+        - Model adapter layer
+        - Strands SDK integration
+    end note
 }
 
 ' Client to Backend connections
 ReactApp --> FastAPI : "REST API\n(HTTPS)"
 SocketClient --> SocketHandlers : "WebSocket\n(Socket.io)"
 WebRTC --> WebRTCSignal : "Signaling\n(SDP/ICE)"
+STT --> SocketHandlers : "Transcripts\n(transcript-received)"
 
 ' Backend internal connections
-FastAPI --> RoomMgr : "Room operations"
-FastAPI --> DBService : "Data persistence"
-SocketHandlers --> RoomMgr : "State updates"
+FastAPI --> Services : "Business Logic"
+Services --> Models : "Data Validation"
+Services --> DBService : "Data Persistence"
+SocketHandlers --> RoomMgr : "State Updates"
+RoomMgr --> Services : "Service Calls"
 
 ' Backend to AI connections
-FastAPI --> Orchestrator : "Feedback requests"
-Orchestrator --> EnglishAgent : "Analyze English"
-Orchestrator --> FacilitatorAgent : "Facilitate discussion"
+FastAPI --> Orchestrator : "Feedback Requests"
+SocketHandlers --> AgentSvc : "Agent Interactions"
+Orchestrator --> EnglishAgent : "English Analysis"
+Orchestrator --> FacilitatorAgent : "Facilitation"
+EnglishAgent --> MCPTools : "Use MCP Tools"
+FacilitatorAgent --> MCPTools : "Use MCP Tools"
 
-' AI to Infrastructure
-EnglishAgent --> Bedrock : "Claude API (prod)"
-EnglishAgent --> Gemini : "Gemini API (dev)"
-FacilitatorAgent --> Bedrock : "Claude API (prod)"
+' MCP Infrastructure
+MCPManager --> DebateServer : "HTTP Transport"
+MCPManager --> GrammarServer : "HTTP Transport"
+Orchestrator --> MCPManager : "MCP Client"
+
+' AI to LLM Providers
+ModelAdapter --> Bedrock : "Production"
+ModelAdapter --> Gemini : "Development"
+EnglishAgent --> ModelAdapter : "LLM Inference"
+FacilitatorAgent --> ModelAdapter : "LLM Inference"
 
 ' Infrastructure connections
-Orchestrator --> AgentCore : "Wrapped in AgentCore"
-AgentCore --> Runtime : "Manages runtime"
-AgentCore --> IAM : "Provides identity"
-AgentCore --> Internet : "API access"
+Orchestrator --> AgentCore : "Wrapped Runtime"
+AgentCore --> Runtime : "Manages Lifecycle"
+AgentCore --> IAM : "Identity & Access"
+AgentCore --> Internet : "API Access"
 
-ReactApp --> Amplify : "Deployed on"
-FastAPI --> Fargate : "Runs on"
-Amplify --> CDN : "Distributed via"
-
-' Storage
-DBService --> SQLite : "Persistent data"
+ReactApp --> Amplify : "Deployed On"
+FastAPI --> Fargate : "Runs On"
+Amplify --> CDN : "Distributed Via"
+DBService --> EFS : "Persistent Storage"
 
 legend right
-    |<back:LightBlue>   </back>| Frontend Components |
-    |<back:LightGreen>   </back>| Backend Components (server_py) |
+    |<back:LightBlue>   </back>| Frontend Components (client/) |
+    |<back:LightGreen>   </back>| Backend Components (server_py/) |
     |<back:LightYellow>   </back>| AI/LLM Components |
     |<back:LightGray>   </back>| Infrastructure Components |
 endlegend

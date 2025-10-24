@@ -1,6 +1,6 @@
-@startuml GupShup Cafe - MVP Deployment Diagram (AWS Fargate)
+@startuml GupShup Cafe - Deployment Diagram (Current State)
 
-' Use latest PlantUML version features
+' PlantUML version 1.2025.x
 !theme plain
 skinparam componentStyle rectangle
 skinparam backgroundColor #FEFEFE
@@ -24,7 +24,7 @@ skinparam artifact {
     BorderColor #546E7A
 }
 
-title GupShup Cafe - MVP Deployment Architecture (AWS Fargate + server_py)
+title GupShup Cafe - Deployment Architecture (Testing Branch)
 
 ' Client Layer
 actor "End Users" as Users
