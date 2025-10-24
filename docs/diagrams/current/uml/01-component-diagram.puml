@@ -1,0 +1,187 @@
+@startuml GupShup Cafe - MVP Component Diagram
+
+' Use latest PlantUML version features
+!theme plain
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+' Modern color scheme with stereotypes
+skinparam component {
+    BackgroundColor<<frontend>> #E3F2FD
+    BorderColor<<frontend>> #1976D2
+    BackgroundColor<<backend>> #E8F5E9
+    BorderColor<<backend>> #388E3C
+    BackgroundColor<<ai>> #FFF9C4
+    BorderColor<<ai>> #F57C00
+    BackgroundColor<<infrastructure>> #ECEFF1
+    BorderColor<<infrastructure>> #546E7A
+    FontColor #263238
+}
+
+title GupShup Cafe - MVP Component Architecture
+
+package "Client Layer" {
+    component "React 18 + Vite" as ReactApp <<frontend>> {
+        component "Pages" as Pages
+        component "Contexts" as Contexts
+        component "Components" as Components
+        
+        Pages -[hidden]down- Contexts
+        Contexts -[hidden]down- Components
+    }
+    
+    component "WebRTC Engine" as WebRTC <<frontend>> {
+        component "Audio Manager" as AudioMgr
+        component "Peer Connections" as PeerConn
+    }
+    
+    component "Socket.io Client" as SocketClient <<frontend>>
+    
+    note right of ReactApp
+        Key Pages:
+        - LoginPage (OAuth)
+        - LobbyPage
+        - RoundtablePage
+        
+        Key Contexts:
+        - AuthContext
+        - SocketContext
+        - AudioContext
+    end note
+}
+
+package "Backend Layer (server_py)" {
+    component "FastAPI Server" as FastAPI <<backend>> {
+        component "REST Routes" as RESTRoutes
+        component "Socket Handlers" as SocketHandlers
+        component "WebRTC Signaling" as WebRTCSignal
+    }
+    
+    component "Room Manager" as RoomMgr <<backend>> {
+        component "Room State" as RoomState
+        component "Turn Management" as TurnMgmt
+        component "Timer System" as TimerSys
+    }
+    
+    component "Database Service" as DBService <<backend>> {
+        component "SQLite (EFS)" as SQLite
+        component "Session Store" as SessionStore
+        component "User Store" as UserStore
+    }
+    
+    note right of FastAPI
+        Running on:
+        - AWS Fargate (ECS)
+        - Python 3.11 container
+        - Port 3003 internal
+        - ALB for load balancing
+    end note
+}
+
+package "AI Layer (AWS Strands)" {
+    component "Multi-Agent Orchestrator" as Orchestrator <<ai>> {
+        component "Agent Coordinator" as AgentCoord
+        component "Feedback Router" as FeedbackRouter
+    }
+    
+    component "EnglishFeedbackAgent" as EnglishAgent <<ai>> {
+        component "Grammar Analysis" as Grammar
+        component "Vocabulary Scorer" as Vocab
+        component "Fluency Assessment" as Fluency
+        component "CEFR Leveling" as CEFR
+    }
+    
+    component "DebateFacilitatorAgent" as FacilitatorAgent <<ai>> {
+        component "Turn Controller" as TurnCtrl
+        component "Topic Guidance" as TopicGuide
+        component "Moderation" as Moderation
+    }
+    
+    note right of Orchestrator
+        Instant Feedback Mode:
+        - 2-3 second response
+        - Real-time grammar tips
+        
+        Comprehensive Mode:
+        - Detailed analysis
+        - Progress tracking
+        - CEFR trajectory
+    end note
+}
+
+package "Infrastructure Layer" {
+    component "AWS Amplify" as Amplify <<infrastructure>> {
+        component "CloudFront CDN" as CDN
+        component "S3 Static Hosting" as S3
+        component "CI/CD Pipeline" as CICD
+    }
+    
+    component "AWS Fargate/ECS" as Fargate <<infrastructure>> {
+        component "Task Definition" as TaskDef
+        component "Service Auto-scaling" as AutoScale
+        component "ALB" as ALB
+    }
+    
+    component "AWS Bedrock" as Bedrock <<infrastructure>> {
+        component "Claude 3 (Production)" as Claude
+        component "Model Registry" as ModelReg
+    }
+    
+    component "Gemini API" as Gemini <<infrastructure>> {
+        note bottom
+            Development only
+            Free tier usage
+        end note
+    }
+    
+    component "AWS AgentCore" as AgentCore <<infrastructure>> {
+        component "Runtime Environment" as Runtime
+        component "Identity & Permissions" as IAM
+        component "Internet Access" as Internet
+    }
+}
+
+' Client to Backend connections
+ReactApp --> FastAPI : "REST API\n(HTTPS)"
+SocketClient --> SocketHandlers : "WebSocket\n(Socket.io)"
+WebRTC --> WebRTCSignal : "Signaling\n(SDP/ICE)"
+
+' Backend internal connections
+FastAPI --> RoomMgr : "Room operations"
+FastAPI --> DBService : "Data persistence"
+SocketHandlers --> RoomMgr : "State updates"
+
+' Backend to AI connections
+FastAPI --> Orchestrator : "Feedback requests"
+Orchestrator --> EnglishAgent : "Analyze English"
+Orchestrator --> FacilitatorAgent : "Facilitate discussion"
+
+' AI to Infrastructure
+EnglishAgent --> Bedrock : "Claude API (prod)"
+EnglishAgent --> Gemini : "Gemini API (dev)"
+FacilitatorAgent --> Bedrock : "Claude API (prod)"
+
+' Infrastructure connections
+Orchestrator --> AgentCore : "Wrapped in AgentCore"
+AgentCore --> Runtime : "Manages runtime"
+AgentCore --> IAM : "Provides identity"
+AgentCore --> Internet : "API access"
+
+ReactApp --> Amplify : "Deployed on"
+FastAPI --> Fargate : "Runs on"
+Amplify --> CDN : "Distributed via"
+
+' Storage
+DBService --> SQLite : "Persistent data"
+
+legend right
+    |<back:LightBlue>   </back>| Frontend Components |
+    |<back:LightGreen>   </back>| Backend Components (server_py) |
+    |<back:LightYellow>   </back>| AI/LLM Components |
+    |<back:LightGray>   </back>| Infrastructure Components |
+endlegend
+
+@enduml

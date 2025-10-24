@@ -1,0 +1,270 @@
+@startuml GupShup Cafe - Room State Management
+
+' Use latest PlantUML version features
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam state {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    StartColor #388E3C
+    EndColor #D32F2F
+    ArrowColor #546E7A
+}
+
+title GupShup Cafe - Room State Management (MVP)
+
+[*] --> WAITING : Room created
+
+state WAITING {
+  [*] --> WaitingForParticipants
+  
+  WaitingForParticipants : Entry: Initialize room
+  WaitingForParticipants : - Set max_participants
+  WaitingForParticipants : - Assign topic
+  WaitingForParticipants : - Create room_code
+  WaitingForParticipants : Exit: Publish room
+  
+  WaitingForParticipants --> CheckingReadiness : Participant joins
+  
+  CheckingReadiness : Entry: Add participant
+  CheckingReadiness : - Create Participant object
+  CheckingReadiness : - Set is_ready = false
+  CheckingReadiness : - Assign anonymous name
+  CheckingReadiness : Exit: Emit participants-update
+  
+  CheckingReadiness --> CheckingReadiness : Another joins
+  CheckingReadiness --> ReadyToStart : All ready
+  
+  ReadyToStart : Entry: Enable start button
+  ReadyToStart : - all_ready() = true
+  ReadyToStart : - Notify HOST
+  ReadyToStart : Exit: Emit all-ready event
+  
+  note right of WaitingForParticipants
+    Constraints:
+    - Min participants: 2
+    - Max participants: 6 (MVP: 3)
+    - Room code: unique 6-char
+  end note
+}
+
+WAITING --> IN_PROGRESS : Start discussion
+note on link
+  Trigger: HOST clicks
+  "Start Discussion"
+end note
+
+state IN_PROGRESS {
+  [*] --> InitializingRound
+  
+  InitializingRound : Entry: Setup first round
+  InitializingRound : - current_round = 1
+  InitializingRound : - current_speaker_index = 0
+  InitializingRound : - Round timer starts
+  InitializingRound : Exit: Emit discussion-started
+  
+  InitializingRound --> SpeakerTurn
+  
+  state SpeakerTurn {
+    [*] --> SelectingSpeaker
+    
+    SelectingSpeaker : Entry: Determine speaker
+    SelectingSpeaker : - Get participant at index
+    SelectingSpeaker : - Set is_speaking = true
+    SelectingSpeaker : Exit: Emit turn-started
+    
+    SelectingSpeaker --> Speaking
+    
+    Speaking : Entry: Start 60s timer
+    Speaking : - Enable speaker's mic
+    Speaking : - Display timer to all
+    Speaking : - Capture transcript
+    Speaking : Do: Audio streaming (WebRTC)
+    Speaking : Do: Transcription (Web Speech)
+    Speaking : Do: Real-time feedback (LLM)
+    Speaking : Exit: Emit turn-ended
+    
+    Speaking --> Speaking : Transcript received
+    Speaking --> Speaking : Feedback generated
+    Speaking --> TurnComplete : Timer expired\nor manual end
+    
+    TurnComplete : Entry: Cleanup turn
+    TurnComplete : - Set is_speaking = false
+    TurnComplete : - Store transcript
+    TurnComplete : - Store feedback
+    TurnComplete : Exit: Advance to next
+  }
+  
+  SpeakerTurn --> SpeakerTurn : More speakers\nin round
+  note on link
+    Increment speaker_index
+    Loop through all participants
+  end note
+  
+  SpeakerTurn --> RoundComplete : Last speaker\nfinished
+  
+  RoundComplete : Entry: Round summary
+  RoundComplete : - Emit round-complete
+  RoundComplete : - Display round stats
+  RoundComplete : Exit: Prepare next round
+  
+  RoundComplete --> InitializingRound : More rounds\n(current < 3)
+  note on link
+    current_round++
+    Reset speaker_index = 0
+  end note
+  
+  RoundComplete --> GeneratingAnalysis : All rounds\ncomplete
+  
+  GeneratingAnalysis : Entry: Collect data
+  GeneratingAnalysis : - Fetch all transcripts
+  GeneratingAnalysis : - Fetch all feedback
+  GeneratingAnalysis : Do: Comprehensive LLM analysis
+  GeneratingAnalysis : Do: Calculate CEFR changes
+  GeneratingAnalysis : Do: Generate recommendations
+  GeneratingAnalysis : Exit: Store final feedback
+  
+  note right of GeneratingAnalysis
+    Comprehensive Analysis:
+    - Per-participant progress
+    - CEFR trajectory
+    - Strengths & improvements
+    - Session summary
+  end note
+}
+
+IN_PROGRESS --> COMPLETED : Analysis complete
+note on link
+  Trigger: All rounds done
+  + LLM analysis finished
+end note
+
+state COMPLETED {
+  [*] --> DisplayingSummary
+  
+  DisplayingSummary : Entry: Show results
+  DisplayingSummary : - Display session summary
+  DisplayingSummary : - Show individual feedback
+  DisplayingSummary : - Offer next actions
+  DisplayingSummary : Exit: Emit discussion-ended
+  
+  DisplayingSummary --> AwaitingUserAction
+  
+  AwaitingUserAction : - Download transcript
+  AwaitingUserAction : - View detailed analysis
+  AwaitingUserAction : - Join another room
+  AwaitingUserAction : - Leave
+  
+  note right of AwaitingUserAction
+    Session data persisted:
+    - Transcripts saved
+    - Feedback stored
+    - Analytics updated
+    - User CEFR updated
+  end note
+}
+
+COMPLETED --> [*] : Users leave room
+note on link
+  - Clean up WebRTC
+  - Disconnect sockets
+  - Remove from room list
+  - Archive session data
+end note
+
+state CANCELLED {
+  [*] --> Cleanup
+  
+  Cleanup : Entry: Emergency cleanup
+  Cleanup : - Close all connections
+  Cleanup : - Save partial data
+  Cleanup : - Notify participants
+  Cleanup : Exit: Remove room
+}
+
+WAITING --> CANCELLED : Room timeout\n(no activity 10 min)
+IN_PROGRESS --> CANCELLED : All participants\nleft early
+WAITING --> CANCELLED : Host cancels\nroom
+
+CANCELLED --> [*]
+
+note as StateTransitions
+  **State Transition Triggers:**
+  
+  **WAITING → IN_PROGRESS**
+  - Trigger: HOST clicks "Start Discussion"
+  - Condition: all_ready() == true
+  - Side effects:
+    * Update DB: session.status = 'in_progress'
+    * Emit: 'discussion-started'
+    * Initialize: round=1, speaker_index=0
+  
+  **IN_PROGRESS → COMPLETED**
+  - Trigger: Last round, last speaker finished
+  - Condition: current_round == 3 && speaker_index == last
+  - Side effects:
+    * Run comprehensive LLM analysis
+    * Update DB: session.status = 'completed'
+    * Emit: 'discussion-ended'
+    * Generate session summary
+  
+  **Any → CANCELLED**
+  - Triggers:
+    * Host cancels room
+    * Timeout (no activity)
+    * All participants disconnected
+  - Side effects:
+    * Save partial data
+    * Notify remaining participants
+    * Clean up resources
+    * Archive session
+  
+  **State Data:**
+  - Room code (unique ID)
+  - Topic & category
+  - Participants list
+  - Current round (1-3)
+  - Current speaker index
+  - Timer state
+  - Transcripts buffer
+  - Feedback queue
+end note
+
+note as RoomManagerLogic
+  **Room Manager Implementation:**
+  
+  **Data Structures:**
+  ```python
+  rooms: Dict[str, Room] = {}
+  participant_to_room: Dict[str, str] = {}
+  
+  class Room:
+      room_code: str
+      status: RoomStatus (enum)
+      participants: List[Participant]
+      current_speaker_index: int
+      current_round: int
+      max_rounds: int = 3
+      speaking_time: int = 60
+  ```
+  
+  **Key Methods:**
+  - create_room(config) → Room
+  - join_room(room_code, participant) → bool
+  - set_participant_ready(sid) → void
+  - start_discussion(room_code) → bool
+  - next_speaker(room_code) → Participant
+  - end_discussion(room_code) → void
+  - cancel_room(room_code) → void
+  
+  **Concurrency Handling:**
+  - Use asyncio for async operations
+  - Lock room state during updates
+  - Emit events after state changes
+  - Handle disconnections gracefully
+end note
+
+@enduml
