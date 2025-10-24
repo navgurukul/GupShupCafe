@@ -38,7 +38,6 @@ package "Authentication System" {
   usecase "Sign Up with Email" as UC1
   usecase "Login with Credentials" as UC2
   usecase "Create User Profile" as UC3
-  usecase "Generate Anonymous Name" as UC4
   usecase "Store CEFR Level" as UC5
   usecase "Update Profile" as UC6
   usecase "Update Password" as UC7
@@ -101,7 +100,7 @@ package "Room Lobby & Preparation" {
   usecase "Set Ready Status" as UC37
   usecase "Update Ready in Database" as UC38
   usecase "Wait for All Ready" as UC39
-  usecase "Auto-Start Discussion" as UC40
+  usecase "Host starts Discussion" as UC40
   usecase "Leave Room Before Start" as UC41
   usecase "Share Room from Lobby" as UC42
   
@@ -115,6 +114,7 @@ package "Room Lobby & Preparation" {
   Participant --> UC37
   UC37 ..> UC38 : <<include>>
   UC37 ..> UC39 : <<include>>
+  Host -->UC40
   UC39 ..> UC40 : <<trigger>>
   Participant --> UC41
   Host --> UC42
@@ -186,9 +186,6 @@ package "AI English Feedback" {
   usecase "Use MCP Grammar Tools" as UC84
   usecase "Generate Instant Feedback" as UC85
   usecase "Display Feedback Modal" as UC86
-  usecase "Show Grammar Score" as UC87
-  usecase "Show Vocabulary Score" as UC88
-  usecase "Show Fluency Score" as UC89
   usecase "Show CEFR Assessment" as UC90
   usecase "Display Suggestions" as UC91
   usecase "Save Feedback to Database" as UC92
@@ -266,18 +263,24 @@ package "Comprehensive Feedback" {
   UC122 ..> UC110 : <<display>>
 }
 
-package "Broadcast Testing (Dev Only)" {
-  usecase "Join Broadcast Test" as UC130
+package "Testing and POC (Dev Only)" {
+  usecase "Join Broadcast Test (/broadcast-test)" as UC130
   usecase "Select Role (Speaker/Listener)" as UC131
   usecase "Test WebRTC Connections" as UC132
   usecase "Verify Audio Streaming" as UC133
   usecase "Reset Broadcast Test" as UC134
+  usecase "Speech to Text using WebAPI (/zoe)" as UC135
+  usecase "Text to Speech using Zoe's library (/zoe)" as UC136
+  usecase "Test Audio (/audio-test)" as UC137
   
-  User --> UC130
+  Guest --> UC130
   UC130 ..> UC131 : <<include>>
   UC130 ..> UC132 : <<include>>
   UC132 ..> UC133 : <<include>>
-  User --> UC134
+  Guest --> UC134
+  Guest --> UC135
+  Guest --> UC136
+  Guest --> UC137
 }
 
 note right of Guest
@@ -325,5 +328,6 @@ note right of FeedbackAgent
   - Generates comprehensive report
   - Uses MCP tools
 end note
+
 
 @enduml
