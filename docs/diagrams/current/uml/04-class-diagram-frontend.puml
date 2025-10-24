@@ -1,6 +1,6 @@
-@startuml GupShup Cafe - Frontend Class Diagram (React)
+@startuml GupShup Cafe - Frontend Class Diagram (Current State)
 
-' Use latest PlantUML version features
+' PlantUML version 1.2025.x
 !theme plain
 skinparam classAttributeIconSize 0
 skinparam backgroundColor #FEFEFE
@@ -17,10 +17,10 @@ skinparam package {
     BorderColor #388E3C
 }
 
-title GupShup Cafe - Frontend Class Diagram (React Components)
+title GupShup Cafe - Frontend Class Diagram (Testing Branch - client/)
 
-package "Main Application (main.jsx)" {
-    class App {
+package "Main Application (src/main.jsx)" {
+    class App <<component>> {
         + render()
     }
     
@@ -30,46 +30,57 @@ package "Main Application (main.jsx)" {
         - SocketProvider
         - AudioProvider
         - Router
+        - ProtectedRoute wrapper
     end note
 }
 
 package "Context Providers (src/contexts/)" {
-    class AuthContext {
+    class AuthContext <<context>> {
         - user: User
         - isAuthenticated: bool
         - loading: bool
+        - anonymousName: string
         --
         + login(credentials)
+        + signup(userData)
         + logout()
         + updateUserProfile(data)
         + getUserCEFRLevel()
+        + setAnonymousName(name)
     }
     
-    class SocketContext {
+    class SocketContext <<context>> {
         - socket: Socket
         - connected: bool
         - roomState: RoomState
         - participants: Participant[]
+        - roomId: string
+        - currentSpeaker: Participant
         --
         + connect()
         + disconnect()
         + emit(event, data)
         + on(event, handler)
         + off(event, handler)
-        + emitCreateRoom(config)
-        + emitJoinRoom(roomCode, name)
-        + emitReady()
-        + emitWebRTCSignal(signal)
+        + joinRoom(roomId, userData, metadata)
+        + leaveRoom()
+        + sendReady(isReady)
+        + sendWebRTCOffer(to, sdp)
+        + sendWebRTCAnswer(to, sdp)
+        + sendICECandidate(to, candidate)
     }
     
-    class AudioContext {
+    class AudioContext <<context>> {
         - localStream: MediaStream
         - remoteStreams: Map<string, MediaStream>
         - peerConnections: Map<string, RTCPeerConnection>
         - isMuted: bool
         - isReady: bool
+        - audioPermissionGranted: bool
+        - audioLevel: number
         --
         + initializeAudio()
+        + requestMicrophonePermission()
         + createPeerConnection(peerId)
         + createOffer(peerId)
         + handleAnswer(peerId, answer)
@@ -77,6 +88,7 @@ package "Context Providers (src/contexts/)" {
         + toggleMute()
         + stopAudio()
         + getAudioLevel()
+        + enableSpeaking(enabled)
     }
     
     note right of AudioContext
@@ -84,260 +96,434 @@ package "Context Providers (src/contexts/)" {
         - Opus codec priority
         - Echo cancellation
         - Noise suppression
+        - Auto gain control
         - STUN servers config
+        - Speech-to-text ready
+        
+        Bug fixes:
+        - Corrected mute logic
+        - Server sync for mute state
     end note
 }
 
 package "Page Components (src/pages/)" {
-    class LoginPage {
+    class LoginPage <<page>> {
         + render()
         --
         - handleLogin()
-        - handleGoogleAuth()
         - validateCredentials()
+        - navigateToLobby()
     }
     
-    class LobbyPage {
+    class SignupPage <<page>> {
         + render()
         --
-        - handleCreateRoom()
-        - handleJoinRoom(roomCode)
-        - loadOnlineRooms()
-        - filterRoomsByTopic()
+        - handleSignup()
+        - generateAnonymousName()
+        - validateUserData()
+        - navigateToLogin()
     }
     
-    class RoundtablePage {
+    class LobbyPage <<page>> {
+        - predefinedRooms: Room[]
+        - backendRooms: Room[]
+        - showJoinModal: bool
+        - showShareModal: bool
         + render()
         --
+        - handleCreateRoom(roomData)
+        - handleJoinRoom(roomId)
+        - handleJoinSubmit(anonymousName)
+        - fetchWaitingRooms()
+        - generateShareableLink(roomId)
+        - handleShareRoom(roomId)
+    }
+    
+    class RoomLobbyPage <<page>> {
+        - roomId: string
+        - roomDetails: Room
+        - participants: Participant[]
+        - showShareModal: bool
+        - audioSetupComplete: bool
+        + render()
+        --
+        - fetchRoomDetails()
+        - pollParticipants()
         - handleReady()
+        - handleLeaveRoom()
+        - updateRoomStatus()
+        - handleShareRoom()
+    }
+    
+    class RoundtablePage <<page>> {
+        - discussionStarted: bool
+        - currentRound: int
+        - currentSpeaker: Participant
+        - facilitatorAgent: Agent
+        - facilitatorTurnActive: bool
+        - transcripts: Map<string, string>
+        + render()
+        --
         - handleStartDiscussion()
-        - handleEndTurn()
+        - handleSpeakerChange(newSpeaker)
+        - handleTurnEnded()
+        - handleRoundComplete()
+        - handleFacilitatorTurn()
         - handleLeaveRoom()
         - updateRoomState()
     }
+    
+    class BroadcastTestPage <<page>> {
+        - role: string
+        - participants: Participant[]
+        + render()
+        --
+        - joinBroadcastTest(role)
+        - handleReset()
+    }
+    
+    class AudioTestPage <<page>> {
+        - audioLevel: number
+        - testActive: bool
+        + render()
+        --
+        - startAudioTest()
+        - stopAudioTest()
+    }
 }
 
-package "UI Components (src/components/)" {
-    class RoundtableView {
+package "UI Components (src/components/ui/)" {
+    class RoundtableView <<component>> {
         + participants: Participant[]
         + currentSpeakerIndex: int
+        + currentRound: int
+        + maxRounds: int
+        + facilitatorResponse: string
+        + showTranscription: bool
         + render()
         --
         - calculateParticipantPositions()
         - renderParticipant(p, angle)
         - highlightCurrentSpeaker()
+        - renderFacilitatorResponse()
     }
     
-    class SpeakerTimer {
+    class ParticipantCard <<component>> {
+        + participant: Participant
+        + isCurrentSpeaker: bool
+        + audioLevel: number
+        + showTranscription: bool
+        + render()
+        --
+        - displayAvatar()
+        - displayName()
+        - displayRole()
+        - displayAudioLevel()
+        - displayTranscription()
+    }
+    
+    class SpeakerTimer <<component>> {
         + timeRemaining: int
         + isActive: bool
+        + maxTime: int
         + render()
         --
         - startTimer()
         - stopTimer()
         - onTimerEnd()
+        - onTimerWarning()
         - formatTime(seconds)
     }
     
-    class TopicDisplay {
+    class TopicDisplay <<component>> {
         + topic: string
         + category: string
+        + cefrLevel: string
         + render()
         --
         - displayTopic()
-        - showTopicHint()
+        - displayCategory()
+        - displayCEFRLevel()
     }
     
-    class ParticipantCard {
-        + participant: Participant
-        + isCurrentSpeaker: bool
+    class AudioLevelBar <<component>> {
+        + level: number
+        + isMuted: bool
         + render()
         --
-        - displayAvatar()
-        - displayName()
-        - displayReadyStatus()
-        - displaySpeakingIndicator()
+        - displayLevel()
+        - animateLevel()
     }
-    
-    class AudioLevelBar {
-        + audioLevel: number
-        + render()
-        --
-        - updateAudioLevel()
-        - displayBars()
-    }
-    
-    class EnglishFeedbackModal {
+}
+
+package "Feedback Components (src/components/feedback/)" {
+    class EnglishFeedbackModal <<component>> {
         + feedback: Feedback
         + isOpen: bool
         + render()
         --
-        - displayCEFRLevel()
-        - displayGrammarFeedback()
+        - displayGrammarScore()
         - displayVocabularyScore()
         - displayFluencyScore()
-        - close()
+        - displayCEFRLevel()
+        - displaySuggestions()
+        - handleClose()
     }
     
-    class SpeechToTextPanel {
-        + transcript: string
-        + isListening: bool
+    class SpeechToTextPanel <<component>> {
+        + participantId: string
+        + roomId: string
+        + isCurrentSpeaker: bool
+        + compact: bool
         + render()
         --
         - startListening()
         - stopListening()
+        - handleTranscript(transcript)
+        - sendTranscriptToServer()
         - displayTranscript()
-        - copyTranscript()
+        - displayConfidence()
     }
-    
-    class ProtectedRoute {
-        + component: Component
+}
+
+package "Common Components (src/components/common/)" {
+    class ProtectedRoute <<component>> {
+        + element: ReactElement
         + render()
         --
         - checkAuthentication()
         - redirectToLogin()
     }
+    
+    class ParticipantControls <<component>> {
+        + isMuted: bool
+        + audioReady: bool
+        + render()
+        --
+        - handleToggleMute()
+        - handleEnableMic()
+        - displayMuteButton()
+    }
 }
 
-package "Custom Hooks (src/hooks/)" {
-    class useAuth {
+package "Utilities (src/utils/)" {
+    class participantHelpers <<utils>> {
+        + createParticipant(userData)
+        + saveParticipantToLocalStorage(data)
+        + getParticipantFromLocalStorage()
+        + clearParticipantFromLocalStorage()
+        + createParticipantForRoom(userData, roomId)
+    }
+    
+    class constants <<config>> {
+        + API_CONFIG
+        + SOCKET_EVENTS
+        + DISCUSSION_CONFIG
+        + WEBRTC_CONFIG
+        + AUDIO_CONFIG
+        + USER_ROLES
+        + ROOM_STATUS
+        + CEFR_LEVELS
+        + FEEDBACK_THRESHOLDS
+        + UI_CONFIG
+        + ERROR_MESSAGES
+    }
+}
+
+package "Services (src/services/)" {
+    class api <<service>> {
+        + fetchWaitingRooms()
+        + createRoom(roomData)
+        + getRoomDetails(roomId)
+        + createParticipant(participantData)
+        + updateParticipantReady(participantId)
+        + updateRoomStatus(roomId, status)
+        + getUserDetails(userId)
+    }
+}
+
+package "Hooks (src/hooks/)" {
+    class useAuth <<hook>> {
         + user: User
         + login(credentials)
         + logout()
         + isAuthenticated: bool
     }
     
-    class useSocket {
+    class useSocket <<hook>> {
         + socket: Socket
+        + connected: bool
         + emit(event, data)
         + on(event, handler)
-        + connected: bool
     }
     
-    class useAudio {
-        + localStream: MediaStream
-        + remoteStreams: Map
+    class useAudio <<hook>> {
+        + audioReady: bool
         + isMuted: bool
         + toggleMute()
         + initializeAudio()
     }
     
-    class useRoomState {
+    class useRoomState <<hook>> {
         + roomState: RoomState
         + participants: Participant[]
         + currentSpeaker: Participant
-        + updateRoomState(data)
+        + updateState(newState)
     }
 }
 
-package "Data Models (types/)" {
-    class User {
+package "Types (src/types/)" {
+    class User <<type>> {
         + id: string
         + email: string
+        + name: string
         + cefrLevel: string
-        + topicInterests: string[]
-        + createdAt: Date
+        + topicCategories: string[]
     }
     
-    class Participant {
-        + id: string
-        + socketId: string
+    class Room <<type>> {
+        + roomId: string
+        + roomName: string
+        + topic: string
+        + topicCategory: string
+        + cefrLevel: string
+        + status: RoomStatus
+        + maxParticipants: int
+        + participantCount: int
+    }
+    
+    class Participant <<type>> {
+        + participantId: string
+        + userId: string
         + anonymousName: string
         + avatarColor: string
-        + role: string
+        + role: ParticipantRole
         + isReady: bool
         + isSpeaking: bool
         + isMuted: bool
-        + cefrLevel: string
+        + socketId: string
+        + turnOrder: int
     }
     
-    class RoomState {
-        + roomCode: string
-        + topic: string
-        + status: string
-        + participants: Participant[]
-        + currentSpeakerIndex: int
-        + currentRound: int
-        + maxRounds: int
-        + speakingTime: int
-    }
-    
-    class Feedback {
+    class Feedback <<type>> {
+        + feedbackId: string
+        + participantId: string
         + feedbackType: string
         + grammarScore: number
         + vocabularyScore: number
         + fluencyScore: number
         + cefrLevel: string
-        + grammarIssues: Issue[]
         + suggestions: string[]
-        + displayMessage: string
+        + strengths: string[]
     }
     
-    class Issue {
-        + original: string
-        + corrected: string
-        + reason: string
-        + severity: string
+    class RoomState <<type>> {
+        + roomId: string
+        + status: string
+        + currentRound: int
+        + currentSpeakerIndex: int
+        + participants: Participant[]
+        + topic: string
     }
 }
 
-' Relationships
-App --> AuthContext : "provides"
-App --> SocketContext : "provides"
-App --> AudioContext : "provides"
+' Relationships - Context Usage
+LoginPage --> AuthContext : uses
+SignupPage --> AuthContext : uses
+LobbyPage --> AuthContext : uses
+LobbyPage --> SocketContext : uses
+RoomLobbyPage --> SocketContext : uses
+RoomLobbyPage --> AudioContext : uses
+RoundtablePage --> SocketContext : uses
+RoundtablePage --> AudioContext : uses
+RoundtablePage --> AuthContext : uses
 
-LoginPage --> AuthContext : "uses"
-LobbyPage --> SocketContext : "uses"
-LobbyPage --> AuthContext : "uses"
-RoundtablePage --> SocketContext : "uses"
-RoundtablePage --> AudioContext : "uses"
+' Component Composition
+RoundtablePage --> RoundtableView : renders
+RoundtablePage --> SpeakerTimer : renders
+RoundtablePage --> TopicDisplay : renders
+RoundtablePage --> EnglishFeedbackModal : renders
+RoundtablePage --> SpeechToTextPanel : renders
+RoundtableView --> ParticipantCard : renders
+RoomLobbyPage --> ParticipantControls : renders
+ParticipantCard --> AudioLevelBar : renders
+ParticipantCard --> SpeechToTextPanel : renders
 
-RoundtablePage --> RoundtableView : "renders"
-RoundtablePage --> SpeakerTimer : "renders"
-RoundtablePage --> TopicDisplay : "renders"
-RoundtablePage --> EnglishFeedbackModal : "renders"
-RoundtablePage --> SpeechToTextPanel : "renders"
+' Hooks Usage
+LoginPage ..> useAuth : uses
+LobbyPage ..> useAuth : uses
+LobbyPage ..> useSocket : uses
+RoomLobbyPage ..> useAudio : uses
+RoomLobbyPage ..> useSocket : uses
+RoomLobbyPage ..> useRoomState : uses
+RoundtablePage ..> useAudio : uses
+RoundtablePage ..> useSocket : uses
+RoundtablePage ..> useRoomState : uses
 
-RoundtableView --> ParticipantCard : "renders"
-ParticipantCard --> AudioLevelBar : "contains"
+' API Service Usage
+LobbyPage --> api : calls
+RoomLobbyPage --> api : calls
+RoundtablePage --> api : calls
 
-ProtectedRoute --> AuthContext : "validates"
+' Utilities Usage
+LobbyPage --> participantHelpers : uses
+RoomLobbyPage --> participantHelpers : uses
+SocketContext --> constants : uses
+AudioContext --> constants : uses
+api --> constants : uses
 
-useAuth --> AuthContext : "accesses"
-useSocket --> SocketContext : "accesses"
-useAudio --> AudioContext : "accesses"
-useRoomState --> SocketContext : "accesses"
+' Type Usage
+AuthContext ..> User : manages
+SocketContext ..> RoomState : manages
+SocketContext ..> Participant : manages
+RoundtablePage ..> Feedback : displays
+api ..> Room : fetches
+api ..> Participant : creates
 
-LoginPage --> useAuth : "uses"
-LobbyPage --> useSocket : "uses"
-RoundtablePage --> useSocket : "uses"
-RoundtablePage --> useAudio : "uses"
-RoundtablePage --> useRoomState : "uses"
+' Application Structure
+App --> AuthContext : provides
+App --> SocketContext : provides
+App --> AudioContext : provides
+App --> ProtectedRoute : uses
+ProtectedRoute --> LoginPage : unprotected
+ProtectedRoute --> SignupPage : unprotected
+ProtectedRoute --> LobbyPage : protected
+ProtectedRoute --> RoomLobbyPage : protected
+ProtectedRoute --> RoundtablePage : protected
 
-AuthContext --> User : "manages"
-SocketContext --> RoomState : "manages"
-SocketContext --> Participant : "manages"
-EnglishFeedbackModal --> Feedback : "displays"
-Feedback --> Issue : "contains"
-
-note as FrontendArchitecture
-    **React Architecture:**
+note as FrontendNote
+    **Frontend Architecture Highlights:**
     
-    1. **Context Pattern**: Global state via React Context
-    2. **Custom Hooks**: Reusable logic abstraction
-    3. **Component Composition**: Hierarchical UI structure
-    4. **Protected Routes**: Authentication guards
+    1. **Context Providers**: Global state management
+       for auth, socket, and audio
     
-    **Real-time Features:**
-    - Socket.io for events
-    - WebRTC for audio
-    - Context API for state sync
+    2. **Page Flow**:
+       Login/Signup → Lobby → RoomLobby → Roundtable
     
-    **Key Flows:**
-    1. Login → LobbyPage → RoundtablePage
-    2. Socket events update RoomState
-    3. WebRTC manages peer audio streams
-    4. English feedback shown in modal
+    3. **Real-time Features**:
+       - WebRTC peer-to-peer audio
+       - Socket.io event handling
+       - Speech-to-text transcription
+       - AI agent interactions
+    
+    4. **New Features**:
+       - Anonymous names with suggestions
+       - Room sharing via URLs
+       - Participant polling
+       - AI facilitator integration
+       - Comprehensive transcription
+       - Fixed mute button logic
+    
+    5. **Utilities**:
+       - participantHelpers for data management
+       - constants for configuration
+       - api service for HTTP calls
+    
+    6. **Component Organization**:
+       - Pages for route components
+       - UI components for reusable elements
+       - Feedback components for AI features
+       - Common components for shared logic
 end note
 
 @enduml
